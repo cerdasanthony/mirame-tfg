@@ -14,7 +14,7 @@ import * as face from "./face.js";
 import { extract, LineaBase, frontalidad } from "./features.js";
 import { clasificar, Ventana, Suavizador, Estabilizador, UMBRALES, fijarUmbrales } from "./classifier.js";
 import * as store from "./storage.js";
-import { Tablero, PAGINAS } from "./board.js";
+import { Tablero, PICTOGRAMAS } from "./board.js";
 import { hablar } from "./speech.js";
 import * as segunda from "./segunda-opinion.js";
 import { Heuristica, guardarConfig } from "./heuristica.js";
@@ -114,7 +114,6 @@ function chip(texto, clase) {
 async function arrancar() {
   estado.sesionId = await store.crearSesion(null);
   tablero.render();
-  pintarPuntos();
   refrescarAsociacion();
 
   el("entorno").textContent = [
@@ -705,40 +704,60 @@ el("mensaje-salida").addEventListener("click", () => {
   el("mensaje-salida").hidden = true;
 });
 
-/* ══════════════════════ Paginación ══════════════════════ */
-
-function pintarPuntos() {
-  el("puntos").innerHTML = PAGINAS.map(
-    (_, i) =>
-      `<button class="punto" type="button" data-i="${i}" aria-current="${i === tablero.pagina}" aria-label="Página ${i + 1}"></button>`
-  ).join("");
-}
-
-el("puntos").addEventListener("click", (ev) => {
-  const b = ev.target.closest(".punto");
-  if (!b) return;
-  tablero.irA(Number(b.dataset.i));
-  pintarPuntos();
-});
-
-el("btn-pagina").addEventListener("click", () => {
-  tablero.siguiente();
-  pintarPuntos();
-});
-
 /* ══════════════════════ Panel del cuidador ══════════════════════ */
 
-function abrirPanel(abierto) {
+/**
+ * El panel tiene dos modos y el modo va en la RUTA.
+ *
+ *   #panel            acoplado  — fijo al costado, el lienzo se estrecha
+ *   #panel-flotante   flotante  — superpuesto con velo, como antes
+ *   (sin hash)        cerrado
+ *
+ * Ponerlo en la ruta y no en una variable tiene dos ventajas concretas.
+ * Sobrevive a una recarga, que durante el desarrollo se hace constantemente, y
+ * permite abrir la aplicacion directamente en el estado que se necesita sin
+ * tener que tocar nada en la pantalla.
+ *
+ * Acoplado no lleva velo: el tablero sigue siendo utilizable mientras se mira
+ * la instrumentacion, que es justamente para lo que sirve.
+ */
+const RUTAS = { "#panel": "acoplado", "#panel-flotante": "flotante" };
+
+const modoPanel = () => RUTAS[location.hash] ?? null;
+
+function abrirPanel(abierto, modo = null) {
+  const acoplado = abierto && (modo ?? modoPanel()) === "acoplado";
   estado.panelAbierto = abierto;
   estado.ultimoPanel = 0;
   el("panel").hidden = !abierto;
-  el("velo").hidden = !abierto;
+  el("velo").hidden = !abierto || acoplado;
+  document.body.classList.toggle("panel-acoplado", acoplado);
   el("btn-panel").setAttribute("aria-expanded", String(abierto));
 }
-el("btn-panel").addEventListener("click", () => abrirPanel(el("panel").hidden));
-el("btn-cerrar-panel").addEventListener("click", () => abrirPanel(false));
-el("velo").addEventListener("click", () => abrirPanel(false));
-document.addEventListener("keydown", (e) => e.key === "Escape" && abrirPanel(false));
+
+/* La ruta manda: al cargar y en cada cambio de hash. */
+function aplicarRuta() {
+  const m = modoPanel();
+  abrirPanel(Boolean(m), m);
+}
+addEventListener("hashchange", aplicarRuta);
+
+/* El boton escribe la ruta y deja que `hashchange` haga el resto, para que el
+   estado del panel y la URL no se puedan desincronizar. */
+el("btn-panel").addEventListener("click", () => {
+  if (el("panel").hidden) location.hash = "#panel";
+  else cerrarPanel();
+});
+
+function cerrarPanel() {
+  if (location.hash) location.hash = "";
+  else aplicarRuta();
+}
+el("btn-cerrar-panel").addEventListener("click", cerrarPanel);
+el("velo").addEventListener("click", cerrarPanel);
+document.addEventListener("keydown", (e) => e.key === "Escape" && cerrarPanel());
+
+aplicarRuta();
 
 /* ══════════════════════ Índice de asociación ══════════════════════ */
 
@@ -838,8 +857,8 @@ function montarControlesHeuristica() {
     e.target.value = cfg.umbralMs;
   });
 
-  // Todos los pictogramas de todas las páginas son destino posible.
-  const opciones = PAGINAS.flat();
+  // Cualquier pictograma del tablero es destino posible.
+  const opciones = PICTOGRAMAS;
   el("mapa-heuristica").innerHTML = ESTADOS_HEURISTICA.map(
     (est) =>
       `<div class="mapa-fila"><span class="mapa-estado" style="color:${COLOR[est]}">${est}</span>` +

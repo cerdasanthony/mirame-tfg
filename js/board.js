@@ -20,7 +20,15 @@ export const CATEGORIAS = {
   respuesta: { etiqueta: "Respuesta", tono: "#B03A55", cara: "#FCEBEF", canto: "#7C2439", disco: "#F7D2DA" },
 };
 
-export const PAGINAS = [
+/**
+ * Vocabulario del tablero.
+ *
+ * Se conserva agrupado por bloques porque el orden importa —lo mas pedido
+ * arriba— pero ya no son paginas: el tablero se recorre con el dedo hacia
+ * abajo. Pasar de pagina obligaba a recordar en cual estaba cada pictograma, y
+ * eso es carga cognitiva que no aporta nada a quien se esta comunicando.
+ */
+const BLOQUES = [
   [
     { clave: "agua", etiqueta: "Agua", icono: "💧", frase: "Quiero agua", categoria: "necesidad" },
     { clave: "comer", etiqueta: "Comer", icono: "🍎", frase: "Quiero comer", categoria: "necesidad" },
@@ -39,30 +47,38 @@ export const PAGINAS = [
   ],
 ];
 
+/** Lista plana, en el orden en que se muestran. */
+export const PICTOGRAMAS = BLOQUES.flat();
+
 export class Tablero {
   constructor(contenedor, alSeleccionar) {
     this.contenedor = contenedor;
     this.alSeleccionar = alSeleccionar;
-    this.pagina = 0;
     this.bloqueado = false;
     this.promovido = null;
   }
 
   /**
-   * Dibuja la página actual.
+   * Dibuja el tablero completo.
    *
-   * `promovido` es la clave del pictograma que el Módulo C sitúa al frente. El
-   * reordenamiento ocurre SOLO dentro de la página visible: traer un pictograma
-   * desde otra página obligaría a sacar uno de la vista, y quitarle opciones a
-   * quien se está comunicando es peor que no sugerir nada.
+   * `promovido` es la clave del pictograma que el Modulo C situa al frente. Con
+   * el tablero paginado el reordenamiento tenia que limitarse a la pagina
+   * visible, porque traer un pictograma de otra pagina obligaba a sacar uno de
+   * la vista. Al recorrerse con scroll ya no se saca nada: el sugerido sube al
+   * principio y los demas siguen ahi, un poco mas abajo.
    */
   render(promovido = null) {
     this.contenedor.innerHTML = "";
     this.promovido = promovido;
 
-    let items = [...PAGINAS[this.pagina]];
+    let items = [...PICTOGRAMAS];
     const i = promovido ? items.findIndex((p) => p.clave === promovido) : -1;
-    if (i > 0) items.unshift(items.splice(i, 1)[0]);
+    if (i > 0) {
+      items.unshift(items.splice(i, 1)[0]);
+      // Si el sugerido estaba fuera de la vista, subirlo al principio no sirve
+      // de nada si el tablero quedo desplazado. Se vuelve arriba.
+      this.contenedor.scrollTop = 0;
+    }
 
     for (const p of items) {
       const cat = CATEGORIAS[p.categoria];
@@ -95,15 +111,5 @@ export class Tablero {
       });
       this.contenedor.appendChild(b);
     }
-  }
-
-  irA(indice) {
-    this.pagina = ((indice % PAGINAS.length) + PAGINAS.length) % PAGINAS.length;
-    this.render(this.promovido);
-    return this.pagina;
-  }
-
-  siguiente() {
-    return this.irA(this.pagina + 1);
   }
 }
