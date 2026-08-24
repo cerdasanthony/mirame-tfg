@@ -93,6 +93,41 @@
       </dl>
     </section>
 
+    <section class="bloque" id="bloque-fasico">
+      <h3>Vía fásica · expresiones breves</h3>
+      <div class="estado-fila">
+        <span id="fasico-estado" class="estado-badge">calibrando</span>
+        <span id="fasico-eventos" class="estado-valor">0</span>
+      </div>
+      <div class="escala"><i id="barra-calentamiento"></i></div>
+      <dl class="metricas">
+        <div><dt>Cadencia medida</dt><dd id="fasico-fps">—</dd></div>
+        <div><dt>Resolución temporal</dt><dd id="fasico-resolucion">—</dd></div>
+        <div><dt>Marca de tiempo</dt><dd id="fasico-reloj">—</dd></div>
+        <div><dt>Canales con umbral</dt><dd id="fasico-canales">—</dd></div>
+        <div><dt>Microexpresiones</dt><dd id="fasico-micro">—</dd></div>
+        <div><dt>Expresiones breves</dt><dd id="fasico-breve">—</dd></div>
+        <div><dt>Bajo resolución</dt><dd id="fasico-irresoluble">—</dd></div>
+        <div><dt>Marcados como parpadeo</dt><dd id="fasico-parpadeo">—</dd></div>
+      </dl>
+      <p class="dato">Banda de Ekman fuera de alcance: <strong id="fasico-ceguera">—</strong></p>
+      <p class="nota">
+        Vía independiente de la principal: no suaviza, no exige permanencia y
+        trabaja Unidad de Acción por Unidad de Acción. Recoge los transitorios de
+        40 a 500 ms que la clasificación sostenida descarta por diseño.
+      </p>
+      <p class="nota">
+        <strong>La resolución temporal se mide, no se supone.</strong> Es la
+        duración más corta que este dispositivo puede describir con la cadencia
+        que la cámara realmente entregó. Un evento más breve que ese piso se
+        registra marcado y no se cuenta: por debajo de ahí no hay medición.
+      </p>
+      <p class="nota">
+        Ante un gesto débil la sensibilidad ronda el 48 %, así que una ventana sin
+        eventos no demuestra que no hubo expresión: solo dice que no se detectó.
+      </p>
+    </section>
+
     <section class="bloque">
       <h3>Segunda opinión</h3>
       <label class="interruptor">

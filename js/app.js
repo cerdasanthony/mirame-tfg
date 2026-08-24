@@ -18,6 +18,8 @@ import { Tablero, PAGINAS } from "./board.js";
 import { hablar } from "./speech.js";
 import * as segunda from "./segunda-opinion.js";
 import { Heuristica, guardarConfig } from "./heuristica.js";
+import { extraerAU, CANALES_AU, PerfilExpresividad, evidenciaPositiva, evidenciaNegativa } from "./facs.js";
+import { DetectorFasico } from "./microexpresiones.js";
 
 const SEGUNDOS_LINEA_BASE = 5;
 const MUESTRAS_MINIMAS_BASE = 15;
@@ -71,10 +73,18 @@ const video = el("video");
 const estado = {
   sesionId: null,
   lineaBase: new LineaBase(),
+  /* Vía fásica. Línea base propia sobre canales de Unidades de Acción, porque
+     el detector de transitorios trabaja canal por canal y no sobre el compuesto:
+     una expresión sutil se concentra en una AU y el compuesto la promedia hasta
+     hacerla desaparecer. */
+  baseAU: new LineaBase(CANALES_AU),
+  detector: new DetectorFasico({ canales: CANALES_AU }),
+  perfil: new PerfilExpresividad(),
   ventana: new Ventana(5, 0.4, 1500),
   suavizador: new Suavizador(),
   estabilizador: new Estabilizador({ dwellMs: 500, factorRetroceso: 0.5 }),
   ultimoFotograma: 0,
+  ultimaCaptura: 0,
   ultimaMuestra: 0,
   ultimoPanel: 0,
   panelAbierto: false,
@@ -123,7 +133,7 @@ async function arrancar() {
     el("preview-base").hidden = false;
     el("aviso-base").hidden = false;
     chip(`Calibrando · ${cam.ancho}×${cam.alto}`, "chip-espera");
-    requestAnimationFrame(bucle);
+    face.programarFotograma(video, bucle);
 
     // Solo si el cuidador la encendió: compite con MediaPipe por la GPU.
     if (segunda.habilitada()) {
@@ -145,21 +155,32 @@ async function arrancar() {
 
 /* ══════════════════════ Bucle de video ══════════════════════ */
 
-function bucle() {
+/**
+ * Un fotograma del analisis.
+ *
+ * `tCaptura` es el instante en que la camara capturo ESTE fotograma, no aquel en
+ * que el navegador llego a procesarlo (ver `face.programarFotograma`). Todo lo
+ * que se selle con el tiempo —la ventana temporal, los eventos fasicos, la linea
+ * base— usa esta marca, porque las duraciones que mide la via fasica son del
+ * orden del jitter de planificacion de JavaScript.
+ */
+function bucle(tCaptura = performance.now()) {
   if (!estado.analisisActivo) return;
-  const r = face.detect(video, performance.now());
+  estado.ultimaCaptura = tCaptura;
+  const r = face.detect(video, tCaptura);
 
   // Fotograma repetido: no hay nada nuevo que medir. No cuenta ni como válido
   // ni como faltante, porque no describe nada del participante.
-  if (r === undefined) return requestAnimationFrame(bucle);
+  if (r === undefined) return face.programarFotograma(video, bucle);
 
   if (!estado.lineaBase.establecida) {
     const fr = r ? frontalidad(r.landmarks) : null;
     if (fr !== null) el("frontalidad").textContent = Math.round(fr * 100) + " %";
     if (r && fr >= FRONTALIDAD_BASE) {
       estado.lineaBase.agregar(extract(r.blendshapes));
+      estado.baseAU.agregar(extraerAU(r.blendshapes));
     }
-    const transcurridoMs = performance.now() - estado.baseIniciada;
+    const transcurridoMs = tCaptura - estado.baseIniciada;
     const transcurrido = transcurridoMs / 1000;
     const n = estado.lineaBase.cantidadMuestras;
     el("barra-base").style.width =
@@ -193,9 +214,11 @@ function bucle() {
         el("estado-base").textContent = `establecida (${n}, calidad reducida)`;
       }
       const base = estado.lineaBase.cerrar();
+      const baseAU = estado.baseAU.cerrar();
+      estado.detector.reiniciar();
       estado.estabilizador.reiniciar();
       store.cerrarSesion(estado.sesionId, null);
-      store.crearSesion(base).then((id) => (estado.sesionId = id));
+      store.crearSesion({ ...base, au: baseAU }).then((id) => (estado.sesionId = id));
       el("sigma-base").textContent = base.muestras + " muestras";
       el("preview-base").hidden = true;
       el("aviso-base").hidden = true;
@@ -221,7 +244,7 @@ function bucle() {
       estado.descartadosPorPose = 0;
       estado.suavizador.reiniciar();
     }
-    return requestAnimationFrame(bucle);
+    return face.programarFotograma(video, bucle);
   }
 
   estado.fotogramas++;
@@ -241,18 +264,31 @@ function bucle() {
       if (tocaPintar()) pintarPanel(null, null, r.blendshapes, frente);
     } else {
       estado.conRostro++;
-      const ahora = performance.now();
+      const ahora = tCaptura;
       const dtMs = estado.ultimoFotograma ? Math.min(200, ahora - estado.ultimoFotograma) : 33;
       estado.ultimoFotograma = ahora;
 
       const crudas = extract(r.blendshapes);
       const norm = estado.lineaBase.normalizar(crudas);
+
+      /* VÍA FÁSICA — corre en paralelo y NO comparte nada con la tónica salvo
+         el fotograma. Se le entrega la puntuación z SIN suavizar: el suavizado
+         es precisamente lo que borra los transitorios que este camino busca. */
+      const au = extraerAU(r.blendshapes);
+      estado.perfil.agregar(au);
+      for (const ev of estado.detector.agregar(estado.baseAU.normalizar(au), ahora)) {
+        /* Los no resolubles se guardan igual, marcados. La tasa de eventos que
+           el muestreo no alcanza a describir es una medida de calidad del
+           instrumento y desaparecería si se filtraran en silencio. */
+        store.guardarEvento({ sesionId: estado.sesionId, ...ev });
+      }
+
       const c = clasificar(norm, {
         suavizador: estado.suavizador,
         estabilizador: estado.estabilizador,
         dtMs,
       });
-      estado.ventana.agregar(c.estado, c.puntaje);
+      estado.ventana.agregar(c.estado, c.puntaje, ahora);
 
       // Vector crudo para reanálisis posterior (RF-31).
       if (ahora - estado.ultimaMuestra >= MS_MUESTRA) {
@@ -276,6 +312,7 @@ function bucle() {
           segunda.colapsar(c.estado) !== estado.segundaCategoria;
         pintarPanel(c.estado, c.puntaje, r.blendshapes, frente, c.incierto || discrepa);
         pintarSenal(norm, c);
+        pintarFasico();
       }
     }
   }
@@ -291,7 +328,7 @@ function bucle() {
     }
   }
 
-  requestAnimationFrame(bucle);
+  face.programarFotograma(video, bucle);
 }
 
 /**
@@ -430,6 +467,60 @@ function pintarSenal(z, c) {
     `${c.puntaje >= 0 ? "+" : ""}${c.puntaje.toFixed(2)} σ  ·  crudo ${c.puntajeCrudo.toFixed(2)}`;
 }
 
+/**
+ * Instrumentacion de la via fasica.
+ *
+ * No se muestra solo el recuento de eventos, sino tambien lo que el instrumento
+ * NO puede ver: la resolucion temporal que consiguio, cuanto de la banda de
+ * Ekman queda por debajo de ella y cuantos eventos se descartaron por caer ahi.
+ *
+ * Sin eso, un contador en cero se lee como «el participante no expreso nada»,
+ * cuando puede significar «la camara no dio la cadencia necesaria para verlo».
+ * Son conclusiones opuestas y el panel tiene que dejar distinguirlas.
+ */
+function pintarFasico() {
+  const m = estado.detector.metricas;
+
+  el("fasico-fps").textContent = m.fps ? m.fps.toFixed(0) + " fps" : "—";
+  el("fasico-resolucion").textContent = m.resolucionMs + " ms";
+  el("fasico-reloj").textContent = face.diagnostico.reloj ?? "—";
+  el("fasico-canales").textContent = `${m.canalesUtiles} / ${m.canalesTotales}`;
+  el("fasico-ceguera").textContent = m.cegueraEkmanPct + " %";
+  el("fasico-micro").textContent = m.porBanda["microexpresion"] ?? 0;
+  el("fasico-breve").textContent = m.porBanda["expresion breve"] ?? 0;
+  el("fasico-irresoluble").textContent = m.descartadosPorResolucion;
+  el("fasico-parpadeo").textContent = m.marcadosComoParpadeo;
+  el("fasico-eventos").textContent = `${m.eventosLimpios} / ${m.eventosTotales}`;
+
+  const badge = el("fasico-estado");
+  if (!m.calibrado) {
+    badge.textContent = "midiendo el ruido";
+    badge.style.color = "var(--tinta-3)";
+    el("barra-calentamiento").style.width =
+      Math.round(m.progresoCalentamiento * 100) + "%";
+    return;
+  }
+  el("barra-calentamiento").style.width = "100%";
+
+  /* Sin canales con umbral el detector no puede emitir nada. Un cero de eventos
+     ahi no dice nada del participante y hay que decirlo con todas las letras. */
+  if (m.canalesUtiles === 0) {
+    badge.textContent = "sin referencia de ruido";
+    badge.style.color = "#b03a55";
+    return;
+  }
+
+  /* Con esta cadencia la banda estricta de Ekman no es medible. Decirlo es mas
+     util que mostrar un cero, que se leeria como ausencia de expresion. */
+  if (m.resolucionMs > 200) {
+    badge.textContent = "sin resolución para microexpresiones";
+    badge.style.color = "#b03a55";
+    return;
+  }
+  badge.textContent = m.degradado ? "activa · cobertura parcial" : "activa";
+  badge.style.color = m.degradado ? "#b8860b" : "var(--tinta-1)";
+}
+
 function pintarBlendshapes(blendshapes) {
   const top = Object.entries(blendshapes)
     .filter(([k]) => k !== "_neutral")
@@ -483,6 +574,21 @@ const tablero = new Tablero(el("tablero"), async (picto, _cat, eraSugerido) => {
     // medida de fiabilidad sin verdad de referencia disponible.
     // El porcentaje crudo sobreestima la concordancia; kappa la corrige por azar.
     acuerdo: estado.acuerdo.instantanea(),
+    // Vía fásica: transitorios breves ocurridos en la misma ventana. Se guardan
+    // aparte del estado tónico porque responden a otra pregunta: no «cómo estaba
+    // el rostro» sino «qué pasó por él».
+    /* Se ancla al ultimo fotograma capturado y no al instante del clic: entre
+       uno y otro pueden pasar decenas de milisegundos, y correr la ventana por
+       esa diferencia dejaria fuera justo los eventos mas cercanos a la
+       seleccion, que son los que mas pesan en la ponderacion por cercania. */
+    fasico: estado.detector.calibrado
+      ? estado.detector.enVentana(
+          estado.ultimaCaptura - estado.ventana.segundos * 1000,
+          estado.ultimaCaptura,
+          d.suficiente ? d.predominante : null
+        )
+      : null,
+    resolucionTemporalMs: estado.detector.metricas.resolucionMs,
     // Módulo C (RF-20). El registro de «se sugirió X, se eligió Y» es el dato
     // más informativo del sistema: una selección que ignora la sugerencia dice
     // más que una que la acepta.
@@ -584,6 +690,9 @@ el("btn-recalibrar").addEventListener("click", () => {
   estado.suavizador.reiniciar();
   estado.estabilizador.reiniciar();
   estado.ventana = new Ventana(5, 0.4, 1500);
+  estado.baseAU = new LineaBase(CANALES_AU);
+  estado.detector.reiniciar();
+  estado.perfil = new PerfilExpresividad();
   estado.baseIniciada = performance.now();
   estado.analisisActivo = true;
   estado.fotogramas = 0;
@@ -594,7 +703,7 @@ el("btn-recalibrar").addEventListener("click", () => {
   el("preview-base").hidden = false;
   el("aviso-base").hidden = false;
   abrirPanel(false);
-  requestAnimationFrame(bucle);
+  face.programarFotograma(video, bucle);
 });
 
 el("btn-exportar").addEventListener("click", async () => {

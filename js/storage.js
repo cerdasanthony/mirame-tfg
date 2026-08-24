@@ -6,7 +6,7 @@
  */
 
 const DB_NOMBRE = "mirame";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 let db = null;
 
 export async function abrir() {
@@ -21,6 +21,14 @@ export async function abrir() {
       if (!d.objectStoreNames.contains("muestras")) {
         const m = d.createObjectStore("muestras", { keyPath: "id", autoIncrement: true });
         m.createIndex("porSesion", "sesionId");
+      }
+      // Eventos fásicos: transitorios breves detectados canal por canal.
+      // Van en su propio almacén y no dentro de `muestras` porque no son un
+      // muestreo periódico sino sucesos con inicio, ápice y final propios.
+      if (!d.objectStoreNames.contains("eventos")) {
+        const e = d.createObjectStore("eventos", { keyPath: "id", autoIncrement: true });
+        e.createIndex("porSesion", "sesionId");
+        e.createIndex("porCanal", "canal");
       }
       if (!d.objectStoreNames.contains("selecciones")) {
         const s = d.createObjectStore("selecciones", { keyPath: "id", autoIncrement: true });
@@ -84,6 +92,29 @@ export async function guardarMuestra(m) {
   return promesa(tx("muestras", "readwrite").add(m));
 }
 
+/**
+ * Guarda un evento expresivo breve.
+ *
+ * A diferencia de las muestras, estos NO se submuestrean: un transitorio de
+ * 150 ms es justamente lo que el sistema intenta captar, y descartarlo por
+ * frecuencia sería descartar el dato. Son pocos por sesión y ocupan poco.
+ */
+export async function guardarEvento(ev) {
+  await abrir();
+  return promesa(tx("eventos", "readwrite").add({ ts: Date.now(), ...ev }));
+}
+
+export async function eventosDeSesion(sesionId) {
+  await abrir();
+  const idx = tx("eventos", "readonly").index("porSesion");
+  return promesa(idx.getAll(sesionId));
+}
+
+export async function todosLosEventos() {
+  await abrir();
+  return promesa(tx("eventos", "readonly").getAll());
+}
+
 export async function muestrasDeSesion(sesionId) {
   await abrir();
   const idx = tx("muestras", "readonly").index("porSesion");
@@ -130,8 +161,9 @@ export async function exportarJSON() {
   const sesiones = await promesa(tx("sesiones", "readonly").getAll());
   const selecciones = await todasLasSelecciones();
   const muestras = await todasLasMuestras();
+  const eventos = await todosLosEventos();
   return JSON.stringify(
-    { exportado: new Date().toISOString(), sesiones, selecciones, muestras },
+    { exportado: new Date().toISOString(), sesiones, selecciones, muestras, eventos },
     null,
     2
   );
@@ -143,4 +175,5 @@ export async function borrarTodo() {
   await promesa(tx("sesiones", "readwrite").clear());
   await promesa(tx("selecciones", "readwrite").clear());
   await promesa(tx("muestras", "readwrite").clear());
+  await promesa(tx("eventos", "readwrite").clear());
 }
