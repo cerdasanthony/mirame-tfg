@@ -1,33 +1,49 @@
-/* ═══════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════════
    Mírame — hoja de estilo única.
 
-   Prioridad de diseño: el tablero es la aplicación. Ocupa toda la pantalla y
-   nada compite con él. La instrumentación del análisis facial vive en un panel
-   lateral que está cerrado por defecto, porque es información para la persona
-   cuidadora y no para quien se comunica.
+   IDEA DE DISEÑO
+   La aplicación tiene dos públicos con necesidades opuestas, y por eso tiene
+   dos lenguajes visuales deliberadamente distintos:
 
-   Orientado a tablet en horizontal, con objetivos táctiles grandes.
-   ═══════════════════════════════════════════════════════════════════ */
+   · La superficie del NIÑO es táctil y cromática. Los pictogramas se comportan
+     como teclas físicas: tienen canto inferior de color y se hunden al pulsarse.
+     El color de categoría es constante y aprendible, porque en comunicación
+     aumentativa la posición y el tono se memorizan juntos.
+
+   · El panel del CUIDADOR es sobrio y denso. Es instrumentación: números,
+     tipografía pequeña, sin adornos. Que se distinga del tablero es funcional,
+     no estético — evita que el adulto y el niño compitan por la misma pantalla.
+
+   CONTENCIÓN DE LA ANIMACIÓN
+   El movimiento es breve y siempre responde a una acción del usuario. En una
+   herramienta de comunicación usada por un menor que puede tener sensibilidad
+   sensorial, la animación decorativa es un costo y no un beneficio. Se respeta
+   prefers-reduced-motion en su totalidad.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --fondo: #faf9f7;
+  /* Papel cálido en vez del gris neutro habitual: baja el contraste con los
+     colores de categoría y cansa menos en sesiones largas. */
+  --papel: #fdf6ec;
+  --papel-hondo: #f2e5d2;
   --superficie: #ffffff;
-  --chrome: #1c1917;
-  --chrome-2: #292524;
-  --tinta: #1c1917;
-  --tinta-2: #57534e;
-  --tinta-3: #a8a29e;
-  --linea: #e7e5e4;
-  --acento: #6d28d9;
-  --verde: #15803d;
-  --rojo: #be123c;
-  --ambar: #b45309;
 
-  --barra-alto: 56px;
-  --radio: 18px;
-  --sombra: 0 1px 2px rgba(28, 25, 23, .04), 0 4px 12px rgba(28, 25, 23, .05);
-  --sombra-alta: 0 8px 32px rgba(28, 25, 23, .14);
-  --transicion: 180ms cubic-bezier(.2, .8, .3, 1);
+  --tinta: #2b2118;
+  --tinta-2: #6b5a4a;
+  --tinta-3: #a3907c;
+  --linea: #e8dccb;
+
+  --barra: #2b2118;
+  --acento: #c2701a;
+  --verde: #3f8f3a;
+  --rojo: #b03a55;
+
+  --barra-alto: 58px;
+  --radio: 26px;
+  --canto: 6px;
+
+  --sombra-alta: 0 18px 48px rgba(43, 33, 24, .22);
+  --curva: 200ms cubic-bezier(.34, 1.36, .64, 1);
 }
 
 * { box-sizing: border-box; }
@@ -36,9 +52,13 @@ html, body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: var(--fondo);
+  background: var(--papel);
   color: var(--tinta);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Se prefieren las variantes redondeadas del sistema cuando existen. El
+     resultado es más amable sin depender de una fuente descargada, que
+     rompería el funcionamiento sin conexión que exige el RNF-05. */
+  font-family: "SF Pro Rounded", ui-rounded, "Varela Round", "Nunito",
+               system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
@@ -46,64 +66,62 @@ html, body {
 
 button { font: inherit; cursor: pointer; }
 
-/* ══════════════════════ Barra superior ══════════════════════ */
+/* ═════════════════════════ Barra superior ═════════════════════════ */
 
 .barra {
   height: var(--barra-alto);
-  background: var(--chrome);
-  color: #fafaf9;
+  background: var(--barra);
+  color: #fdf6ec;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0 .75rem 0 1.25rem;
+  gap: .9rem;
+  padding: 0 .7rem 0 1.1rem;
   position: relative;
   z-index: 30;
 }
 
-.marca { display: flex; align-items: center; gap: .6rem; }
+.marca { display: flex; align-items: center; gap: .55rem; }
 .marca-punto {
-  width: 9px; height: 9px; border-radius: 99px;
+  width: 12px; height: 12px; border-radius: 99px;
   background: var(--acento);
-  box-shadow: 0 0 0 4px rgba(109, 40, 217, .22);
+  box-shadow: 0 0 0 3px rgba(194, 112, 26, .3);
 }
-.marca-nombre { font-weight: 650; letter-spacing: -.01em; font-size: 1.02rem; }
+.marca-nombre { font-weight: 800; letter-spacing: -.02em; font-size: 1.12rem; }
 
 .barra-estado { flex: 1; display: flex; justify-content: center; }
 
 .chip {
   display: inline-flex; align-items: center; gap: .45rem;
-  font-size: .78rem; font-weight: 500;
-  padding: .3rem .7rem .3rem .55rem;
+  font-size: .78rem; font-weight: 600;
+  padding: .32rem .8rem .32rem .6rem;
   border-radius: 99px;
-  background: rgba(255, 255, 255, .07);
-  color: #d6d3d1;
-  transition: background var(--transicion), color var(--transicion);
+  background: rgba(253, 246, 236, .1);
+  color: #e8d9c4;
 }
 .chip-punto { width: 7px; height: 7px; border-radius: 99px; background: currentColor; }
-.chip-espera .chip-punto { animation: latido 1.4s ease-in-out infinite; }
-.chip-activa { background: rgba(21, 128, 61, .18); color: #86efac; }
-.chip-error { background: rgba(190, 18, 60, .18); color: #fda4af; }
+.chip-espera .chip-punto { animation: latido 1.5s ease-in-out infinite; }
+.chip-activa { background: rgba(63, 143, 58, .26); color: #a9e2a3; }
+.chip-error { background: rgba(176, 58, 85, .26); color: #f3b4c1; }
 
 @keyframes latido { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
 
 .btn-icono {
-  display: inline-flex; align-items: center; gap: .5rem;
-  background: rgba(255, 255, 255, .08);
-  border: 0; color: #e7e5e4;
-  padding: .5rem .9rem; border-radius: 10px;
-  font-size: .85rem; font-weight: 550;
-  transition: background var(--transicion);
+  display: inline-flex; align-items: center; gap: .45rem;
+  background: rgba(253, 246, 236, .12);
+  border: 0; color: #f0e4d3;
+  padding: .55rem .9rem; border-radius: 14px;
+  font-size: .85rem; font-weight: 700;
 }
-.btn-icono:hover { background: rgba(255, 255, 255, .16); }
+.btn-icono:active { transform: scale(.96); }
 @media (max-width: 640px) { .btn-icono-texto { display: none; } }
 
-/* ══════════════════════ Lienzo y tablero ══════════════════════ */
+/* ═════════════════════════ Lienzo y tablero ═════════════════════════ */
 
 .lienzo {
   height: calc(100% - var(--barra-alto));
   display: flex; flex-direction: column;
-  padding: clamp(.75rem, 2vw, 1.5rem);
-  gap: clamp(.75rem, 1.5vw, 1.25rem);
+  padding: clamp(.7rem, 2vw, 1.4rem);
+  gap: clamp(.7rem, 1.5vw, 1.1rem);
 }
 
 .tablero {
@@ -111,96 +129,130 @@ button { font: inherit; cursor: pointer; }
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(2, 1fr);
-  gap: clamp(.6rem, 1.4vw, 1.1rem);
+  gap: clamp(.6rem, 1.5vw, 1.15rem);
   min-height: 0;
 }
-@media (max-width: 700px) { .tablero { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, 1fr); } }
+@media (max-width: 700px) {
+  .tablero { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, 1fr); }
+}
 
+/* Los pictogramas se comportan como teclas físicas. El canto inferior de color
+   da volumen, y al pulsarse la tecla baja exactamente ese grosor: el gesto se
+   siente mecánico en lugar de decorativo. */
 .picto {
   position: relative;
-  background: var(--superficie);
-  border: 1px solid var(--linea);
-  border-top: 4px solid var(--cat-color, var(--linea));
+  background: var(--cara, #fff);
+  border: 0;
+  border-bottom: var(--canto) solid var(--canto-color, #ccc);
   border-radius: var(--radio);
-  box-shadow: var(--sombra);
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: .5rem;
-  padding: 1rem .75rem;
+  gap: .55rem;
+  padding: .9rem .6rem;
   min-height: 0;
-  transition: transform 90ms ease, box-shadow var(--transicion), background var(--transicion);
+  transition: transform 90ms ease, border-bottom-width 90ms ease, filter var(--curva);
 }
 .picto:active {
-  transform: scale(.965);
-  background: var(--cat-fondo, var(--fondo));
-  box-shadow: 0 0 0 3px var(--cat-borde, var(--linea));
+  transform: translateY(var(--canto));
+  border-bottom-width: 0;
+  filter: brightness(.97);
 }
-.picto-icono { font-size: clamp(2.6rem, 7vh, 4.4rem); line-height: 1; }
+
+/* El emoji vive dentro de un disco tintado: así se lee como icono deliberado y
+   no como un emoji suelto pegado sobre el fondo. */
+.picto-icono {
+  display: grid; place-items: center;
+  width: clamp(64px, 13vh, 108px);
+  aspect-ratio: 1;
+  border-radius: 99px;
+  background: var(--disco, #eee);
+  font-size: clamp(2.1rem, 6.6vh, 3.6rem);
+  line-height: 1;
+}
+/* La etiqueta usa el tono OSCURO de la categoría, no el medio: sobre la cara
+   clara del pictograma, el tono medio se queda entre 3.35:1 y 4.41:1 en tres de
+   las cuatro categorías, por debajo del mínimo AA de 4.5:1. El tono oscuro
+   llega a 5.93:1 en el peor caso sin perder la identidad cromática. */
 .picto-etiqueta {
-  font-size: clamp(.95rem, 2.1vh, 1.3rem);
-  font-weight: 620; color: var(--tinta);
-  letter-spacing: -.01em; text-align: center;
+  font-size: clamp(.95rem, 2.2vh, 1.35rem);
+  font-weight: 800; color: var(--canto-color, var(--tinta));
+  letter-spacing: -.015em; text-align: center;
 }
 
 /* Paginación */
 .paginacion { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.puntos { display: flex; gap: .45rem; }
+.puntos { display: flex; gap: .5rem; }
 .punto {
-  width: 9px; height: 9px; border-radius: 99px;
-  background: var(--linea); border: 0; padding: 0;
-  transition: background var(--transicion), width var(--transicion);
+  width: 11px; height: 11px; border-radius: 99px;
+  background: var(--papel-hondo); border: 0; padding: 0;
+  transition: background var(--curva), width var(--curva);
 }
-.punto[aria-current="true"] { background: var(--acento); width: 26px; }
+.punto[aria-current="true"] { background: var(--acento); width: 30px; }
 
 .btn-pagina {
   background: var(--superficie);
-  border: 1px solid var(--linea);
-  border-radius: 12px;
-  padding: .7rem 1.2rem;
-  font-size: .88rem; font-weight: 570;
+  border: 0; border-bottom: 4px solid var(--papel-hondo);
+  border-radius: 16px;
+  padding: .8rem 1.3rem;
+  font-size: .9rem; font-weight: 750;
   color: var(--tinta-2);
-  box-shadow: var(--sombra);
-  transition: border-color var(--transicion);
 }
-.btn-pagina:active { border-color: var(--acento); }
+.btn-pagina:active { transform: translateY(4px); border-bottom-width: 0; }
 
-/* ══════════════════════ Mensaje seleccionado ══════════════════════ */
+/* ═════════════════════════ Mensaje seleccionado ═════════════════════════ */
 
 .salida {
   position: fixed; inset: 0; z-index: 60;
   display: grid; place-items: center;
-  background: rgba(28, 25, 23, .52);
-  backdrop-filter: blur(3px);
-  animation: aparecer 160ms ease-out;
+  background: rgba(43, 33, 24, .55);
+  backdrop-filter: blur(4px);
+  animation: aparecer 140ms ease-out;
 }
 .salida[hidden] { display: none; }
 @keyframes aparecer { from { opacity: 0; } to { opacity: 1; } }
 
 .salida-tarjeta {
   background: var(--superficie);
-  border-radius: 28px;
-  padding: clamp(2rem, 5vh, 3.5rem) clamp(2.5rem, 7vw, 5rem);
+  border-radius: 40px;
+  border-bottom: 10px solid var(--papel-hondo);
+  padding: clamp(2rem, 5vh, 3.2rem) clamp(2.2rem, 7vw, 4.5rem);
   text-align: center;
   box-shadow: var(--sombra-alta);
-  animation: subir 220ms cubic-bezier(.2, .9, .3, 1);
-  max-width: min(90vw, 640px);
+  animation: brincar 340ms cubic-bezier(.34, 1.42, .64, 1);
+  max-width: min(90vw, 620px);
 }
-@keyframes subir { from { transform: translateY(14px) scale(.96); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes brincar {
+  0% { transform: translateY(22px) scale(.86); opacity: 0; }
+  60% { transform: translateY(-5px) scale(1.03); opacity: 1; }
+  100% { transform: none; }
+}
 
-.salida-icono { font-size: clamp(4rem, 14vh, 7rem); line-height: 1; }
+.salida-icono { font-size: clamp(4.2rem, 15vh, 7.5rem); line-height: 1; }
 .salida-frase {
-  font-size: clamp(1.6rem, 4.5vh, 2.6rem);
-  font-weight: 680; letter-spacing: -.02em;
-  margin-top: .75rem;
+  font-size: clamp(1.7rem, 5vh, 2.8rem);
+  font-weight: 850; letter-spacing: -.025em;
+  margin-top: .6rem;
 }
-.salida-estado { font-size: .82rem; color: var(--tinta-3); margin-top: .85rem; }
+.salida-estado { font-size: .8rem; color: var(--tinta-3); margin-top: .9rem; font-weight: 600; }
 
-/* ══════════════════════ Panel del cuidador ══════════════════════ */
+/* Quien tenga sensibilidad al movimiento no debería pagar por la animación. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* ═════════════════════════ Panel del cuidador ═════════════════════════ */
+
+/* Deliberadamente sobrio: es instrumentación para el adulto y no debe competir
+   con el tablero ni imitar su lenguaje. */
 
 .velo {
   position: fixed; inset: 0; z-index: 40;
-  background: rgba(28, 25, 23, .35);
-  animation: aparecer 160ms ease-out;
+  background: rgba(43, 33, 24, .38);
+  animation: aparecer 140ms ease-out;
 }
 .velo[hidden] { display: none; }
 
@@ -208,11 +260,11 @@ button { font: inherit; cursor: pointer; }
   position: fixed; top: 0; right: 0; bottom: 0; z-index: 50;
   width: min(400px, 92vw);
   background: var(--superficie);
-  border-left: 1px solid var(--linea);
   box-shadow: var(--sombra-alta);
   overflow-y: auto;
   overscroll-behavior: contain;
-  animation: entrar 240ms cubic-bezier(.2, .9, .3, 1);
+  animation: entrar 240ms cubic-bezier(.25, .9, .3, 1);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 .panel[hidden] { display: none; }
 @keyframes entrar { from { transform: translateX(100%); } to { transform: none; } }
@@ -220,76 +272,97 @@ button { font: inherit; cursor: pointer; }
 .panel-cabecera {
   position: sticky; top: 0; z-index: 2;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 1.1rem 1.25rem;
+  padding: 1.05rem 1.2rem;
   background: var(--superficie);
   border-bottom: 1px solid var(--linea);
 }
-.panel-cabecera h2 { margin: 0; font-size: 1rem; font-weight: 650; letter-spacing: -.01em; }
+.panel-cabecera h2 { margin: 0; font-size: .98rem; font-weight: 700; letter-spacing: -.01em; }
 .btn-cerrar {
   background: none; border: 0; color: var(--tinta-3);
-  font-size: 1.1rem; padding: .35rem .6rem; border-radius: 8px;
+  font-size: 1.05rem; padding: .3rem .55rem; border-radius: 8px;
 }
-.btn-cerrar:hover { background: var(--fondo); color: var(--tinta); }
+.btn-cerrar:hover { background: var(--papel); color: var(--tinta); }
 
-.bloque { padding: 1.25rem; border-bottom: 1px solid var(--linea); }
+.bloque { padding: 1.2rem; border-bottom: 1px solid var(--linea); }
 .bloque h3 {
-  margin: 0 0 .85rem;
-  font-size: .68rem; font-weight: 700;
-  letter-spacing: .09em; text-transform: uppercase;
+  margin: 0 0 .8rem;
+  font-size: .67rem; font-weight: 800;
+  letter-spacing: .1em; text-transform: uppercase;
   color: var(--tinta-3);
 }
 
 .estado-fila { display: flex; justify-content: space-between; align-items: baseline; }
-.estado-badge { font-size: 1.25rem; font-weight: 680; letter-spacing: -.01em; }
-.estado-valor { font-variant-numeric: tabular-nums; color: var(--tinta-3); font-size: .88rem; }
+.estado-badge { font-size: 1.2rem; font-weight: 750; letter-spacing: -.01em; }
+.estado-valor { font-variant-numeric: tabular-nums; color: var(--tinta-3); font-size: .86rem; }
 
-.escala { position: relative; height: 8px; background: var(--linea); border-radius: 99px; margin: .75rem 0 .35rem; }
+.escala { position: relative; height: 8px; background: var(--papel-hondo); border-radius: 99px; margin: .7rem 0 .3rem; }
 .escala i { position: absolute; height: 100%; border-radius: 99px; left: 50%; width: 0; transition: all 120ms linear; }
-.escala-leyenda { display: flex; justify-content: space-between; font-size: .64rem; color: var(--tinta-3); }
+.escala-leyenda { display: flex; justify-content: space-between; font-size: .63rem; color: var(--tinta-3); }
+.escala-progreso { margin-top: .7rem; }
+.escala-progreso i { left: 0; background: var(--acento); }
 
-.metricas { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin: 1.1rem 0 0; }
-.metricas dt { font-size: .64rem; text-transform: uppercase; letter-spacing: .06em; color: var(--tinta-3); }
-.metricas dd { margin: .2rem 0 0; font-size: 1.05rem; font-weight: 640; font-variant-numeric: tabular-nums; }
+.metricas { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; margin: 1rem 0 0; }
+.metricas dt { font-size: .62rem; text-transform: uppercase; letter-spacing: .07em; color: var(--tinta-3); font-weight: 700; }
+.metricas dd { margin: .18rem 0 0; font-size: 1.02rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 
-.blendshapes { display: flex; flex-direction: column; gap: .45rem; }
+.blendshapes { display: flex; flex-direction: column; gap: .4rem; }
 .bs {
-  display: grid; grid-template-columns: 1fr 64px 36px;
-  gap: .5rem; align-items: center;
-  font-size: .7rem; color: var(--tinta-2);
+  display: grid; grid-template-columns: 1fr 62px 36px;
+  gap: .45rem; align-items: center;
+  font-size: .69rem; color: var(--tinta-2);
   font-variant-numeric: tabular-nums;
 }
-.bs-barra { height: 5px; background: var(--linea); border-radius: 99px; overflow: hidden; }
+.bs-barra { height: 5px; background: var(--papel-hondo); border-radius: 99px; overflow: hidden; }
 .bs-barra i { display: block; height: 100%; background: var(--acento); transition: width 120ms linear; }
 
-.asociacion { display: flex; flex-direction: column; gap: .5rem; }
+.asociacion { display: flex; flex-direction: column; gap: .45rem; }
 .asoc {
   display: grid; grid-template-columns: 1fr auto;
-  gap: .2rem .6rem;
-  padding: .7rem .85rem;
-  background: var(--fondo);
-  border: 1px solid var(--linea);
+  gap: .18rem .6rem;
+  padding: .65rem .8rem;
+  background: var(--papel);
   border-radius: 12px;
 }
-.asoc-pic { font-weight: 620; font-size: .9rem; text-transform: capitalize; }
-.asoc-estado { font-weight: 640; font-size: .78rem; }
-.asoc-n { grid-column: 1 / -1; font-size: .68rem; color: var(--tinta-3); }
+.asoc-pic { font-weight: 700; font-size: .88rem; text-transform: capitalize; }
+.asoc-estado { font-weight: 700; font-size: .76rem; }
+.asoc-n { grid-column: 1 / -1; font-size: .67rem; color: var(--tinta-3); }
 
-.acciones-admin { display: flex; gap: .55rem; }
+.acciones-admin { display: flex; gap: .5rem; }
 .btn {
-  flex: 1; border-radius: 11px; padding: .75rem;
-  font-size: .85rem; font-weight: 570;
+  flex: 1; border-radius: 11px; padding: .7rem;
+  font-size: .84rem; font-weight: 650;
   border: 1px solid var(--linea);
   background: var(--superficie); color: var(--tinta-2);
-  transition: border-color var(--transicion), color var(--transicion);
 }
 .btn:active { transform: scale(.98); }
-.btn-peligro { color: var(--rojo); border-color: #fecdd3; }
+.btn-peligro { color: var(--rojo); border-color: #f0cfd7; }
 
-.nota { font-size: .74rem; color: var(--tinta-3); line-height: 1.55; margin: .9rem 0 0; }
-.vacio { font-size: .8rem; color: var(--tinta-3); margin: 0; }
+.nota { font-size: .73rem; color: var(--tinta-3); line-height: 1.6; margin: .85rem 0 0; }
+.vacio { font-size: .79rem; color: var(--tinta-3); margin: 0; }
+.dato { font-size: .8rem; color: var(--tinta-3); margin: .7rem 0 0; }
+
+.interruptor { display: flex; align-items: center; gap: .6rem; font-size: .87rem; color: var(--tinta-2); cursor: pointer; font-weight: 600; }
+.interruptor input { width: 20px; height: 20px; accent-color: var(--acento); cursor: pointer; }
+
+.campo { display: flex; align-items: center; gap: .5rem; margin-top: .8rem; font-size: .76rem; color: var(--tinta-3); }
+.campo span:first-child { flex: 1; }
+.campo input {
+  width: 84px; padding: .42rem .55rem; font: inherit; font-size: .84rem;
+  border: 1px solid var(--linea); border-radius: 9px; color: var(--tinta);
+  background: var(--superficie);
+}
+.campo-unidad { font-size: .72rem; width: 14px; }
+
+.mapa { display: flex; flex-direction: column; gap: .45rem; }
+.mapa-fila { display: grid; grid-template-columns: 1fr 118px; gap: .5rem; align-items: center; }
+.mapa-estado { font-size: .79rem; font-weight: 700; }
+.mapa select {
+  font: inherit; font-size: .79rem; padding: .38rem .5rem;
+  border: 1px solid var(--linea); border-radius: 9px; background: var(--superficie); color: var(--tinta);
+}
 
 .diagnostico summary {
-  font-size: .68rem; font-weight: 700; letter-spacing: .09em;
+  font-size: .67rem; font-weight: 800; letter-spacing: .1em;
   text-transform: uppercase; color: var(--tinta-3);
   cursor: pointer; list-style: none;
 }
@@ -298,76 +371,57 @@ button { font: inherit; cursor: pointer; }
 .diagnostico[open] summary::before { content: "▾ "; }
 .diag {
   font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-  font-size: .64rem; color: var(--tinta-3); line-height: 1.6;
-  margin: .8rem 0 0; word-break: break-word;
+  font-size: .63rem; color: var(--tinta-3); line-height: 1.65;
+  margin: .75rem 0 0; word-break: break-word;
 }
 
-/* ══════════════════════ Módulo C · sugerencia ══════════════════════ */
+/* ═════════════════════════ Módulo C · sugerencia ═════════════════════════ */
 
-/* La sugerencia se marca de forma clara pero sin gritar: debe distinguirse de
-   los demás pictogramas sin convertirse en la única opción visible. */
-.picto-sugerido { border-color: var(--acento); box-shadow: 0 0 0 2px rgba(109, 40, 217, .18), var(--sombra); }
+/* La sugerencia se marca sin desequilibrar el tablero: sigue siendo una tecla
+   más y no debe leerse como la única opción disponible. */
+.picto-sugerido { box-shadow: 0 0 0 3px var(--tono); }
 .picto-marca {
-  position: absolute; top: .5rem; right: .5rem;
-  width: 10px; height: 10px; border-radius: 99px;
-  background: var(--acento);
-  box-shadow: 0 0 0 4px rgba(109, 40, 217, .16);
+  position: absolute; top: .7rem; right: .7rem;
+  width: 11px; height: 11px; border-radius: 99px;
+  background: var(--tono);
+  animation: pulso 2.4s ease-in-out infinite;
 }
+@keyframes pulso { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
-.interruptor { display: flex; align-items: center; gap: .6rem; font-size: .88rem; color: var(--tinta-2); cursor: pointer; }
-.interruptor input { width: 20px; height: 20px; accent-color: var(--acento); cursor: pointer; }
+/* ═════════════════════════ Vista previa de cámara ═════════════════════════ */
 
-.escala-progreso { margin-top: .75rem; }
-.escala-progreso i { left: 0; background: var(--acento); }
-
-.campo { display: flex; align-items: center; gap: .5rem; margin-top: 1rem; font-size: .78rem; color: var(--tinta-3); }
-.campo input {
-  width: 88px; padding: .45rem .6rem; font: inherit; font-size: .85rem;
-  border: 1px solid var(--linea); border-radius: 9px; color: var(--tinta);
-}
-.campo-unidad { font-size: .72rem; }
-
-.mapa { display: flex; flex-direction: column; gap: .5rem; }
-.mapa-fila { display: grid; grid-template-columns: 1fr 118px; gap: .5rem; align-items: center; }
-.mapa-estado { font-size: .8rem; font-weight: 600; }
-.mapa select {
-  font: inherit; font-size: .8rem; padding: .4rem .5rem;
-  border: 1px solid var(--linea); border-radius: 9px; background: var(--superficie); color: var(--tinta);
-}
-
-/* ══════════════════════ Vista previa de cámara ══════════════════════ */
-
-/* Va anclada en la barra superior y no flotando sobre el tablero: en pantallas
-   de telefono una vista flotante se monta encima de un pictograma y lo vuelve
-   intocable. Se mantiene visible a proposito, ademas, porque un video oculto
-   puede ser despriorizado por el navegador y dejar de entregar fotogramas. */
+/* Anclada en la barra y no flotando sobre el tablero: en pantalla de teléfono
+   una vista flotante se monta encima de un pictograma y lo vuelve intocable.
+   Se mantiene visible a propósito, además, porque un video oculto puede ser
+   despriorizado por el navegador y dejar de entregar fotogramas. */
 .preview {
   position: relative;
   height: calc(var(--barra-alto) - 16px);
   aspect-ratio: 4 / 3;
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
   background: #000;
-  border: 1px solid rgba(255, 255, 255, .18);
+  border: 1px solid rgba(253, 246, 236, .22);
   flex-shrink: 0;
 }
 .preview[hidden] { display: none; }
 #video { display: block; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
 
-.preview-base { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255, 255, 255, .25); }
+.preview-base { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255, 255, 255, .28); }
 .preview-base[hidden] { display: none; }
 .preview-base i { display: block; height: 100%; width: 0; background: var(--acento); transition: width 100ms linear; }
 
-/* ══════════════════════ Teléfono en vertical ══════════════════════ */
+/* ═════════════════════════ Teléfono en vertical ═════════════════════════ */
 
 @media (max-width: 700px) {
-  .barra { padding: 0 .6rem 0 .85rem; gap: .6rem; }
+  :root { --radio: 20px; --canto: 5px; }
+  .barra { padding: 0 .55rem 0 .8rem; gap: .55rem; }
   .marca-nombre { display: none; }
-  .chip { font-size: .72rem; padding: .28rem .6rem .28rem .5rem; }
-  .lienzo { padding: .6rem; gap: .6rem; }
-  .picto { border-radius: 14px; padding: .6rem .4rem; gap: .25rem; }
-  .picto-icono { font-size: clamp(2.2rem, 8vh, 3.2rem); }
-  .picto-etiqueta { font-size: clamp(.85rem, 1.9vh, 1.05rem); }
+  .chip { font-size: .71rem; padding: .28rem .6rem .28rem .48rem; }
+  .lienzo { padding: .55rem; gap: .55rem; }
+  .picto { padding: .5rem .35rem; gap: .35rem; }
+  .picto-icono { width: clamp(52px, 9.5vh, 76px); font-size: clamp(1.8rem, 5vh, 2.6rem); }
+  .picto-etiqueta { font-size: clamp(.82rem, 1.9vh, 1rem); }
   .btn-pagina { padding: .6rem .9rem; font-size: .82rem; }
-  .salida-tarjeta { padding: 2rem 1.5rem; border-radius: 22px; }
+  .salida-tarjeta { padding: 1.9rem 1.4rem; border-radius: 30px; }
 }

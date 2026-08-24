@@ -14,10 +14,10 @@
  */
 
 export const CATEGORIAS = {
-  necesidad: { etiqueta: "Necesidad", color: "#0369a1", fondo: "#f0f9ff", borde: "#bae6fd" },
-  accion: { etiqueta: "Acción", color: "#15803d", fondo: "#f0fdf4", borde: "#bbf7d0" },
-  social: { etiqueta: "Social", color: "#b45309", fondo: "#fffbeb", borde: "#fde68a" },
-  respuesta: { etiqueta: "Respuesta", color: "#be123c", fondo: "#fff1f2", borde: "#fecdd3" },
+  necesidad: { etiqueta: "Necesidad", tono: "#1D7A8C", cara: "#E4F4F7", canto: "#10505D", disco: "#C6E9EF" },
+  accion: { etiqueta: "Acción", tono: "#3F8F3A", cara: "#EBF7E8", canto: "#2A6127", disco: "#D2EDCC" },
+  social: { etiqueta: "Social", tono: "#C2701A", cara: "#FDF1E2", canto: "#8A4E0F", disco: "#F8DEBE" },
+  respuesta: { etiqueta: "Respuesta", tono: "#B03A55", cara: "#FCEBEF", canto: "#7C2439", disco: "#F7D2DA" },
 };
 
 export const PAGINAS = [
@@ -69,9 +69,10 @@ export class Tablero {
       const b = document.createElement("button");
       b.className = "picto";
       b.type = "button";
-      b.style.setProperty("--cat-color", cat.color);
-      b.style.setProperty("--cat-fondo", cat.fondo);
-      b.style.setProperty("--cat-borde", cat.borde);
+      b.style.setProperty("--tono", cat.tono);
+      b.style.setProperty("--cara", cat.cara);
+      b.style.setProperty("--canto-color", cat.canto);
+      b.style.setProperty("--disco", cat.disco);
       b.setAttribute("aria-label", p.frase);
 
       // La sugerencia se marca de forma visible: quien acompaña debe poder
