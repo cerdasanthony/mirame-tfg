@@ -19,6 +19,7 @@ Partiendolo, el primer archivo crea las epicas y Jira les asigna sus claves; el
 segundo trae las historias con la clave de su epica ya escrita en la columna
 Parent, que cualquier importador acepta. Deja de depender de que campos ofrezca.
 
+    python generar-jira.py backlog-y-sprints.md plano     mirame-jira.csv Historia
     python generar-jira.py backlog-y-sprints.md todo      mirame-jira.csv
     python generar-jira.py backlog-y-sprints.md epicas    1-epicas.csv
     python generar-jira.py backlog-y-sprints.md historias 2-historias.csv MIRAME 1
@@ -221,6 +222,40 @@ def escribir_todo(epicas, historias, destino):
     return len(epicas) + len(historias)
 
 
+def escribir_plano(epicas, historias, destino, tipo="Historia"):
+    """
+    Todo con UN SOLO tipo de actividad, y ese tipo escrito en espanol.
+
+    POR QUE EXISTE ESTE MODO
+    La importacion fallo dos veces con «Error in issue type "task" — not found in
+    target jira project». El CSV no contenia esa palabra: solo Epic y Story. El
+    valor lo ponia Jira al no registrarse la equivalencia de «Story», cayendo a
+    su tipo por defecto, que en ese proyecto no existe.
+
+    Con un unico valor, y ademas escrito igual que el tipo del proyecto, la
+    pantalla de equivalencias tiene una sola fila y se resuelve sola. Deja de
+    haber nada que se pueda quedar sin asignar.
+
+    Las epicas se convierten en historias con la etiqueta `epica`. Se pierde la
+    jerarquia, que la rubrica no pide; se conserva el tablero, los sprints, las
+    prioridades, los estados y las etiquetas, que es lo que si pide.
+    """
+    with io.open(destino, "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["Resumen", "Issue Type", "Estado", "Priority", "Sprint",
+                    "Fecha de vencimiento", "Etiquetas", "Etiquetas", "Descripcion"])
+        for epica, etiqueta in epicas.items():
+            w.writerow([epica, tipo, "To Do",
+                        PRIORIDAD_POR_MODULO.get(etiqueta, "Medium"), "", "",
+                        etiqueta, "epica",
+                        "Agrupa el trabajo de " + epica.lower() + "."])
+        for h in historias:
+            w.writerow([h["resumen"], tipo, h["estado"], h["prioridad"],
+                        h["sprint"], h["vence"], h["etiqueta"],
+                        "sprint-%02d" % h["sprintNum"], h["desc"]])
+    return len(epicas) + len(historias)
+
+
 def escribir_historias(historias, destino, claves):
     """
     `claves` asocia cada epica con la clave que Jira le dio al importarla.
@@ -254,6 +289,12 @@ def main():
     modo = sys.argv[2]
     destino = sys.argv[3]
     epicas, historias = leer(origen)
+
+    if modo == "plano":
+        tipo = sys.argv[4] if len(sys.argv) > 4 else "Historia"
+        n = escribir_plano(epicas, historias, destino, tipo)
+        print("%d filas -> %s  (todas de tipo «%s»)" % (n, destino, tipo))
+        return
 
     if modo == "todo":
         n = escribir_todo(epicas, historias, destino)
