@@ -101,19 +101,49 @@ class Jira:
                 if not t.get("subtask")}
 
     def resumenes_existentes(self):
-        """Resumenes ya creados, para no duplicar si se vuelve a ejecutar."""
-        vistos = set()
-        inicio = 0
-        while True:
-            d = self.pedir(
-                "GET",
-                "/rest/api/3/search?jql=project%%3D%s&fields=summary&maxResults=100&startAt=%d"
-                % (self.proyecto, inicio))
-            for i in d.get("issues", []):
-                vistos.add(i["fields"]["summary"])
-            inicio += len(d.get("issues", []))
-            if inicio >= d.get("total", 0) or not d.get("issues"):
-                return vistos
+        """
+        Resumenes ya creados, para no duplicar si se vuelve a ejecutar.
+
+        Se intenta primero el endpoint nuevo, que pagina por token, y se cae al
+        antiguo, que pagina por indice. Atlassian esta retirando el segundo y no
+        conviene depender de el; pero si ninguno responde, esto NO detiene la
+        ejecucion: se sigue con el conjunto vacio y a lo sumo se duplican
+        incidencias en una segunda pasada, que es mucho menos grave que no poder
+        crear nada.
+        """
+        try:
+            vistos = set()
+            token = None
+            while True:
+                ruta = ("/rest/api/3/search/jql?jql=project%%3D%s&fields=summary&maxResults=100"
+                        % self.proyecto)
+                if token:
+                    ruta += "&nextPageToken=" + token
+                d = self.pedir("GET", ruta)
+                for i in d.get("issues", []):
+                    vistos.add(i["fields"]["summary"])
+                token = d.get("nextPageToken")
+                if not token or d.get("isLast"):
+                    return vistos
+        except SystemExit:
+            pass
+
+        try:
+            vistos = set()
+            inicio = 0
+            while True:
+                d = self.pedir(
+                    "GET",
+                    "/rest/api/3/search?jql=project%%3D%s&fields=summary&maxResults=100&startAt=%d"
+                    % (self.proyecto, inicio))
+                for i in d.get("issues", []):
+                    vistos.add(i["fields"]["summary"])
+                inicio += len(d.get("issues", []))
+                if inicio >= d.get("total", 0) or not d.get("issues"):
+                    return vistos
+        except SystemExit:
+            print("Aviso: no se pudo consultar lo ya existente; se creara todo.\n")
+            return set()
 
     def crear(self, campos):
         return self.pedir("POST", "/rest/api/3/issue", {"fields": campos})
