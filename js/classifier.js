@@ -39,15 +39,67 @@ export function puntaje(normalizadas) {
   return Math.max(-1, Math.min(1, s));
 }
 
-/** Asigna uno de los cuatro estados observables. */
-export function clasificar(normalizadas) {
-  const s = puntaje(normalizadas);
-  let estado;
-  if (s >= UMBRALES.positivo) estado = "positivo";
-  else if (s >= UMBRALES.neutro) estado = "neutro";
-  else if (s >= UMBRALES.negativoLeve) estado = "negativo leve";
-  else estado = "negativo intenso";
-  return { estado, puntaje: s };
+/** Asigna uno de los cuatro estados a partir de un puntaje ya calculado. */
+function estadoDe(s) {
+  if (s >= UMBRALES.positivo) return "positivo";
+  if (s >= UMBRALES.neutro) return "neutro";
+  if (s >= UMBRALES.negativoLeve) return "negativo leve";
+  return "negativo intenso";
+}
+
+/** Distancia del puntaje al corte más cercano: margen de decisión. */
+function margen(s) {
+  const cortes = [UMBRALES.positivo, UMBRALES.neutro, UMBRALES.negativoLeve];
+  return Math.min(...cortes.map((c) => Math.abs(s - c)));
+}
+
+/**
+ * Suavizado exponencial del puntaje.
+ *
+ * Clasificar cada fotograma de forma independiente produce un resultado que
+ * salta constantemente: el rostro de un niño en movimiento genera variaciones
+ * de alta frecuencia que no corresponden a ningún cambio real. La media móvil
+ * exponencial conserva la reactividad ante cambios sostenidos y descarta el
+ * ruido de fotograma a fotograma.
+ *
+ * ALFA es el peso del fotograma nuevo. Más bajo suaviza más y responde más
+ * lento. Requiere calibración junto con los umbrales.
+ */
+const ALFA = 0.18;
+
+export class Suavizador {
+  constructor(alfa = ALFA) {
+    this.alfa = alfa;
+    this.valor = null;
+  }
+  agregar(s) {
+    this.valor = this.valor === null ? s : this.alfa * s + (1 - this.alfa) * this.valor;
+    return this.valor;
+  }
+  reiniciar() {
+    this.valor = null;
+  }
+}
+
+/**
+ * Clasifica un fotograma.
+ *
+ * `suavizador` es opcional; sin él la clasificación es instantánea y ruidosa.
+ * Devuelve además el margen de decisión, para poder marcar como incierta una
+ * clasificación que quedó pegada a un umbral.
+ */
+export function clasificar(normalizadas, suavizador = null) {
+  const crudo = puntaje(normalizadas);
+  const s = suavizador ? suavizador.agregar(crudo) : crudo;
+  return {
+    estado: estadoDe(s),
+    puntaje: s,
+    puntajeCrudo: crudo,
+    margen: margen(s),
+    // Un margen pequeño significa que el puntaje quedó sobre la frontera entre
+    // dos estados: la etiqueta es arbitraria y debe reportarse como tal.
+    incierto: margen(s) < 0.05,
+  };
 }
 
 /**
@@ -69,6 +121,11 @@ export class Ventana {
   }
 
   agregarSinRostro(t = performance.now()) {
+    this.agregar(null, null, t);
+  }
+
+  /** Rostro presente pero demasiado girado para confiar en los blendshapes. */
+  agregarDescartado(t = performance.now()) {
     this.agregar(null, null, t);
   }
 

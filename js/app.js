@@ -11,8 +11,8 @@
  */
 
 import * as face from "./face.js";
-import { extract, LineaBase } from "./features.js";
-import { clasificar, Ventana } from "./classifier.js";
+import { extract, LineaBase, frontalidad } from "./features.js";
+import { clasificar, Ventana, Suavizador } from "./classifier.js";
 import * as store from "./storage.js";
 import { Tablero, PAGINAS } from "./board.js";
 import { hablar } from "./speech.js";
@@ -21,6 +21,11 @@ const SEGUNDOS_LINEA_BASE = 5;
 const MUESTRAS_MINIMAS_BASE = 15;
 const MS_SALIDA = 2600;
 
+/* Por debajo de esta frontalidad el rostro esta demasiado girado y los
+   blendshapes dejan de ser confiables. El fotograma se descarta en lugar de
+   producir una clasificacion mala. Requiere calibracion. */
+const FRONTALIDAD_MINIMA = 0.55;
+
 const el = (id) => document.getElementById(id);
 const video = el("video");
 
@@ -28,6 +33,8 @@ const estado = {
   sesionId: null,
   lineaBase: new LineaBase(),
   ventana: new Ventana(8, 0.4),
+  suavizador: new Suavizador(),
+  descartadosPorPose: 0,
   analisisActivo: false,
   baseIniciada: 0,
   ultimaSeleccion: performance.now(),
@@ -82,7 +89,9 @@ function bucle() {
   const r = face.detect(video, performance.now());
 
   if (!estado.lineaBase.establecida) {
-    if (r) estado.lineaBase.agregar(extract(r.blendshapes));
+    if (r && frontalidad(r.landmarks) >= FRONTALIDAD_MINIMA) {
+      estado.lineaBase.agregar(extract(r.blendshapes));
+    }
     const transcurrido = (performance.now() - estado.baseIniciada) / 1000;
     const n = estado.lineaBase.cantidadMuestras;
     el("barra-base").style.width =
@@ -100,20 +109,31 @@ function bucle() {
       chip("Análisis activo", "chip-activa");
       estado.fotogramas = 0;
       estado.conRostro = 0;
+      estado.descartadosPorPose = 0;
+      estado.suavizador.reiniciar();
     }
     return requestAnimationFrame(bucle);
   }
 
   estado.fotogramas++;
-  if (r) {
-    estado.conRostro++;
-    const norm = estado.lineaBase.normalizar(extract(r.blendshapes));
-    const { estado: e, puntaje } = clasificar(norm);
-    estado.ventana.agregar(e, puntaje);
-    pintarPanel(e, puntaje, r.blendshapes);
-  } else {
+  if (!r) {
     estado.ventana.agregarSinRostro();
-    pintarPanel(null, null, null);
+    estado.suavizador.reiniciar();
+    pintarPanel(null, null, null, null);
+  } else {
+    const frente = frontalidad(r.landmarks);
+    if (frente < FRONTALIDAD_MINIMA) {
+      // Rostro presente pero girado: se descarta antes de clasificar.
+      estado.descartadosPorPose++;
+      estado.ventana.agregarDescartado();
+      pintarPanel(null, null, r.blendshapes, frente);
+    } else {
+      estado.conRostro++;
+      const norm = estado.lineaBase.normalizar(extract(r.blendshapes));
+      const c = clasificar(norm, estado.suavizador);
+      estado.ventana.agregar(c.estado, c.puntaje);
+      pintarPanel(c.estado, c.puntaje, r.blendshapes, frente, c.incierto);
+    }
   }
 
   const tasa = Math.round((estado.conRostro / estado.fotogramas) * 100);
@@ -137,6 +157,7 @@ function diagTexto() {
     `delegado ${d.delegado ?? "—"}`,
     `llamadas ${d.llamadas}`,
     `detecciones ${d.detecciones}`,
+    `descartados por pose ${estado.descartadosPorPose}`,
   ];
   if (d.ultimoError) partes.push(`error: ${d.ultimoError}`);
   return partes.join(" · ");
@@ -151,15 +172,19 @@ const COLOR = {
   "negativo intenso": "#be123c",
 };
 
-function pintarPanel(e, puntaje, blendshapes) {
+function pintarPanel(e, puntaje, blendshapes, frente, incierto = false) {
   const badge = el("estado-actual");
+  if (frente !== null && frente !== undefined) {
+    el("frontalidad").textContent = Math.round(frente * 100) + " %";
+  }
   if (!e) {
-    badge.textContent = "sin rostro";
+    badge.textContent = frente === null || frente === undefined ? "sin rostro" : "rostro girado";
     badge.style.color = "var(--tinta-3)";
     el("barra-puntaje").style.width = "0%";
+    if (blendshapes) pintarBlendshapes(blendshapes);
     return;
   }
-  badge.textContent = e;
+  badge.textContent = e + (incierto ? " ·  incierto" : "");
   badge.style.color = COLOR[e];
   el("valor-puntaje").textContent = (puntaje > 0 ? "+" : "") + puntaje.toFixed(2);
 
@@ -168,18 +193,20 @@ function pintarPanel(e, puntaje, blendshapes) {
   barra.style.left = puntaje < 0 ? 50 - Math.abs(puntaje) * 50 + "%" : "50%";
   barra.style.background = puntaje < 0 ? "#e11d48" : "#16a34a";
 
-  if (blendshapes) {
-    const top = Object.entries(blendshapes)
-      .filter(([k]) => k !== "_neutral")
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6);
-    el("blendshapes").innerHTML = top
-      .map(
-        ([k, v]) =>
-          `<div class="bs"><span>${k}</span><div class="bs-barra"><i style="width:${(v * 100).toFixed(0)}%"></i></div><span>${v.toFixed(2)}</span></div>`
-      )
-      .join("");
-  }
+  if (blendshapes) pintarBlendshapes(blendshapes);
+}
+
+function pintarBlendshapes(blendshapes) {
+  const top = Object.entries(blendshapes)
+    .filter(([k]) => k !== "_neutral")
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6);
+  el("blendshapes").innerHTML = top
+    .map(
+      ([k, v]) =>
+        `<div class="bs"><span>${k}</span><div class="bs-barra"><i style="width:${(v * 100).toFixed(0)}%"></i></div><span>${v.toFixed(2)}</span></div>`
+    )
+    .join("");
 }
 
 /* ══════════════════════ Selección ══════════════════════ */

@@ -89,3 +89,34 @@ export class LineaBase {
     return out;
   }
 }
+
+
+/**
+ * Frontalidad del rostro, en [0, 1].
+ *
+ * Los blendshapes se degradan cuando la cabeza está girada: con el rostro de
+ * perfil, la mitad oculta produce coeficientes poco confiables. Medir cuán de
+ * frente está la cara permite descartar esos fotogramas en lugar de
+ * clasificarlos mal.
+ *
+ * Se estima comparando la distancia horizontal de la punta de la nariz a cada
+ * borde del rostro. Un valor cercano a 1 indica cara de frente; cercano a 0,
+ * girada. Se usa la geometría en vez de la matriz de transformación para no
+ * depender de la convención de ejes del modelo.
+ */
+const NARIZ = 1;
+const BORDE_IZQ = 234;
+const BORDE_DER = 454;
+
+export function frontalidad(landmarks) {
+  const n = landmarks[NARIZ];
+  const i = landmarks[BORDE_IZQ];
+  const d = landmarks[BORDE_DER];
+  if (!n || !i || !d) return 1;
+
+  const dIzq = Math.abs(n.x - i.x);
+  const dDer = Math.abs(d.x - n.x);
+  const mayor = Math.max(dIzq, dDer);
+  if (mayor < 1e-6) return 0;
+  return Math.min(dIzq, dDer) / mayor;
+}
