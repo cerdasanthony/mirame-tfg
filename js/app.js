@@ -45,7 +45,7 @@ function chip(texto, clase) {
 
 /* ══════════════════════ Arranque ══════════════════════ */
 
-(async function arrancar() {
+async function arrancar() {
   estado.sesionId = await store.crearSesion(null);
   tablero.render();
   pintarPuntos();
@@ -73,7 +73,7 @@ function chip(texto, clase) {
     el("estado-actual").textContent = "no disponible";
     el("diag").textContent = "Motivo: " + e.message;
   }
-})();
+}
 
 /* ══════════════════════ Bucle de video ══════════════════════ */
 
@@ -285,3 +285,10 @@ el("btn-borrar").addEventListener("click", async () => {
   await store.borrarTodo();
   refrescarAsociacion();
 });
+
+/* ══════════════════════ Arranque ══════════════════════ */
+
+/* La invocacion va al final a proposito: `tablero` es una constante declarada
+   mas abajo en el modulo, y llamar a arrancar() antes la encontraria en la
+   zona muerta temporal. */
+arrancar();
