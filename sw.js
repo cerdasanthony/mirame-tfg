@@ -1,7 +1,14 @@
-/* Service worker minimo: cachea el armazon de la aplicacion para uso sin conexion.
-   El runtime de MediaPipe y el modelo se cachean por separado la primera vez. */
+/* Service worker.
+ *
+ * Estrategia: red primero, cache como respaldo.
+ *
+ * La alternativa -cache primero- deja al usuario con una version vieja despues
+ * de cada despliegue, que es justo el problema que aparece mientras el proyecto
+ * esta en desarrollo activo. Con red primero se paga una latencia minima
+ * estando en linea y se conserva el funcionamiento sin conexion, que es lo que
+ * exige el RNF-05. */
 
-const CACHE = "mirame-v1";
+const CACHE = "mirame-v3";
 const ARMAZON = [
   "./",
   "./index.html",
@@ -31,14 +38,12 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   e.respondWith(
-    caches.match(e.request).then(
-      (hit) =>
-        hit ||
-        fetch(e.request).then((res) => {
-          const copia = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, copia)).catch(() => {});
-          return res;
-        })
-    )
+    fetch(e.request)
+      .then((res) => {
+        const copia = res.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, copia)).catch(() => {});
+        return res;
+      })
+      .catch(() => caches.match(e.request).then((hit) => hit || Promise.reject(new Error("sin red y sin cache"))))
   );
 });
