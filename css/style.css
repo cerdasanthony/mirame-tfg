@@ -244,6 +244,34 @@ button { font: inherit; cursor: pointer; }
   }
 }
 
+/* ═════════════════════════ Aviso de calibración ═════════════════════════ */
+
+/* La instrucción tiene que ser imposible de pasar por alto. Sin ella, la
+   persona se mueve o gesticula durante la calibración, la dispersión del reposo
+   se infla y a partir de ahí ninguna expresión alcanza el umbral. */
+.aviso {
+  position: fixed; inset: 0; z-index: 55;
+  display: grid; place-items: center;
+  background: rgba(43, 33, 24, .5);
+  backdrop-filter: blur(3px);
+}
+.aviso[hidden] { display: none; }
+.aviso-caja {
+  background: var(--superficie);
+  border-radius: 32px;
+  border-bottom: 8px solid var(--papel-hondo);
+  padding: 2rem 2.6rem;
+  text-align: center;
+  box-shadow: var(--sombra-alta);
+  max-width: min(88vw, 420px);
+}
+.aviso-icono { font-size: 3.4rem; line-height: 1; }
+.aviso-titulo { font-size: 1.3rem; font-weight: 800; margin-top: .5rem; letter-spacing: -.02em; }
+.aviso-texto { font-size: .95rem; color: var(--tinta-2); margin-top: .5rem; line-height: 1.5; }
+.aviso-barra { height: 10px; background: var(--papel-hondo); border-radius: 99px; margin: 1.2rem 0 .5rem; overflow: hidden; }
+.aviso-barra i { display: block; height: 100%; width: 0; background: var(--acento); transition: width 120ms linear; }
+.aviso-conteo { font-size: .78rem; color: var(--tinta-3); font-variant-numeric: tabular-nums; }
+
 /* ═════════════════════════ Panel del cuidador ═════════════════════════ */
 
 /* Deliberadamente sobrio: es instrumentación para el adulto y no debe competir

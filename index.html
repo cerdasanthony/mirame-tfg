@@ -49,6 +49,17 @@
     </nav>
   </main>
 
+  <!-- ══ Aviso de calibración ══ -->
+  <div id="aviso-base" class="aviso" hidden aria-live="polite">
+    <div class="aviso-caja">
+      <div class="aviso-icono" aria-hidden="true">🫥</div>
+      <div class="aviso-titulo">Tomando la línea base</div>
+      <div class="aviso-texto">Rostro relajado, sin gestos, mirando la pantalla.</div>
+      <div class="aviso-barra"><i id="aviso-progreso"></i></div>
+      <div class="aviso-conteo"><span id="aviso-n">0</span> muestras</div>
+    </div>
+  </div>
+
   <!-- ══ Mensaje seleccionado ══ -->
   <div id="mensaje-salida" class="salida" hidden aria-live="assertive">
     <div class="salida-tarjeta">
@@ -77,6 +88,7 @@
         <div><dt>Rostro detectado</dt><dd id="tasa-deteccion">—</dd></div>
         <div><dt>Línea base</dt><dd id="estado-base">pendiente</dd></div>
         <div><dt>Muestras basales</dt><dd id="sigma-base">—</dd></div>
+        <div><dt>Quietud en calibración</dt><dd id="quietud">—</dd></div>
         <div><dt>Frontalidad</dt><dd id="frontalidad">—</dd></div>
       </dl>
     </section>
@@ -197,6 +209,9 @@
 
     <section class="bloque">
       <h3>Registros</h3>
+      <div class="acciones-admin" style="margin-bottom:.5rem">
+        <button id="btn-recalibrar" class="btn" type="button">Recalibrar línea base</button>
+      </div>
       <div class="acciones-admin">
         <button id="btn-exportar" class="btn btn-secundario" type="button">Exportar</button>
         <button id="btn-borrar" class="btn btn-peligro" type="button">Borrar todo</button>

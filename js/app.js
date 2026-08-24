@@ -121,6 +121,7 @@ async function arrancar() {
     estado.analisisActivo = true;
     estado.baseIniciada = performance.now();
     el("preview-base").hidden = false;
+    el("aviso-base").hidden = false;
     chip(`Calibrando · ${cam.ancho}×${cam.alto}`, "chip-espera");
     requestAnimationFrame(bucle);
 
@@ -169,6 +170,8 @@ function bucle() {
     // El progreso se muestra en la barra superior. Sin esto, una calibración
     // que no avanza es indistinguible de una que va bien.
     chip(`Calibrando · ${n}/${MUESTRAS_MINIMAS_BASE}`, "chip-espera");
+    el("aviso-progreso").style.width = Math.min(100, (n / MUESTRAS_MINIMAS_BASE) * 100) + "%";
+    el("aviso-n").textContent = n;
 
     const porMuestras = n >= MUESTRAS_MINIMAS_BASE && transcurrido >= SEGUNDOS_LINEA_BASE;
     const porTope = transcurridoMs >= MS_TOPE_CALIBRACION && n >= MUESTRAS_ACEPTABLES_BASE;
@@ -177,6 +180,7 @@ function bucle() {
       // Ni siquiera lo mínimo: se explica el motivo y se sigue solo con tablero.
       estado.analisisActivo = false;
       chip("Sin línea base", "chip-error");
+      el("aviso-base").hidden = true;
       el("estado-base").textContent = "no obtenida";
       el("diag").textContent =
         `No se reunieron muestras suficientes en ${MS_TOPE_CALIBRACION / 1000} s ` +
@@ -194,6 +198,19 @@ function bucle() {
       store.crearSesion(base).then((id) => (estado.sesionId = id));
       el("sigma-base").textContent = base.muestras + " muestras";
       el("preview-base").hidden = true;
+      el("aviso-base").hidden = true;
+
+      // La quietud avisa si el rostro se movió durante la calibración. Con un
+      // valor bajo, la referencia describe expresiones y no reposo, y ninguna
+      // expresión posterior alcanzará el umbral.
+      if (base.quietud !== null) {
+        const q = Math.round(base.quietud * 100);
+        el("quietud").textContent = q + " %";
+        if (q < 55) {
+          chip(`Línea base inestable · ${q} %`, "chip-error");
+          el("quietud").title = "Conviene recalibrar con el rostro relajado.";
+        }
+      }
       if (el("estado-base").textContent.startsWith("0")
           || /^\d+\/\d+$/.test(el("estado-base").textContent)) {
         el("estado-base").textContent = "establecida";
@@ -534,6 +551,32 @@ async function refrescarAsociacion() {
 }
 
 /* ══════════════════════ Registros ══════════════════════ */
+
+/**
+ * Rehace la línea base sin recargar.
+ *
+ * Es la salida cuando la referencia salió contaminada: la persona se movió o
+ * gesticuló durante la calibración y a partir de ahí todo se clasifica como
+ * neutro. Sin este botón la única opción era recargar la página.
+ */
+el("btn-recalibrar").addEventListener("click", () => {
+  if (!video.srcObject) return;
+  estado.lineaBase = new LineaBase();
+  estado.suavizador.reiniciar();
+  estado.estabilizador.reiniciar();
+  estado.ventana = new Ventana(8, 0.4);
+  estado.baseIniciada = performance.now();
+  estado.analisisActivo = true;
+  estado.fotogramas = 0;
+  estado.conRostro = 0;
+  estado.descartadosPorPose = 0;
+  el("quietud").textContent = "—";
+  el("estado-base").textContent = "0/" + MUESTRAS_MINIMAS_BASE;
+  el("preview-base").hidden = false;
+  el("aviso-base").hidden = false;
+  abrirPanel(false);
+  requestAnimationFrame(bucle);
+});
 
 el("btn-exportar").addEventListener("click", async () => {
   const json = await store.exportarJSON();

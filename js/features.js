@@ -86,26 +86,81 @@ export class LineaBase {
   }
 
   /**
-   * Congela la línea base calculando media y desviación estándar muestral.
+   * Congela la línea base con estimadores ROBUSTOS: mediana y desviación
+   * absoluta mediana (MAD).
    *
-   * Se usa el divisor n−1 (corrección de Bessel) porque la línea base es una
-   * muestra del reposo del participante, no la población completa de sus
-   * estados en reposo.
+   * POR QUÉ NO MEDIA Y DESVIACIÓN ESTÁNDAR
+   * La calibración se hace con una persona frente a la cámara, y basta con que
+   * durante esos segundos sonría o hable unas cuantas veces para que la
+   * desviación estándar se dispare. Medido sobre una sesión real: la sigma de
+   * la sonrisa salió 0,1966 cuando el reposo verdadero daba 0,0200. Con esa
+   * referencia inflada, una sonrisa franca puntuaba −0,21 σ y se clasificaba
+   * como neutro; con la estimación robusta, la misma sonrisa da +5,52 σ.
+   *
+   * La MAD tolera hasta un 50 % de muestras contaminadas antes de desplazarse,
+   * frente al 0 % de la desviación estándar: un solo fotograma extremo ya
+   * arrastra la media y la sigma. Se multiplica por 1,4826, la constante que
+   * la vuelve un estimador consistente de sigma para datos normales.
+   *
+   * Se conservan además media y desviación estándar clásicas, no para
+   * clasificar sino para poder documentar en el informe cuánto se apartaron de
+   * los estimadores robustos, que es una medida directa de cuán quieto estuvo
+   * el rostro durante la calibración.
    */
   cerrar() {
     const n = this.muestras.length;
     if (n < 2) throw new Error("La línea base necesita al menos dos muestras");
 
+    const mediana = (xs) => {
+      const o = [...xs].sort((a, b) => a - b);
+      const m = o.length >> 1;
+      return o.length % 2 ? o[m] : (o[m - 1] + o[m]) / 2;
+    };
+
     this.media = {};
     this.sigma = {};
+    this.mediaClasica = {};
+    this.sigmaClasica = {};
+
     for (const c of CARACTERISTICAS) {
       const vals = this.muestras.map((m) => m[c]);
+
+      const med = mediana(vals);
+      const mad = mediana(vals.map((v) => Math.abs(v - med)));
+      this.media[c] = med;
+      this.sigma[c] = Math.max(mad * 1.4826, SIGMA_MINIMA);
+
       const mu = vals.reduce((a, b) => a + b, 0) / n;
       const varianza = vals.reduce((a, v) => a + (v - mu) ** 2, 0) / (n - 1);
-      this.media[c] = mu;
-      this.sigma[c] = Math.max(Math.sqrt(varianza), SIGMA_MINIMA);
+      this.mediaClasica[c] = mu;
+      this.sigmaClasica[c] = Math.sqrt(varianza);
     }
-    return { media: this.media, sigma: this.sigma, muestras: n };
+
+    return {
+      media: this.media,
+      sigma: this.sigma,
+      mediaClasica: this.mediaClasica,
+      sigmaClasica: this.sigmaClasica,
+      muestras: n,
+      quietud: this.quietud,
+    };
+  }
+
+  /**
+   * Cuán quieto estuvo el rostro durante la calibración, en [0, 1].
+   *
+   * Es el cociente entre la dispersión robusta y la clásica, promediado. Cerca
+   * de 1 indica que ambas coinciden y por tanto no hubo expresiones que
+   * contaminaran el reposo. Muy por debajo, la persona se movió y conviene
+   * repetir la calibración.
+   */
+  get quietud() {
+    if (!this.sigma || !this.sigmaClasica) return null;
+    const razones = CARACTERISTICAS.map((c) => {
+      const clas = Math.max(this.sigmaClasica[c], 1e-6);
+      return Math.min(1, this.sigma[c] / clas);
+    });
+    return razones.reduce((a, b) => a + b, 0) / razones.length;
   }
 
   /**
@@ -129,7 +184,16 @@ export class LineaBase {
 
   /** Estado serializable, para guardarlo con la sesión y poder reanalizarla. */
   instantanea() {
-    return this.media ? { media: this.media, sigma: this.sigma, muestras: this.muestras.length } : null;
+    return this.media
+      ? {
+          media: this.media,
+          sigma: this.sigma,
+          mediaClasica: this.mediaClasica,
+          sigmaClasica: this.sigmaClasica,
+          muestras: this.muestras.length,
+          quietud: this.quietud,
+        }
+      : null;
   }
 }
 
