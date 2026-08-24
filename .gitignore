@@ -12,4 +12,7 @@ Thumbs.db
 # package.json declara el tipo de modulo y el atajo de pruebas: es codigo del
 # proyecto, no un registro de sesion, y la regla general de arriba lo excluia.
 !package.json
+# Procedencia de los pictogramas: es codigo del proyecto, no un registro de
+# sesion, y la regla general de arriba lo excluia.
+!assets/pictogramas/fuente.json
 sesiones/

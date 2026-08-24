@@ -1,0 +1,50 @@
+{
+  "agua": {
+    "id": 2248,
+    "palabra": "agua"
+  },
+  "comer": {
+    "id": 2349,
+    "palabra": "comer, tomar"
+  },
+  "bano": {
+    "id": 6929,
+    "palabra": "cuarto de bano, bano"
+  },
+  "ayuda": {
+    "id": 12252,
+    "palabra": "apoyo, ayuda, colaboracion"
+  },
+  "jugar": {
+    "id": 2439,
+    "palabra": "jugar"
+  },
+  "no": {
+    "id": 5526,
+    "palabra": "no"
+  },
+  "dormir": {
+    "id": 2369,
+    "palabra": "dormir"
+  },
+  "musica": {
+    "id": 2746,
+    "palabra": "escuchar musica, oir musica"
+  },
+  "afuera": {
+    "id": 2806,
+    "palabra": "salir"
+  },
+  "abrazo": {
+    "id": 4550,
+    "palabra": "abrazo"
+  },
+  "mas": {
+    "id": 32753,
+    "palabra": "quiero mas, dame mas, querer mas"
+  },
+  "termine": {
+    "id": 28429,
+    "palabra": "terminar, acabar, finalizar"
+  }
+}

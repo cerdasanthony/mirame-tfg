@@ -224,6 +224,28 @@ Anthony Steven Cerdas Chacón · 2026
 
 ---
 
+## Pictogramas
+
+El tablero usa pictogramas de **ARASAAC**, el repertorio del Gobierno de Aragón,
+que es el de uso extendido en comunicación aumentativa en español. Se eligió
+frente a dibujos hechos para la ocasión por dos motivos: son concretos y a color,
+que es lo que un niño puede reconocer sin que se lo expliquen, y son un
+repertorio contrastado con la práctica, lo que hace la decisión defendible en el
+informe.
+
+Las imágenes están descargadas en `assets/pictogramas/` y no se piden a la red,
+porque sin ellas el tablero es inutilizable sin conexión. El identificador de
+cada una en ARASAAC queda registrado en `js/pictogramas.js` y en
+`assets/pictogramas/fuente.json`, para poder rastrear su origen o sustituirlas
+sin repetir la búsqueda.
+
+> Pictogramas: Sergio Palao. Origen: ARASAAC (arasaac.org).
+> Propiedad del Gobierno de Aragón. Licencia CC BY-NC-SA.
+
+La atribución es obligatoria por licencia y aparece también en el panel del
+cuidador. La licencia es no comercial, lo que es compatible con el carácter
+académico de este trabajo pero condiciona cualquier uso posterior.
+
 ## Dependencias
 
 Una sola, cargada desde CDN:

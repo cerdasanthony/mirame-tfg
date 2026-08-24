@@ -15,7 +15,7 @@
  * lugar de quedarse vacia.
  */
 
-import { dibujo } from "./pictogramas.js";
+import { imagen } from "./pictogramas.js";
 
 export const CATEGORIAS = {
   necesidad: { etiqueta: "Necesidad", tono: "#1D7A8C", cara: "#E4F4F7", canto: "#10505D", disco: "#C6E9EF" },
@@ -103,12 +103,14 @@ export class Tablero {
         b.classList.add("picto-sugerido");
         b.setAttribute("aria-label", p.frase + " (sugerido por el sistema)");
       }
-      // El dibujo si existe; el emoji como respaldo.
-      const arte = dibujo(p.clave);
+      /* El pictograma si existe; el emoji como respaldo, para que una clave sin
+         imagen muestre algo en vez de dejar la tecla vacia. La imagen es
+         decorativa: la tecla ya lleva aria-label con la frase completa. */
+      const img = imagen(p.clave);
       b.innerHTML =
         (sugerido ? '<span class="picto-marca" aria-hidden="true"></span>' : "") +
-        `<span class="picto-icono${arte ? " picto-dibujo" : ""}" aria-hidden="true">` +
-        (arte ?? p.icono) +
+        `<span class="picto-icono${img ? " picto-dibujo" : ""}" aria-hidden="true">` +
+        (img ? `<img src="${img}" alt="" draggable="false" decoding="async">` : p.icono) +
         `</span>` +
         `<span class="picto-etiqueta">${p.etiqueta}</span>`;
       b.addEventListener("click", () => {

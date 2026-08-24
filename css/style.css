@@ -219,7 +219,15 @@ button { font: inherit; cursor: pointer; }
    encima, el 100 % del SVG resolvia contra esos cero pixeles y el dibujo se
    renderizaba a 0x0: las teclas salian con el disco vacio.
    Se dimensiona el SVG directamente, que resuelve contra el disco. */
-.picto-dibujo svg { display: block; width: 64%; height: 64%; }
+/* El pictograma va dentro del disco de categoria. Al 72 % cabe entero en el
+   circulo —un cuadrado inscrito ocupa el 70,7 % del diametro— sin que las
+   esquinas del dibujo se salgan por los lados. */
+.picto-dibujo img {
+  display: block; width: 72%; height: 72%;
+  object-fit: contain;
+  /* Evita que un toque largo sobre el pictograma ofrezca guardar la imagen. */
+  pointer-events: none; user-select: none; -webkit-user-drag: none;
+}
 
 .picto-icono {
   display: grid; place-items: center;

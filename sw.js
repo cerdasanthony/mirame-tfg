@@ -8,7 +8,7 @@
  * estando en linea y se conserva el funcionamiento sin conexion, que es lo que
  * exige el RNF-05. */
 
-const CACHE = "mirame-v23";
+const CACHE = "mirame-v24";
 const ARMAZON = [
   "./",
   "./index.html",
@@ -29,6 +29,19 @@ const ARMAZON = [
   "./assets/icon-192.png",
   "./assets/icon-512.png",
   "./assets/icon-maskable-512.png",
+  /* Pictogramas: sin ellos el tablero es inutilizable sin conexion. */
+  "./assets/pictogramas/abrazo.png",
+  "./assets/pictogramas/afuera.png",
+  "./assets/pictogramas/agua.png",
+  "./assets/pictogramas/ayuda.png",
+  "./assets/pictogramas/bano.png",
+  "./assets/pictogramas/comer.png",
+  "./assets/pictogramas/dormir.png",
+  "./assets/pictogramas/jugar.png",
+  "./assets/pictogramas/mas.png",
+  "./assets/pictogramas/musica.png",
+  "./assets/pictogramas/no.png",
+  "./assets/pictogramas/termine.png",
 ];
 
 /* Precarga tolerante a fallos individuales.
