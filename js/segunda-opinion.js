@@ -35,6 +35,23 @@ let listo = false;
 
 export const estado = { disponible: false, motivo: null, evaluaciones: 0 };
 
+/**
+ * DESACTIVADA POR DEFECTO.
+ *
+ * El segundo clasificador corre sobre TensorFlow.js, que compite con MediaPipe
+ * por el contexto WebGL, y cada consulta exige copiar el fotograma del video a
+ * un lienzo. En dispositivos de gama media eso degrada la detección facial del
+ * clasificador principal —observado en pruebas: el telefono dejaba de detectar
+ * rostro con la segunda opinion activa y volvia a funcionar sin ella—.
+ *
+ * Es instrumentación de investigación, no funcion esencial: sirve para medir el
+ * acuerdo entre clasificadores durante sesiones de calibración, no para el uso
+ * cotidiano del comunicador. Se enciende desde el panel cuando hace falta.
+ */
+const CLAVE_HABILITADA = "mirame.segundaOpinion";
+export const habilitada = () => localStorage.getItem(CLAVE_HABILITADA) === "1";
+export const habilitar = (v) => localStorage.setItem(CLAVE_HABILITADA, v ? "1" : "0");
+
 /* Lienzo reutilizado para el recorte, para no crear uno por fotograma. */
 const lienzo = document.createElement("canvas");
 lienzo.width = LADO;

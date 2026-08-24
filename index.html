@@ -83,6 +83,16 @@
 
     <section class="bloque">
       <h3>Segunda opinión</h3>
+      <label class="interruptor">
+        <input type="checkbox" id="segunda-habilitada">
+        <span>Activar segundo clasificador</span>
+      </label>
+      <p class="nota" style="margin-top:.6rem">
+        Desactivado por defecto. Compite con MediaPipe por la GPU y en
+        dispositivos de gama media degrada la detección facial. Es instrumentación
+        para medir el acuerdo entre clasificadores durante la calibración, no una
+        función necesaria para comunicarse. Requiere recargar.
+      </p>
       <div class="estado-fila">
         <span id="segunda-categoria" class="estado-badge">—</span>
         <span id="estado-segunda" class="estado-valor">cargando…</span>
@@ -96,6 +106,18 @@
         Un segundo modelo preentrenado clasifica el rostro recortado por un camino
         independiente del análisis geométrico. El acuerdo entre ambos es una medida
         de fiabilidad que no requiere disponer de una verdad de referencia.
+      </p>
+    </section>
+
+    <section class="bloque">
+      <h3>Señal · puntuaciones z</h3>
+      <p class="dato" style="margin-top:0">Compuesto: <strong id="compuesto">—</strong></p>
+      <div id="senal" class="blendshapes"><p class="vacio">Sin datos todavía.</p></div>
+      <p class="nota">
+        Desviación de cada característica respecto del reposo de esta sesión, en
+        sigmas. Si al hacer una mueca los valores no se mueven, el problema está
+        en la captura; si se mueven pero el compuesto sigue cerca de cero, se
+        están cancelando entre sí y hay que revisar los pesos.
       </p>
     </section>
 

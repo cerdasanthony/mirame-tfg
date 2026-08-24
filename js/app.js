@@ -57,6 +57,14 @@ const MS_SEGUNDA_OPINION = 400;
    treinta por segundo llenaría el almacenamiento sin aportar información. */
 const MS_MUESTRA = 250;
 
+/* Refresco de la instrumentación del panel.
+   El bucle corre a la velocidad de la cámara, pero el panel es para lectura
+   humana y no necesita treinta actualizaciones por segundo. Escribir el DOM en
+   cada fotograma —y peor, con el panel cerrado— gasta presupuesto de cuadro que
+   en una tablet modesta se le quita a la detección facial, que es lo unico que
+   de verdad tiene que ir rapido. */
+const MS_PANEL = 200;
+
 const el = (id) => document.getElementById(id);
 const video = el("video");
 
@@ -68,6 +76,8 @@ const estado = {
   estabilizador: new Estabilizador({ dwellMs: 500, factorRetroceso: 0.5 }),
   ultimoFotograma: 0,
   ultimaMuestra: 0,
+  ultimoPanel: 0,
+  panelAbierto: false,
   descartadosPorPose: 0,
   acuerdo: new segunda.Acuerdo(),
   ultimaSegunda: 0,
@@ -114,11 +124,16 @@ async function arrancar() {
     chip(`Calibrando · ${cam.ancho}×${cam.alto}`, "chip-espera");
     requestAnimationFrame(bucle);
 
-    // Se carga en segundo plano: si falla, el sistema sigue con un solo modelo.
-    segunda.init().then((ok) => {
-      el("estado-segunda").textContent = ok ? "activa" : "no disponible";
-      if (!ok) el("estado-segunda").title = segunda.estado.motivo ?? "";
-    });
+    // Solo si el cuidador la encendió: compite con MediaPipe por la GPU.
+    if (segunda.habilitada()) {
+      el("estado-segunda").textContent = "cargando…";
+      segunda.init().then((ok) => {
+        el("estado-segunda").textContent = ok ? "activa" : "no disponible";
+        if (!ok) el("estado-segunda").title = segunda.estado.motivo ?? "";
+      });
+    } else {
+      el("estado-segunda").textContent = "desactivada";
+    }
   } catch (e) {
     chip("Sin análisis facial", "chip-error");
     el("bloque-facial").style.opacity = ".45";
@@ -198,7 +213,7 @@ function bucle() {
     estado.suavizador.reiniciar();
     estado.ultimoFotograma = 0;
     aplicarHeuristica(null);
-    pintarPanel(null, null, null, null);
+    if (tocaPintar()) pintarPanel(null, null, null, null);
   } else {
     const frente = frontalidad(r.landmarks);
     if (frente < FRONTALIDAD_MINIMA) {
@@ -206,7 +221,7 @@ function bucle() {
       estado.descartadosPorPose++;
       estado.ventana.agregarDescartado();
       aplicarHeuristica(null);
-      pintarPanel(null, null, r.blendshapes, frente);
+      if (tocaPintar()) pintarPanel(null, null, r.blendshapes, frente);
     } else {
       estado.conRostro++;
       const ahora = performance.now();
@@ -237,23 +252,26 @@ function bucle() {
 
       aplicarHeuristica(c.estado);
       consultarSegundaOpinion(r.landmarks, c.estado);
-      const discrepa =
-        estado.segundaCategoria !== null &&
-        segunda.colapsar(c.estado) !== estado.segundaCategoria;
 
-      pintarPanel(c.estado, c.puntaje, r.blendshapes, frente, c.incierto || discrepa);
+      if (tocaPintar(ahora)) {
+        const discrepa =
+          estado.segundaCategoria !== null &&
+          segunda.colapsar(c.estado) !== estado.segundaCategoria;
+        pintarPanel(c.estado, c.puntaje, r.blendshapes, frente, c.incierto || discrepa);
+        pintarSenal(norm, c);
+      }
     }
   }
 
-  const tasa = Math.round((estado.conRostro / estado.fotogramas) * 100);
-  el("tasa-deteccion").textContent = tasa + " %";
-  el("diag").textContent = diagTexto();
-
-  // La tasa se refleja en la barra: por debajo del umbral de la ventana las
-  // selecciones quedan sin estado, y conviene verlo sin abrir el panel.
-  if (estado.fotogramas % 15 === 0) {
-    const bajo = tasa < 40;
-    chip(`Rostro ${tasa} %`, bajo ? "chip-espera" : "chip-activa");
+  // La barra superior sí se actualiza siempre, pero a ritmo bajo: es el único
+  // indicador visible cuando el panel está cerrado, que es el uso normal.
+  if (estado.fotogramas % 30 === 0) {
+    const tasa = Math.round((estado.conRostro / estado.fotogramas) * 100);
+    chip(`Rostro ${tasa} %`, tasa < 40 ? "chip-espera" : "chip-activa");
+    if (estado.panelAbierto) {
+      el("tasa-deteccion").textContent = tasa + " %";
+      el("diag").textContent = diagTexto();
+    }
   }
 
   requestAnimationFrame(bucle);
@@ -276,6 +294,7 @@ function consultarSegundaOpinion(landmarks, estadoPrincipal) {
     estado.segundaCategoria = op.categoria;
     estado.acuerdo.registrar(estadoPrincipal, op.categoria);
 
+    if (!estado.panelAbierto) return;
     const prop = estado.acuerdo.proporcion;
     const k = estado.acuerdo.kappa;
     el("acuerdo").textContent = prop === null ? "—" : Math.round(prop * 100) + " %";
@@ -295,14 +314,31 @@ function consultarSegundaOpinion(landmarks, estadoPrincipal) {
 function aplicarHeuristica(estadoObservable) {
   const r = estado.heuristica.actualizar(estadoObservable);
 
-  el("barra-heuristica").style.width = Math.round(r.progreso * 100) + "%";
-  el("estado-sostenido").textContent = r.estado ?? "—";
+  if (estado.panelAbierto) {
+    el("barra-heuristica").style.width = Math.round(r.progreso * 100) + "%";
+    el("estado-sostenido").textContent = r.estado ?? "—";
+  }
 
+  // El reordenamiento del tablero sí se aplica siempre: es la funcionalidad,
+  // no instrumentación.
   if (r.promovido !== estado.ultimaPromocion) {
     estado.ultimaPromocion = r.promovido;
     tablero.render(r.promovido);
     el("sugerencia-actual").textContent = r.promovido ?? "ninguna";
   }
+}
+
+/**
+ * ¿Toca refrescar la instrumentación?
+ *
+ * Con el panel cerrado —el uso normal— no se escribe nada: los nodos no están
+ * a la vista y cada escritura cuesta presupuesto de cuadro.
+ */
+function tocaPintar(ahora = performance.now()) {
+  if (!estado.panelAbierto) return false;
+  if (ahora - estado.ultimoPanel < MS_PANEL) return false;
+  estado.ultimoPanel = ahora;
+  return true;
 }
 
 function diagTexto() {
@@ -352,6 +388,29 @@ function pintarPanel(e, puntaje, blendshapes, frente, incierto = false) {
   barra.style.background = puntaje < 0 ? "#e11d48" : "#16a34a";
 
   if (blendshapes) pintarBlendshapes(blendshapes);
+}
+
+/**
+ * Muestra las puntuaciones z de cada característica y el compuesto.
+ *
+ * Sin esto es imposible distinguir "el rostro no cambia" de "el rostro cambia
+ * pero la señal se cancela o se atenúa antes de llegar al umbral".
+ */
+function pintarSenal(z, c) {
+  const filas = Object.entries(z)
+    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+    .slice(0, 7)
+    .map(([k, v]) => {
+      const ancho = Math.min(100, Math.abs(v) * 12);
+      const color = v >= 0 ? "#3f8f3a" : "#b03a55";
+      return `<div class="bs"><span>${k}</span>` +
+        `<div class="bs-barra"><i style="width:${ancho}%;background:${color}"></i></div>` +
+        `<span>${v >= 0 ? "+" : ""}${v.toFixed(1)}</span></div>`;
+    })
+    .join("");
+  el("senal").innerHTML = filas;
+  el("compuesto").textContent =
+    `${c.puntaje >= 0 ? "+" : ""}${c.puntaje.toFixed(2)} σ  ·  crudo ${c.puntajeCrudo.toFixed(2)}`;
 }
 
 function pintarBlendshapes(blendshapes) {
@@ -443,6 +502,8 @@ el("btn-pagina").addEventListener("click", () => {
 /* ══════════════════════ Panel del cuidador ══════════════════════ */
 
 function abrirPanel(abierto) {
+  estado.panelAbierto = abierto;
+  estado.ultimoPanel = 0;
   el("panel").hidden = !abierto;
   el("velo").hidden = !abierto;
   el("btn-panel").setAttribute("aria-expanded", String(abierto));
@@ -547,6 +608,17 @@ function montarControlesHeuristica() {
   });
 }
 
+function montarSegundaOpinion() {
+  const c = el("segunda-habilitada");
+  c.checked = segunda.habilitada();
+  c.addEventListener("change", (e) => {
+    segunda.habilitar(e.target.checked);
+    el("estado-segunda").textContent = e.target.checked
+      ? "se activará al recargar"
+      : "desactivada al recargar";
+  });
+}
+
 function montarControlesUmbrales() {
   el("u-frontalidad").value = FRONTALIDAD_MINIMA;
   el("u-frontalidad").addEventListener("change", (e) => {
@@ -574,6 +646,7 @@ function montarControlesUmbrales() {
   pintar();
 }
 
+montarSegundaOpinion();
 montarControlesUmbrales();
 montarControlesHeuristica();
 arrancar();
