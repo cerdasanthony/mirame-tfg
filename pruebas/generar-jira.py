@@ -25,7 +25,7 @@ Parent, que cualquier importador acepta. Deja de depender de que campos ofrezca.
     python generar-jira.py backlog-y-sprints.md historias 2-historias.csv MIRAME 1
 """
 
-import csv, io, re, sys
+import csv, io, os, re, sys
 from datetime import date
 
 ANIO_INICIO = 2026   # ago-dic
@@ -135,9 +135,93 @@ def estado_de(texto):
     return "To Do", ""
 
 
+def texto_requerimientos(ruta_docx):
+    """
+    Texto completo de cada requerimiento, leido del documento de especificacion.
+
+    POR QUE SE LEE DEL DOCUMENTO Y NO SE COPIA AQUI
+    El backlog solo tiene el titulo corto de cada requerimiento, y con eso la
+    descripcion de la tarjeta queda en puro metadato: el sprint y las fechas.
+    Quien la abre no sabe que hay que hacer sin ir a buscar el documento aparte.
+
+    El texto vive en el documento de requerimientos, que es su fuente. Copiarlo
+    aqui garantizaria que las dos versiones se separen en cuanto se corrija una.
+    Se lee del .docx directamente, que es un ZIP con XML dentro, sin necesidad de
+    ninguna biblioteca externa.
+
+    Si el documento no esta donde se espera devuelve vacio y las tarjetas salen
+    como antes: es informacion que enriquece, no de la que se depende.
+    """
+    try:
+        import zipfile
+        x = zipfile.ZipFile(ruta_docx).read("word/document.xml").decode("utf-8")
+    except Exception:
+        return {}
+
+    x = x.replace("</w:tc>", "\x00").replace("</w:tr>", "\n")
+    x = re.sub(r"<[^>]+>", "", x)
+    for a, b in (("&amp;", "&"), ("&lt;", "<"), ("&gt;", ">"), ("&quot;", '"')):
+        x = x.replace(a, b)
+
+    PRIORIDADES = {"alta", "media", "baja"}
+    fuera = {}
+    for fila in x.split("\n"):
+        celdas = [c.strip() for c in fila.split("\x00") if c.strip()]
+        if len(celdas) < 2 or not re.match(r"^(RF|RNF)-\d+$", celdas[0]):
+            continue
+        # Las filas de requerimientos no funcionales llevan una columna de
+        # categoria antes del texto, asi que no sirve tomar siempre la segunda:
+        # se toma la celda mas larga que no sea la prioridad.
+        candidatas = [c for c in celdas[1:] if c.lower() not in PRIORIDADES]
+        if candidatas:
+            fuera[celdas[0]] = max(candidatas, key=len)
+    return fuera
+
+
+def implementaciones(ruta_md):
+    """Archivo que implementa cada requerimiento, segun la matriz de trazabilidad."""
+    try:
+        s = io.open(ruta_md, encoding="utf-8").read()
+    except Exception:
+        return {}
+    fuera = {}
+    for m in re.finditer(r"\|\s*(RF-\d+)\s*\|[^|]*\|\s*([^|]*?)\s*\|", s):
+        d = m.group(2).replace("`", "").strip()
+        if d and d != "—":
+            fuera[m.group(1)] = d
+    return fuera
+
+
+def etapas_dsr(s):
+    """
+    Etapa de Design Science Research de cada sprint, del calendario del backlog.
+
+    Las tareas sin numero de requerimiento —redactar un capitulo, conseguir el
+    soporte, pedir un permiso— no tienen un texto de especificacion del que
+    tirar, y su descripcion se quedaba en el sprint y las fechas. La etapa las
+    situa en el metodo: saber que «conseguir la fuente metodologica» cae en
+    identificacion del problema y no en evaluacion cambia como se prioriza.
+
+    Es ademas lo que la rubrica llama coherencia entre objetivos, planificacion y
+    avances, visible desde la propia tarjeta.
+    """
+    fuera = {}
+    for m in re.finditer(r"\|\s*(\d+)\s*\|[^|]*\|\s*([^|]+?)\s*\|", s):
+        etapa = m.group(2).strip()
+        if etapa and not re.match(r"^\d", etapa) and "Fechas" not in etapa:
+            fuera["Sprint " + m.group(1)] = etapa
+    return fuera
+
+
 def leer(origen):
     """Devuelve (epicas, historias) a partir del backlog."""
+    base = os.path.dirname(os.path.abspath(origen))
+    aqui = os.path.dirname(os.path.abspath(__file__))
+    textos = texto_requerimientos(os.path.join(base, "documento-requerimientos.docx"))
+    donde = implementaciones(os.path.join(aqui, "..", "docs", "trazabilidad.md"))
+
     s = io.open(origen, encoding="utf-8").read()
+    etapas = etapas_dsr(s)
     patron = "## (Sprint \\d+) · ([^\\n·]+) · ([^\\n]+)\\n+```\\n(.*?)```"
     bloques = re.findall(patron, s, re.S)
     if not bloques:
@@ -153,10 +237,22 @@ def leer(origen):
         for linea in [l.strip() for l in cuerpo.strip().split("\n") if l.strip()]:
             estado, nota = estado_de(linea)
             rf = re.match(r"(RF-\d+|RNF-\d+)\s+", linea)
+            clave = rf.group(1) if rf else None
+
+            # La descripcion se arma para que la tarjeta se entienda sola: que
+            # pide el requerimiento, en que sprint va, donde vive si ya existe y
+            # que le falta si esta a medias.
             desc = []
-            if rf:
-                desc.append("Requerimiento " + rf.group(1) + ".")
-            desc.append(nombre + " · " + titulo.strip() + " (" + fechas.strip() + ").")
+            if clave and clave in textos:
+                desc.append(clave + ": " + textos[clave])
+            elif clave:
+                desc.append("Requerimiento " + clave + ".")
+            contexto = nombre + " · " + titulo.strip() + " (" + fechas.strip() + ")."
+            if nombre in etapas:
+                contexto += " Etapa DSR: " + etapas[nombre] + "."
+            desc.append(contexto)
+            if clave and clave in donde and estado != "To Do":
+                desc.append("Implementado en " + donde[clave] + ".")
             if nota:
                 desc.append("Pendiente: " + nota)
             historias.append({
