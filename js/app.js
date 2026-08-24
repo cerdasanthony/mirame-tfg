@@ -21,7 +21,13 @@ import { Heuristica, guardarConfig } from "./heuristica.js";
 import { extraerAU, CANALES_AU, PerfilExpresividad, evidenciaPositiva, evidenciaNegativa } from "./facs.js";
 import { DetectorFasico } from "./microexpresiones.js";
 
-const SEGUNDOS_LINEA_BASE = 5;
+/* Duracion minima de la linea base.
+   Baja de 5 s a 3 s. El numero de muestras, no el tiempo, es lo que sostiene la
+   mediana y la MAD, y ese minimo no se toca. Los segundos solo servian para que
+   la referencia abarcara algo de deriva lenta, y estirarlos con un nino delante
+   no consigue mas deriva: consigue que se mueva, que es justo lo que contamina
+   la referencia. La quietud medida sigue avisando si eso pasa. */
+const SEGUNDOS_LINEA_BASE = 3;
 const MUESTRAS_MINIMAS_BASE = 15;
 const MS_SALIDA = 2600;
 

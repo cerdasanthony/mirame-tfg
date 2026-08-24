@@ -302,28 +302,52 @@ button { font: inherit; cursor: pointer; }
 /* La instrucción tiene que ser imposible de pasar por alto. Sin ella, la
    persona se mueve o gesticula durante la calibración, la dispersión del reposo
    se infla y a partir de ahí ninguna expresión alcanza el umbral. */
+/* AVISO DE CALIBRACION
+   Era un modal a pantalla completa, con velo oscuro y desenfoque, que tapaba el
+   tablero entero mientras se tomaba la linea base.
+
+   Eso contradecia la condicion de diseno del propio sistema: el analisis facial
+   es una capa anadida y el comunicador tiene que seguir funcionando pase lo que
+   pase con ella (RNF-09). Bloquear el tablero para calibrar la camara es
+   exactamente impedir comunicarse por una razon que no le importa a quien se
+   esta comunicando. Y un nino no espera: toca cuando quiere tocar.
+
+   Ahora es una tira discreta abajo, sin velo y sin capturar toques: informa a
+   quien acompana y deja el tablero intacto. Si el nino selecciona antes de que
+   la linea base este lista, la seleccion se registra igual y queda marcada como
+   «datos insuficientes», que es justo lo que RF-27 pide. */
 .aviso {
-  position: fixed; inset: 0; z-index: 55;
-  display: grid; place-items: center;
-  background: rgba(43, 33, 24, .5);
-  backdrop-filter: blur(3px);
+  position: fixed; z-index: 55;
+  left: 50%; transform: translateX(-50%);
+  bottom: clamp(.6rem, 2vh, 1.2rem);
+  /* Los toques atraviesan el aviso y llegan al pictograma de debajo. */
+  pointer-events: none;
+  max-width: min(94vw, 460px);
 }
 .aviso[hidden] { display: none; }
 .aviso-caja {
-  background: var(--superficie);
-  border-radius: 32px;
-  border-bottom: 8px solid var(--papel-hondo);
-  padding: 2rem 2.6rem;
-  text-align: center;
-  box-shadow: var(--sombra-alta);
-  max-width: min(88vw, 420px);
+  display: flex; align-items: center; gap: .8rem;
+  background: rgba(255, 255, 255, .94);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--linea);
+  border-radius: 99px;
+  padding: .5rem .95rem .5rem .75rem;
+  box-shadow: 0 6px 22px rgba(43, 33, 24, .16);
 }
-.aviso-icono { font-size: 3.4rem; line-height: 1; }
-.aviso-titulo { font-size: 1.3rem; font-weight: 800; margin-top: .5rem; letter-spacing: -.02em; }
-.aviso-texto { font-size: .95rem; color: var(--tinta-2); margin-top: .5rem; line-height: 1.5; }
-.aviso-barra { height: 10px; background: var(--papel-hondo); border-radius: 99px; margin: 1.2rem 0 .5rem; overflow: hidden; }
+.aviso-icono { font-size: 1.5rem; line-height: 1; flex: none; }
+.aviso-titulo { font-size: .9rem; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
+/* La instruccion larga sobra en una tira: quien acompana ya la leyo la primera
+   vez y el nino no la lee. Se conserva en el DOM para lectores de pantalla. */
+.aviso-texto {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+.aviso-barra {
+  flex: 1; min-width: 70px; height: 7px;
+  background: var(--papel-hondo); border-radius: 99px; overflow: hidden;
+}
 .aviso-barra i { display: block; height: 100%; width: 0; background: var(--acento); transition: width 120ms linear; }
-.aviso-conteo { font-size: .78rem; color: var(--tinta-3); font-variant-numeric: tabular-nums; }
+.aviso-conteo { font-size: .74rem; color: var(--tinta-3); font-variant-numeric: tabular-nums; flex: none; }
 
 /* ═════════════════════════ Panel del cuidador ═════════════════════════ */
 
