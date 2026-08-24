@@ -1,0 +1,8 @@
+{
+  "name": "mirame-tfg",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prueba": "node pruebas/deteccion-fasica.mjs"
+  }
+}

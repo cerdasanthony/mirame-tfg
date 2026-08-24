@@ -9,4 +9,7 @@ Thumbs.db
 # Registros de sesion exportados: contienen datos del participante
 *.json
 !manifest.json
+# package.json declara el tipo de modulo y el atajo de pruebas: es codigo del
+# proyecto, no un registro de sesion, y la regla general de arriba lo excluia.
+!package.json
 sesiones/
