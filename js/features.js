@@ -66,7 +66,14 @@ const SIGMA_MINIMA = 0.02;
  * característica.
  */
 export class LineaBase {
-  constructor() {
+  /**
+   * @param {string[]} canales Claves sobre las que se calcula la referencia.
+   *   Por defecto, las siete características observables. El módulo de FACS usa
+   *   la misma clase sobre sus propios canales de Unidades de Acción: la
+   *   estadística robusta es la misma y no tiene sentido duplicarla.
+   */
+  constructor(canales = CARACTERISTICAS) {
+    this.canales = canales;
     this.muestras = [];
     this.media = null;
     this.sigma = null;
@@ -122,7 +129,7 @@ export class LineaBase {
     this.mediaClasica = {};
     this.sigmaClasica = {};
 
-    for (const c of CARACTERISTICAS) {
+    for (const c of this.canales) {
       const vals = this.muestras.map((m) => m[c]);
 
       const med = mediana(vals);
@@ -156,7 +163,7 @@ export class LineaBase {
    */
   get quietud() {
     if (!this.sigma || !this.sigmaClasica) return null;
-    const razones = CARACTERISTICAS.map((c) => {
+    const razones = this.canales.map((c) => {
       const clas = Math.max(this.sigmaClasica[c], 1e-6);
       return Math.min(1, this.sigma[c] / clas);
     });
@@ -173,10 +180,10 @@ export class LineaBase {
   normalizar(caracteristicas) {
     const out = {};
     if (!this.media) {
-      for (const c of CARACTERISTICAS) out[c] = 0;
+      for (const c of this.canales) out[c] = 0;
       return out;
     }
-    for (const c of CARACTERISTICAS) {
+    for (const c of this.canales) {
       out[c] = (caracteristicas[c] - this.media[c]) / this.sigma[c];
     }
     return out;
