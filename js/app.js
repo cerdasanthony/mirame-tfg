@@ -98,6 +98,8 @@ function bucle() {
       el("preview-base").hidden = true;
       el("estado-base").textContent = "establecida";
       chip("Análisis activo", "chip-activa");
+      estado.fotogramas = 0;
+      estado.conRostro = 0;
     }
     return requestAnimationFrame(bucle);
   }
@@ -114,9 +116,16 @@ function bucle() {
     pintarPanel(null, null, null);
   }
 
-  el("tasa-deteccion").textContent =
-    Math.round((estado.conRostro / estado.fotogramas) * 100) + " %";
+  const tasa = Math.round((estado.conRostro / estado.fotogramas) * 100);
+  el("tasa-deteccion").textContent = tasa + " %";
   el("diag").textContent = diagTexto();
+
+  // La tasa se refleja en la barra: por debajo del umbral de la ventana las
+  // selecciones quedan sin estado, y conviene verlo sin abrir el panel.
+  if (estado.fotogramas % 15 === 0) {
+    const bajo = tasa < 40;
+    chip(`Rostro ${tasa} %`, bajo ? "chip-espera" : "chip-activa");
+  }
 
   requestAnimationFrame(bucle);
 }

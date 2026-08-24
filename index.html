@@ -26,6 +26,13 @@
       </span>
     </div>
 
+    <div id="preview" class="preview" hidden>
+      <video id="video" playsinline muted autoplay></video>
+      <div id="preview-base" class="preview-base" hidden>
+        <i id="barra-base"></i>
+      </div>
+    </div>
+
     <button id="btn-panel" class="btn-icono" type="button" aria-expanded="false" aria-controls="panel">
       <span aria-hidden="true">☰</span>
       <span class="btn-icono-texto">Cuidador</span>
@@ -106,13 +113,6 @@
   <div id="velo" class="velo" hidden></div>
 
   <!-- ══ Vista previa de cámara ══ -->
-  <div id="preview" class="preview" hidden>
-    <video id="video" playsinline muted autoplay></video>
-    <div id="preview-base" class="preview-base" hidden>
-      <i id="barra-base"></i>
-    </div>
-  </div>
-
   <script type="module" src="./js/app.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
