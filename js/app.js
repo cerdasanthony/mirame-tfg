@@ -26,7 +26,27 @@ const MS_SALIDA = 2600;
 /* Por debajo de esta frontalidad el rostro esta demasiado girado y los
    blendshapes dejan de ser confiables. El fotograma se descarta en lugar de
    producir una clasificacion mala. Requiere calibracion. */
-const FRONTALIDAD_MINIMA = 0.55;
+/* Frontalidad mínima para aceptar un fotograma en la clasificación.
+   Medido: una nariz apenas descentrada da 0.52, y un perfil real 0.25. El
+   valor anterior de 0.55 caía justo en medio y descartaba giros leves que son
+   perfectamente utilizables. Es un parámetro de calibración y se ajusta desde
+   el panel. */
+const CLAVE_FRONTALIDAD = "mirame.frontalidad";
+let FRONTALIDAD_MINIMA = Number(localStorage.getItem(CLAVE_FRONTALIDAD)) || 0.45;
+
+/* Para la línea base se acepta un rostro bastante más ladeado que para
+   clasificar. El motivo es que la línea base debe capturar el reposo TAL COMO
+   ES: si la postura habitual del participante es algo girada, esa es su
+   referencia. Exigir aquí el mismo rigor que en la clasificación deja la
+   calibración sin muestras y el sistema no arranca nunca. */
+const FRONTALIDAD_BASE = 0.30;
+
+/* Tope de paciencia de la calibración. Pasado este tiempo se cierra con lo que
+   haya, siempre que alcance para calcular una desviación estándar util, y se
+   deja constancia de que la referencia es de calidad reducida. Una línea base
+   imperfecta es mucho mejor que una aplicación colgada en "Calibrando". */
+const MS_TOPE_CALIBRACION = 15000;
+const MUESTRAS_ACEPTABLES_BASE = 6;
 
 /* La segunda opinion corre a ritmo bajo: es una red convolucional sobre el
    recorte del rostro y no hace falta consultarla en cada fotograma para medir
@@ -118,25 +138,51 @@ function bucle() {
   if (r === undefined) return requestAnimationFrame(bucle);
 
   if (!estado.lineaBase.establecida) {
-    if (r && frontalidad(r.landmarks) >= FRONTALIDAD_MINIMA) {
+    const fr = r ? frontalidad(r.landmarks) : null;
+    if (fr !== null) el("frontalidad").textContent = Math.round(fr * 100) + " %";
+    if (r && fr >= FRONTALIDAD_BASE) {
       estado.lineaBase.agregar(extract(r.blendshapes));
     }
-    const transcurrido = (performance.now() - estado.baseIniciada) / 1000;
+    const transcurridoMs = performance.now() - estado.baseIniciada;
+    const transcurrido = transcurridoMs / 1000;
     const n = estado.lineaBase.cantidadMuestras;
     el("barra-base").style.width =
       Math.min(100, (n / MUESTRAS_MINIMAS_BASE) * 100) + "%";
     el("estado-base").textContent = `${n}/${MUESTRAS_MINIMAS_BASE}`;
+    el("diag").textContent = diagTexto();
 
-    // La línea base se cierra por muestras, no por reloj: un niño puede tardar
-    // en quedar encuadrado y cerrar por tiempo daría una referencia inservible.
-    if (n >= MUESTRAS_MINIMAS_BASE && transcurrido >= SEGUNDOS_LINEA_BASE) {
+    // El progreso se muestra en la barra superior. Sin esto, una calibración
+    // que no avanza es indistinguible de una que va bien.
+    chip(`Calibrando · ${n}/${MUESTRAS_MINIMAS_BASE}`, "chip-espera");
+
+    const porMuestras = n >= MUESTRAS_MINIMAS_BASE && transcurrido >= SEGUNDOS_LINEA_BASE;
+    const porTope = transcurridoMs >= MS_TOPE_CALIBRACION && n >= MUESTRAS_ACEPTABLES_BASE;
+
+    if (transcurridoMs >= MS_TOPE_CALIBRACION && n < MUESTRAS_ACEPTABLES_BASE) {
+      // Ni siquiera lo mínimo: se explica el motivo y se sigue solo con tablero.
+      estado.analisisActivo = false;
+      chip("Sin línea base", "chip-error");
+      el("estado-base").textContent = "no obtenida";
+      el("diag").textContent =
+        `No se reunieron muestras suficientes en ${MS_TOPE_CALIBRACION / 1000} s ` +
+        `(${n} de ${MUESTRAS_ACEPTABLES_BASE}). ` + diagTexto();
+      return;
+    }
+
+    if (porMuestras || porTope) {
+      if (porTope && !porMuestras) {
+        el("estado-base").textContent = `establecida (${n}, calidad reducida)`;
+      }
       const base = estado.lineaBase.cerrar();
       estado.estabilizador.reiniciar();
       store.cerrarSesion(estado.sesionId, null);
       store.crearSesion(base).then((id) => (estado.sesionId = id));
       el("sigma-base").textContent = base.muestras + " muestras";
       el("preview-base").hidden = true;
-      el("estado-base").textContent = "establecida";
+      if (el("estado-base").textContent.startsWith("0")
+          || /^\d+\/\d+$/.test(el("estado-base").textContent)) {
+        el("estado-base").textContent = "establecida";
+      }
       chip("Análisis activo", "chip-activa");
       estado.fotogramas = 0;
       estado.conRostro = 0;
@@ -502,6 +548,16 @@ function montarControlesHeuristica() {
 }
 
 function montarControlesUmbrales() {
+  el("u-frontalidad").value = FRONTALIDAD_MINIMA;
+  el("u-frontalidad").addEventListener("change", (e) => {
+    const v = Number(e.target.value);
+    if (Number.isFinite(v) && v >= 0 && v <= 1) {
+      FRONTALIDAD_MINIMA = v;
+      localStorage.setItem(CLAVE_FRONTALIDAD, String(v));
+    }
+    e.target.value = FRONTALIDAD_MINIMA;
+  });
+
   const campos = { "u-positivo": "positivo", "u-neutro": "neutro", "u-neglev": "negativoLeve" };
   const pintar = () => {
     for (const [id, k] of Object.entries(campos)) el(id).value = UMBRALES[k];

@@ -129,6 +129,13 @@
       <label class="campo"><span>Negativo leve desde</span>
         <input type="number" id="u-neglev" step="0.05"><span class="campo-unidad">σ</span></label>
       <p class="dato">Banda neutra: <strong id="ancho-neutro">—</strong></p>
+      <label class="campo"><span>Frontalidad mínima</span>
+        <input type="number" id="u-frontalidad" min="0" max="1" step="0.05"><span class="campo-unidad"></span></label>
+      <p class="nota">
+        Por debajo de este valor el rostro se considera demasiado girado y el
+        fotograma se descarta. Medido: una nariz apenas descentrada da 0.52 y un
+        perfil real 0.25. Bajarlo admite más fotogramas y también más ruido.
+      </p>
     </section>
 
     <section class="bloque">
