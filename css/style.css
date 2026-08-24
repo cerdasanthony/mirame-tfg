@@ -24,7 +24,24 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
-#video { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+/* Vista previa de la camara. Se mantiene visible a proposito: un video oculto
+   puede ser despriorizado por el navegador y dejar de entregar fotogramas, y
+   ademas la persona cuidadora necesita ver que el rostro este bien encuadrado. */
+.preview {
+  position: fixed; right: 16px; bottom: 16px; width: 160px;
+  border-radius: 12px; overflow: hidden; border: 2px solid var(--linea);
+  background: #000; display: none; z-index: 50;
+}
+.preview.visible { display: block; }
+#video { display: block; width: 100%; height: auto; transform: scaleX(-1); }
+
+.diag {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: .65rem; color: var(--tinta3); line-height: 1.5;
+  margin: .6rem 0 0; word-break: break-word;
+}
+.mensaje-error { color: var(--rojo); }
+.mensaje-info { color: var(--tinta2); }
 
 .pantalla { padding: 2rem; max-width: 1400px; margin: 0 auto; }
 .pantalla[hidden] { display: none; }

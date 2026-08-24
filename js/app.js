@@ -23,12 +23,17 @@ const estado = {
   sesionId: null,
   lineaBase: new LineaBase(),
   ventana: new Ventana(8, 0.4),
-  fase: "inicio", // inicio | calibrando | activa
+  fase: "inicio", // inicio | calibrando | activa | sin-analisis
   inicioCalibracion: 0,
   ultimaSeleccion: performance.now(),
   fotogramas: 0,
   conRostro: 0,
-  latenciasMs: [],
+};
+
+const msg = (texto, tipo = "info") => {
+  const m = el("mensaje");
+  m.textContent = texto;
+  m.className = "mensaje mensaje-" + tipo;
 };
 
 /* ─────────────────────────── Inicio de sesión ─────────────────────────── */
@@ -36,17 +41,24 @@ const estado = {
 el("btn-iniciar").addEventListener("click", async () => {
   const btn = el("btn-iniciar");
   btn.disabled = true;
-  btn.textContent = "Cargando modelo…";
+  msg("Solicitando acceso a la cámara…");
+
   try {
-    await face.openCamera(video);
-    await face.init();
+    const cam = await face.openCamera(video);
+    msg(`Cámara activa · ${cam.ancho}×${cam.alto}`);
+    el("preview").classList.add("visible");
+    await face.init((t) => msg(t));
+    msg(`Modelo listo · procesamiento en ${face.diagnostico.delegado}`);
   } catch (e) {
-    el("mensaje").textContent =
-      "No se pudo iniciar la cámara o el modelo: " + e.message +
-      ". El tablero funciona igual sin análisis facial.";
-    iniciarSesion(false);
+    btn.disabled = false;
+    msg(
+      "No se pudo iniciar el análisis facial: " + e.message +
+      " · El tablero funciona igual sin cámara.",
+      "error"
+    );
     return;
   }
+
   estado.fase = "calibrando";
   estado.inicioCalibracion = performance.now();
   el("pantalla-inicio").hidden = true;
@@ -64,42 +76,39 @@ async function iniciarSesion(conAnalisis) {
   el("pantalla-calibracion").hidden = true;
   el("pantalla-sesion").hidden = false;
   el("panel-facial").hidden = !conAnalisis;
+  el("preview").classList.toggle("visible", conAnalisis);
   tablero.render();
 }
 
 /* ──────────────────────────── Bucle de video ──────────────────────────── */
 
 function bucle() {
-  if (estado.fase === "inicio") return;
+  if (estado.fase === "inicio" || estado.fase === "sin-analisis") return;
 
-  const t0 = performance.now();
-  let r = null;
-  try {
-    r = face.detect(video, t0);
-  } catch (_) {
-    /* fotograma no listo */
-  }
-  const latencia = performance.now() - t0;
-  if (latencia > 0) estado.latenciasMs.push(latencia);
+  const r = face.detect(video, performance.now());
 
   if (estado.fase === "calibrando") {
     if (r) estado.lineaBase.agregar(extract(r.blendshapes));
     const transcurrido = (performance.now() - estado.inicioCalibracion) / 1000;
-    const pct = Math.min(100, (transcurrido / SEGUNDOS_LINEA_BASE) * 100);
-    el("barra-calibracion").style.width = pct + "%";
+    el("barra-calibracion").style.width =
+      Math.min(100, (transcurrido / SEGUNDOS_LINEA_BASE) * 100) + "%";
     el("muestras-calibracion").textContent = estado.lineaBase.cantidadMuestras;
-    if (transcurrido >= SEGUNDOS_LINEA_BASE) {
-      if (estado.lineaBase.cantidadMuestras > 0) iniciarSesion(true);
-      else {
-        el("mensaje").textContent =
-          "No se detectó rostro durante la calibración. La sesión continúa sin análisis facial.";
-        iniciarSesion(false);
-      }
-      return requestAnimationFrame(bucle);
-    }
-  }
+    el("diag-calibracion").textContent = diagTexto();
 
-  if (estado.fase === "activa") {
+    if (transcurrido >= SEGUNDOS_LINEA_BASE) {
+      if (estado.lineaBase.cantidadMuestras > 0) {
+        iniciarSesion(true);
+      } else {
+        msg(
+          "No se detectó ningún rostro durante la calibración. " + diagTexto() +
+          " · La sesión continúa solo con el tablero.",
+          "error"
+        );
+        iniciarSesion(false);
+        return;
+      }
+    }
+  } else if (estado.fase === "activa") {
     estado.fotogramas++;
     if (r) {
       estado.conRostro++;
@@ -113,9 +122,23 @@ function bucle() {
     }
     el("tasa-deteccion").textContent =
       estado.fotogramas ? Math.round((estado.conRostro / estado.fotogramas) * 100) + " %" : "—";
+    el("diag-sesion").textContent = diagTexto();
   }
 
   requestAnimationFrame(bucle);
+}
+
+/** Resumen técnico del detector, visible en pantalla para depuración. */
+function diagTexto() {
+  const d = face.diagnostico;
+  const partes = [
+    `video ${video.videoWidth}×${video.videoHeight}`,
+    `delegado ${d.delegado ?? "—"}`,
+    `llamadas ${d.llamadas}`,
+    `detecciones ${d.detecciones}`,
+  ];
+  if (d.ultimoError) partes.push(`error: ${d.ultimoError}`);
+  return partes.join(" · ");
 }
 
 /* ─────────────────────────── Panel en vivo ─────────────────────────── */
@@ -148,7 +171,7 @@ function pintarPanel(e, puntaje, blendshapes) {
     const top = Object.entries(blendshapes)
       .filter(([k]) => k !== "_neutral")
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
+      .slice(0, 6);
     el("blendshapes").innerHTML = top
       .map(
         ([k, v]) =>
@@ -201,7 +224,7 @@ async function refrescarAsociacion() {
   const idx = await store.indiceAsociacion();
   const filas = Object.entries(idx);
   if (!filas.length) {
-    el("asociacion").innerHTML = '<p class="vacio">Aún no hay selecciones registradas.</p>';
+    el("asociacion").innerHTML = '<p class="vacio">Aún no hay selecciones con datos faciales suficientes.</p>';
     return;
   }
   el("asociacion").innerHTML = filas
@@ -230,5 +253,11 @@ el("btn-borrar").addEventListener("click", async () => {
   await store.borrarTodo();
   refrescarAsociacion();
 });
+
+/* Diagnóstico de entorno visible desde el arranque. */
+el("entorno").textContent = [
+  window.isSecureContext ? "conexión segura" : "CONEXIÓN NO SEGURA — la cámara no funcionará",
+  navigator.mediaDevices?.getUserMedia ? "cámara disponible" : "CÁMARA NO DISPONIBLE en este navegador",
+].join(" · ");
 
 refrescarAsociacion();

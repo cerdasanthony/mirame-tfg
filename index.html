@@ -24,6 +24,7 @@
       <button id="btn-omitir" class="btn btn-secundario" type="button">Usar solo el tablero</button>
     </div>
     <p id="mensaje" class="mensaje" role="status"></p>
+    <p id="entorno" class="diag"></p>
   </section>
 
   <!-- Pantalla 2 · línea base -->
@@ -35,6 +36,7 @@
     </p>
     <div class="progreso"><i id="barra-calibracion"></i></div>
     <p class="dato">Muestras capturadas: <strong id="muestras-calibracion">0</strong></p>
+    <p id="diag-calibracion" class="diag"></p>
   </section>
 
   <!-- Pantalla 3 · sesión -->
@@ -62,6 +64,7 @@
         <div class="dato">Rostro detectado: <strong id="tasa-deteccion">—</strong></div>
         <div class="tarjeta-titulo">Blendshapes principales</div>
         <div id="blendshapes" class="blendshapes"></div>
+        <p id="diag-sesion" class="diag"></p>
       </div>
 
       <div class="tarjeta">
@@ -83,7 +86,9 @@
     </aside>
   </section>
 
-  <video id="video" playsinline muted autoplay></video>
+  <div id="preview" class="preview">
+    <video id="video" playsinline muted autoplay></video>
+  </div>
 
   <script type="module" src="./js/app.js"></script>
   <script>
