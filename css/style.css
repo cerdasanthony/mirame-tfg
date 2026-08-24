@@ -410,7 +410,14 @@ body.calibrando .tablero { padding-bottom: 62px; }
   background: var(--superficie);
   border-bottom: 1px solid var(--linea);
 }
-.panel-cabecera h2 { margin: 0; font-size: .98rem; font-weight: 700; letter-spacing: -.01em; }
+.panel-cabecera h2 { margin: 0; font-size: .98rem; font-weight: 700; letter-spacing: -.01em; margin-right: auto; }
+/* El interruptor de fijar vive en la cabecera y no en un bloque: es una
+   preferencia sobre el panel mismo, no sobre lo que el panel muestra. */
+.interruptor-fijar { font-size: .8rem; gap: .4rem; margin-right: .3rem; }
+.interruptor-fijar input { width: 17px; height: 17px; }
+/* Por debajo de 900 px el modo acoplado no cabe y el panel se comporta como
+   superpuesto, asi que el interruptor no tendria efecto: se oculta. */
+@media (max-width: 900px) { .interruptor-fijar { display: none; } }
 .btn-cerrar {
   background: none; border: 0; color: var(--tinta-3);
   font-size: 1.05rem; padding: .3rem .55rem; border-radius: 8px;

@@ -15,7 +15,7 @@ import { extract, LineaBase, frontalidad } from "./features.js";
 import { clasificar, Ventana, Suavizador, Estabilizador, UMBRALES, fijarUmbrales } from "./classifier.js";
 import * as store from "./storage.js";
 import { Tablero, PICTOGRAMAS } from "./board.js";
-import { hablar } from "./speech.js";
+import { hablar, voces, ajustes, fijarAjustes, vozActual, alHaberVoces } from "./speech.js";
 import * as segunda from "./segunda-opinion.js";
 import { Heuristica, guardarConfig } from "./heuristica.js";
 import { extraerAU, CANALES_AU, PerfilExpresividad, evidenciaPositiva, evidenciaNegativa } from "./facs.js";
@@ -761,8 +761,16 @@ el("mensaje-salida").addEventListener("click", () => {
  * la instrumentacion, que es justamente para lo que sirve.
  */
 const RUTAS = { "#panel": "acoplado", "#panel-flotante": "flotante" };
+const HASH_DE = { acoplado: "#panel", flotante: "#panel-flotante" };
 
 const modoPanel = () => RUTAS[location.hash] ?? null;
+
+/* Preferencia de la persona cuidadora: si al abrir el panel debe quedar fijo al
+   costado o superpuesto. Se recuerda entre sesiones porque es una preferencia de
+   trabajo, no algo que se decida cada vez. */
+const CLAVE_FIJO = "mirame.panelFijo";
+const prefiereFijo = () => localStorage.getItem(CLAVE_FIJO) !== "0";
+const guardarPreferencia = (fijo) => localStorage.setItem(CLAVE_FIJO, fijo ? "1" : "0");
 
 function abrirPanel(abierto, modo = null) {
   const acoplado = abierto && (modo ?? modoPanel()) === "acoplado";
@@ -778,14 +786,28 @@ function abrirPanel(abierto, modo = null) {
 function aplicarRuta() {
   const m = modoPanel();
   abrirPanel(Boolean(m), m);
+  /* El interruptor refleja el estado real, venga de donde venga: del propio
+     interruptor, de la URL escrita a mano o de una recarga. */
+  const casilla = el("panel-fijo");
+  if (casilla) casilla.checked = m ? m === "acoplado" : prefiereFijo();
 }
 addEventListener("hashchange", aplicarRuta);
 
 /* El boton escribe la ruta y deja que `hashchange` haga el resto, para que el
    estado del panel y la URL no se puedan desincronizar. */
 el("btn-panel").addEventListener("click", () => {
-  if (el("panel").hidden) location.hash = "#panel";
+  if (el("panel").hidden) location.hash = HASH_DE[prefiereFijo() ? "acoplado" : "flotante"];
   else cerrarPanel();
+});
+
+/* Fijar o soltar el panel sin cerrarlo: se reescribe la ruta y `hashchange`
+   hace el resto, igual que el boton. */
+el("panel-fijo").addEventListener("change", (e) => {
+  const fijo = e.target.checked;
+  guardarPreferencia(fijo);
+  const destino = HASH_DE[fijo ? "acoplado" : "flotante"];
+  if (location.hash === destino) aplicarRuta();
+  else location.hash = destino;
 });
 
 function cerrarPanel() {
@@ -873,6 +895,44 @@ el("btn-actualizar").addEventListener("click", async (ev) => {
   }
   location.reload();
 });
+
+/* ── Ajustes de voz ──────────────────────────────────────────────────────── */
+
+function pintarControlesVoz() {
+  const a = ajustes();
+  const lista = voces();
+  const actual = vozActual();
+  el("voz-lista").innerHTML = lista.length
+    ? lista
+        .map((v) => `<option value="${v.name}"${v === actual ? " selected" : ""}>` +
+                    `${v.name.replace(/^Microsoft /, "")} · ${v.lang}</option>`)
+        .join("")
+    : '<option value="">sin voces en español</option>';
+  el("voz-tono").value = a.tono;
+  el("voz-velocidad").value = a.velocidad;
+  el("voz-tono-valor").textContent = Number(a.tono).toFixed(2);
+  el("voz-velocidad-valor").textContent = Number(a.velocidad).toFixed(2);
+}
+
+/* La lista de voces suele llegar despues de cargar la pagina. */
+alHaberVoces(pintarControlesVoz);
+pintarControlesVoz();
+
+el("voz-lista").addEventListener("change", (e) => {
+  fijarAjustes({ voz: e.target.value || null });
+  hablar("Hola, soy yo");
+});
+for (const [id, clave] of [["voz-tono", "tono"], ["voz-velocidad", "velocidad"]]) {
+  el(id).addEventListener("input", (e) => {
+    const v = Number(e.target.value);
+    fijarAjustes({ [clave]: v });
+    el(id + "-valor").textContent = v.toFixed(2);
+  });
+  /* Se prueba al soltar y no en cada paso del deslizador: hablar en cada
+     movimiento encadena decenas de locuciones y no deja oir ninguna. */
+  el(id).addEventListener("change", () => hablar("Quiero jugar"));
+}
+el("btn-probar-voz").addEventListener("click", () => hablar("Hola, quiero jugar"));
 
 el("btn-exportar").addEventListener("click", async () => {
   const json = await store.exportarJSON();

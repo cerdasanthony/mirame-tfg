@@ -75,6 +75,10 @@
   <aside id="panel" class="panel" aria-label="Panel del cuidador" hidden>
     <div class="panel-cabecera">
       <h2>Panel del cuidador</h2>
+      <label class="interruptor interruptor-fijar" title="Mantener el panel a la vista junto al tablero">
+        <input type="checkbox" id="panel-fijo">
+        <span>Fijar</span>
+      </label>
       <button id="btn-cerrar-panel" class="btn-cerrar" type="button" aria-label="Cerrar panel">✕</button>
     </div>
 
@@ -260,6 +264,33 @@
         Descarta la copia guardada de la aplicación y la vuelve a bajar. Útil cuando
         se instaló una versión y la pantalla sigue mostrando la anterior. No borra
         los registros de sesión.
+      </p>
+    </section>
+
+    <section class="bloque">
+      <h3>Voz</h3>
+      <div class="campo">
+        <span>Voz</span>
+        <select id="voz-lista" style="width:auto;flex:1;max-width:200px"></select>
+      </div>
+      <div class="campo">
+        <span>Tono</span>
+        <input type="range" id="voz-tono" min="0.8" max="2" step="0.05" style="width:110px">
+        <output id="voz-tono-valor" style="width:34px;text-align:right"></output>
+      </div>
+      <div class="campo">
+        <span>Velocidad</span>
+        <input type="range" id="voz-velocidad" min="0.6" max="1.4" step="0.05" style="width:110px">
+        <output id="voz-velocidad-valor" style="width:34px;text-align:right"></output>
+      </div>
+      <div class="acciones-admin" style="margin-top:.7rem">
+        <button id="btn-probar-voz" class="btn btn-secundario" type="button">Probar voz</button>
+      </div>
+      <p class="nota">
+        La voz dice lo que el niño está diciendo, no lo que hace la aplicación, así
+        que conviene que corresponda a su edad. El sistema no ofrece voces
+        infantiles: se aproxima eligiendo una voz femenina y subiendo el tono.
+        Subirlo demasiado la vuelve ininteligible, que es peor que sonar adulta.
       </p>
     </section>
 
