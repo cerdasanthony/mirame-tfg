@@ -45,11 +45,26 @@ export class Tablero {
     this.alSeleccionar = alSeleccionar;
     this.pagina = 0;
     this.bloqueado = false;
+    this.promovido = null;
   }
 
-  render() {
+  /**
+   * Dibuja la página actual.
+   *
+   * `promovido` es la clave del pictograma que el Módulo C sitúa al frente. El
+   * reordenamiento ocurre SOLO dentro de la página visible: traer un pictograma
+   * desde otra página obligaría a sacar uno de la vista, y quitarle opciones a
+   * quien se está comunicando es peor que no sugerir nada.
+   */
+  render(promovido = null) {
     this.contenedor.innerHTML = "";
-    for (const p of PAGINAS[this.pagina]) {
+    this.promovido = promovido;
+
+    let items = [...PAGINAS[this.pagina]];
+    const i = promovido ? items.findIndex((p) => p.clave === promovido) : -1;
+    if (i > 0) items.unshift(items.splice(i, 1)[0]);
+
+    for (const p of items) {
       const cat = CATEGORIAS[p.categoria];
       const b = document.createElement("button");
       b.className = "picto";
@@ -58,14 +73,24 @@ export class Tablero {
       b.style.setProperty("--cat-fondo", cat.fondo);
       b.style.setProperty("--cat-borde", cat.borde);
       b.setAttribute("aria-label", p.frase);
+
+      // La sugerencia se marca de forma visible: quien acompaña debe poder
+      // distinguir una selección espontánea de una hecha sobre un pictograma
+      // que el sistema acababa de destacar.
+      const sugerido = p.clave === promovido;
+      if (sugerido) {
+        b.classList.add("picto-sugerido");
+        b.setAttribute("aria-label", p.frase + " (sugerido por el sistema)");
+      }
       b.innerHTML =
+        (sugerido ? '<span class="picto-marca" aria-hidden="true"></span>' : "") +
         `<span class="picto-icono" aria-hidden="true">${p.icono}</span>` +
         `<span class="picto-etiqueta">${p.etiqueta}</span>`;
       b.addEventListener("click", () => {
         if (this.bloqueado) return;
         this.bloqueado = true;
         setTimeout(() => (this.bloqueado = false), 900);
-        this.alSeleccionar(p, cat);
+        this.alSeleccionar(p, cat, p.clave === this.promovido);
       });
       this.contenedor.appendChild(b);
     }
@@ -73,7 +98,7 @@ export class Tablero {
 
   irA(indice) {
     this.pagina = ((indice % PAGINAS.length) + PAGINAS.length) % PAGINAS.length;
-    this.render();
+    this.render(this.promovido);
     return this.pagina;
   }
 

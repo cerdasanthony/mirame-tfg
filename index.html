@@ -113,6 +113,41 @@
     </section>
 
     <section class="bloque">
+      <h3>Módulo C · reordenamiento</h3>
+
+      <label class="interruptor">
+        <input type="checkbox" id="heuristica-activa">
+        <span>Activar reordenamiento heurístico</span>
+      </label>
+      <p class="nota">
+        Desactivado corresponde a la fase de línea base del estudio. El estado de
+        este interruptor se guarda con cada selección.
+      </p>
+
+      <dl class="metricas">
+        <div><dt>Estado sostenido</dt><dd id="estado-sostenido">—</dd></div>
+        <div><dt>Sugerencia</dt><dd id="sugerencia-actual">ninguna</dd></div>
+      </dl>
+      <div class="escala escala-progreso"><i id="barra-heuristica"></i></div>
+
+      <label class="campo">
+        <span>Umbral sostenido</span>
+        <input type="number" id="umbral-heuristica" min="1000" max="10000" step="500">
+        <span class="campo-unidad">ms</span>
+      </label>
+
+      <h3 style="margin-top:1.4rem">Pictograma por estado</h3>
+      <div id="mapa-heuristica" class="mapa"></div>
+      <p class="nota">
+        El sistema no decide qué significa un estado facial. Esta correspondencia
+        la define quien acompaña, y por eso queda registrada como decisión suya.
+        El valor inicial para los estados negativos es «ayuda» y no «dolor»:
+        pedir ayuda es una lectura general y reversible, afirmar dolor es un
+        diagnóstico que este sistema no puede sostener.
+      </p>
+    </section>
+
+    <section class="bloque">
       <h3>Registros</h3>
       <div class="acciones-admin">
         <button id="btn-exportar" class="btn btn-secundario" type="button">Exportar</button>

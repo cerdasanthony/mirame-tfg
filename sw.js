@@ -8,7 +8,7 @@
  * estando en linea y se conserva el funcionamiento sin conexion, que es lo que
  * exige el RNF-05. */
 
-const CACHE = "mirame-v4";
+const CACHE = "mirame-v5";
 const ARMAZON = [
   "./",
   "./index.html",
@@ -22,6 +22,7 @@ const ARMAZON = [
   "./js/board.js",
   "./js/speech.js",
   "./js/segunda-opinion.js",
+  "./js/heuristica.js",
 ];
 
 self.addEventListener("install", (e) => {

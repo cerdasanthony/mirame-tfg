@@ -17,6 +17,7 @@ import * as store from "./storage.js";
 import { Tablero, PAGINAS } from "./board.js";
 import { hablar } from "./speech.js";
 import * as segunda from "./segunda-opinion.js";
+import { Heuristica, guardarConfig } from "./heuristica.js";
 
 const SEGUNDOS_LINEA_BASE = 5;
 const MUESTRAS_MINIMAS_BASE = 15;
@@ -44,6 +45,8 @@ const estado = {
   acuerdo: new segunda.Acuerdo(),
   ultimaSegunda: 0,
   segundaCategoria: null,
+  heuristica: new Heuristica(),
+  ultimaPromocion: null,
   analisisActivo: false,
   baseIniciada: 0,
   ultimaSeleccion: performance.now(),
@@ -134,6 +137,7 @@ function bucle() {
   if (!r) {
     estado.ventana.agregarSinRostro();
     estado.suavizador.reiniciar();
+    aplicarHeuristica(null);
     pintarPanel(null, null, null, null);
   } else {
     const frente = frontalidad(r.landmarks);
@@ -141,6 +145,7 @@ function bucle() {
       // Rostro presente pero girado: se descarta antes de clasificar.
       estado.descartadosPorPose++;
       estado.ventana.agregarDescartado();
+      aplicarHeuristica(null);
       pintarPanel(null, null, r.blendshapes, frente);
     } else {
       estado.conRostro++;
@@ -148,6 +153,7 @@ function bucle() {
       const c = clasificar(norm, estado.suavizador);
       estado.ventana.agregar(c.estado, c.puntaje);
 
+      aplicarHeuristica(c.estado);
       consultarSegundaOpinion(r.landmarks, c.estado);
       const discrepa =
         estado.segundaCategoria !== null &&
@@ -193,6 +199,25 @@ function consultarSegundaOpinion(landmarks, estadoPrincipal) {
     el("segunda-categoria").textContent = op.categoria;
     el("segunda-categoria").style.color = COLOR[op.categoria] ?? "var(--tinta-2)";
   });
+}
+
+/**
+ * Módulo C: alimenta el detector de estado sostenido y reordena el tablero.
+ *
+ * Solo se vuelve a dibujar cuando la sugerencia cambia. Redibujar en cada
+ * fotograma destruiría los nodos del tablero mientras el niño intenta tocarlos.
+ */
+function aplicarHeuristica(estadoObservable) {
+  const r = estado.heuristica.actualizar(estadoObservable);
+
+  el("barra-heuristica").style.width = Math.round(r.progreso * 100) + "%";
+  el("estado-sostenido").textContent = r.estado ?? "—";
+
+  if (r.promovido !== estado.ultimaPromocion) {
+    estado.ultimaPromocion = r.promovido;
+    tablero.render(r.promovido);
+    el("sugerencia-actual").textContent = r.promovido ?? "ninguna";
+  }
 }
 
 function diagTexto() {
@@ -258,7 +283,7 @@ function pintarBlendshapes(blendshapes) {
 
 /* ══════════════════════ Selección ══════════════════════ */
 
-const tablero = new Tablero(el("tablero"), async (picto) => {
+const tablero = new Tablero(el("tablero"), async (picto, _cat, eraSugerido) => {
   const d = estado.ventana.distribucion();
   const latencia = performance.now() - estado.ultimaSeleccion;
   estado.ultimaSeleccion = performance.now();
@@ -293,6 +318,11 @@ const tablero = new Tablero(el("tablero"), async (picto) => {
     // medida de fiabilidad sin verdad de referencia disponible.
     acuerdoModelos: estado.acuerdo.proporcion,
     comparacionesAcuerdo: estado.acuerdo.comparaciones,
+    // Módulo C (RF-20). El registro de «se sugirió X, se eligió Y» es el dato
+    // más informativo del sistema: una selección que ignora la sugerencia dice
+    // más que una que la acepta.
+    ...estado.heuristica.instantanea(),
+    aceptoSugerencia: eraSugerido === true,
   });
 
   refrescarAsociacion();
@@ -378,4 +408,58 @@ el("btn-borrar").addEventListener("click", async () => {
 /* La invocacion va al final a proposito: `tablero` es una constante declarada
    mas abajo en el modulo, y llamar a arrancar() antes la encontraria en la
    zona muerta temporal. */
+/* ══════════════════════ Controles del Módulo C ══════════════════════ */
+
+const ESTADOS_HEURISTICA = ["positivo", "neutro", "negativo leve", "negativo intenso"];
+
+function montarControlesHeuristica() {
+  const cfg = estado.heuristica.config;
+
+  el("heuristica-activa").checked = cfg.activa;
+  el("heuristica-activa").addEventListener("change", (e) => {
+    estado.heuristica.activa = e.target.checked;
+    if (!e.target.checked) {
+      estado.ultimaPromocion = null;
+      tablero.render(null);
+      el("sugerencia-actual").textContent = "ninguna";
+    }
+  });
+
+  el("umbral-heuristica").value = cfg.umbralMs;
+  el("umbral-heuristica").addEventListener("change", (e) => {
+    const v = Number(e.target.value);
+    if (Number.isFinite(v) && v >= 1000) {
+      cfg.umbralMs = v;
+      guardarConfig(cfg);
+    }
+    e.target.value = cfg.umbralMs;
+  });
+
+  // Todos los pictogramas de todas las páginas son destino posible.
+  const opciones = PAGINAS.flat();
+  el("mapa-heuristica").innerHTML = ESTADOS_HEURISTICA.map(
+    (est) =>
+      `<div class="mapa-fila"><span class="mapa-estado" style="color:${COLOR[est]}">${est}</span>` +
+      `<select data-estado="${est}"><option value="">— ninguno —</option>` +
+      opciones
+        .map(
+          (o) =>
+            `<option value="${o.clave}"${cfg.mapa[est] === o.clave ? " selected" : ""}>${o.etiqueta}</option>`
+        )
+        .join("") +
+      `</select></div>`
+  ).join("");
+
+  el("mapa-heuristica").addEventListener("change", (e) => {
+    const sel = e.target.closest("select");
+    if (!sel) return;
+    cfg.mapa[sel.dataset.estado] = sel.value || null;
+    guardarConfig(cfg);
+    estado.heuristica.reiniciar();
+    estado.ultimaPromocion = null;
+    tablero.render(null);
+  });
+}
+
+montarControlesHeuristica();
 arrancar();

@@ -302,6 +302,39 @@ button { font: inherit; cursor: pointer; }
   margin: .8rem 0 0; word-break: break-word;
 }
 
+/* ══════════════════════ Módulo C · sugerencia ══════════════════════ */
+
+/* La sugerencia se marca de forma clara pero sin gritar: debe distinguirse de
+   los demás pictogramas sin convertirse en la única opción visible. */
+.picto-sugerido { border-color: var(--acento); box-shadow: 0 0 0 2px rgba(109, 40, 217, .18), var(--sombra); }
+.picto-marca {
+  position: absolute; top: .5rem; right: .5rem;
+  width: 10px; height: 10px; border-radius: 99px;
+  background: var(--acento);
+  box-shadow: 0 0 0 4px rgba(109, 40, 217, .16);
+}
+
+.interruptor { display: flex; align-items: center; gap: .6rem; font-size: .88rem; color: var(--tinta-2); cursor: pointer; }
+.interruptor input { width: 20px; height: 20px; accent-color: var(--acento); cursor: pointer; }
+
+.escala-progreso { margin-top: .75rem; }
+.escala-progreso i { left: 0; background: var(--acento); }
+
+.campo { display: flex; align-items: center; gap: .5rem; margin-top: 1rem; font-size: .78rem; color: var(--tinta-3); }
+.campo input {
+  width: 88px; padding: .45rem .6rem; font: inherit; font-size: .85rem;
+  border: 1px solid var(--linea); border-radius: 9px; color: var(--tinta);
+}
+.campo-unidad { font-size: .72rem; }
+
+.mapa { display: flex; flex-direction: column; gap: .5rem; }
+.mapa-fila { display: grid; grid-template-columns: 1fr 118px; gap: .5rem; align-items: center; }
+.mapa-estado { font-size: .8rem; font-weight: 600; }
+.mapa select {
+  font: inherit; font-size: .8rem; padding: .4rem .5rem;
+  border: 1px solid var(--linea); border-radius: 9px; background: var(--superficie); color: var(--tinta);
+}
+
 /* ══════════════════════ Vista previa de cámara ══════════════════════ */
 
 /* Va anclada en la barra superior y no flotando sobre el tablero: en pantallas
