@@ -598,20 +598,23 @@ body.panel-acoplado .salida { right: min(400px, 92vw); }
    parte de abajo, que alcanza para leer las cifras sin quitarle sitio al
    comunicador. */
 @media (max-width: 900px) {
+  /* Alto de la franja inferior. En un solo sitio, porque de el dependen tambien
+     el alto que le queda al tablero y la altura a la que se sube el aviso de
+     calibracion: si se cambia aqui, los tres se mueven juntos. */
+  body.panel-acoplado { --franja: 40%; }
+
   body.panel-acoplado .lienzo {
     padding-right: clamp(.7rem, 2vw, 1.4rem);
-    height: calc(75% - var(--barra-alto));
+    height: calc(100% - var(--franja) - var(--barra-alto));
   }
   body.panel-acoplado .panel {
     top: auto; left: 0; right: 0; bottom: 0;
-    width: 100%; height: 25%;
+    width: 100%; height: var(--franja);
     border-left: 0; border-top: 1px solid var(--linea);
     box-shadow: 0 -10px 30px rgba(43, 33, 24, .12);
   }
-  /* La cabecera del panel se queda pegada arriba de la franja, para que el
-     interruptor de fijar y el cierre esten siempre a mano. */
   body.panel-acoplado .aviso,
   body.panel-acoplado .salida { right: 0; }
   /* El aviso de calibracion se sube por encima de la franja. */
-  body.panel-acoplado .aviso { bottom: calc(25% + .6rem); }
+  body.panel-acoplado .aviso { bottom: calc(var(--franja) + .6rem); }
 }
