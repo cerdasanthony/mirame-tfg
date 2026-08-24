@@ -80,6 +80,41 @@ function entropiaNormalizada(conteos) {
   return h / Math.log(k);
 }
 
+/* ───────────────────── segmentación del registro ─────────────────────────── */
+
+/**
+ * UN EXPORT ES ACUMULATIVO Y ESO ROMPE CUALQUIER PROMEDIO.
+ *
+ * IndexedDB conserva todo lo grabado desde siempre, así que un export contiene
+ * sesiones tomadas con versiones distintas del software. Promediarlas juntas da
+ * un número que no describe a ninguna.
+ *
+ * Ocurrió: en el registro del 24-08-2026, agregar las sesiones anteriores al
+ * piso SIGMA_D_MINIMA junto a las posteriores daba un 31 % de umbrales
+ * derrumbados y un veredicto de «no sostiene conclusiones», cuando las sesiones
+ * nuevas tenían CERO umbrales derrumbados y amplitudes veinte veces mayores. El
+ * promedio escondía exactamente el hallazgo que había que ver.
+ *
+ * El criterio de corte es tener métricas de instrumento: solo las escribe la
+ * versión que ya incorpora las correcciones, así que su presencia identifica sin
+ * ambigüedad a las sesiones interpretables. Las anteriores se reportan aparte,
+ * como histórico, y no entran en el veredicto.
+ */
+const instrumentadas = sesiones.filter((s) => s.metricas);
+const idsInstrumentadas = new Set(instrumentadas.map((s) => s.id));
+const legado = sesiones.filter((s) => !s.metricas);
+
+const eventosInstr = eventos.filter((e) => idsInstrumentadas.has(e.sesionId));
+const eventosLegado = eventos.filter((e) => !idsInstrumentadas.has(e.sesionId));
+
+/* Todo se calcula sobre las sesiones interpretables. Si no hay ninguna, se cae
+   al registro completo para no dejar al usuario sin análisis, avisando. */
+const hayInstr = instrumentadas.length > 0;
+const alcance = hayInstr ? eventosInstr : eventos;
+const seleccionesAlcance = hayInstr
+  ? selecciones.filter((s) => idsInstrumentadas.has(s.sesionId))
+  : selecciones;
+
 /* ─────────────────────────────── inventario ──────────────────────────────── */
 
 seccion("1. Inventario del registro");
@@ -99,10 +134,43 @@ console.log(
   ` · con línea base de AU ${conAU}/${sesiones.length}` +
   ` · con métricas ${conMetricas}/${sesiones.length}`
 );
-if (conMetricas < cerradas) {
+console.log(
+  `\n  INTERPRETABLES (con métricas)  ${String(instrumentadas.length).padStart(3)} sesiones · ${eventosInstr.length} eventos`
+);
+console.log(
+  `  HISTÓRICO (sin métricas)       ${String(legado.length).padStart(3)} sesiones · ${eventosLegado.length} eventos`
+);
+if (legado.length) {
   console.log(
-    "  ⚠ hay sesiones cerradas sin métricas de instrumento: sus datos no son\n" +
-    "    interpretables después, porque falta la procedencia."
+    "  → El histórico NO entra en el veredicto: son sesiones de versiones\n" +
+    "    anteriores del software y mezclarlas falsea todos los promedios."
+  );
+}
+if (!hayInstr) {
+  console.log(
+    "  ⚠ Ninguna sesión tiene métricas de instrumento. El análisis que sigue\n" +
+    "    corre sobre TODO el registro y sus conclusiones son provisionales."
+  );
+}
+
+/* ───────────── contraste antes / después, si hay de los dos ──────────────── */
+
+if (hayInstr && eventosLegado.length) {
+  const colapso = (es) =>
+    es.filter((e) => typeof e.umbral === "number" && e.umbral < 0.01).length / (es.length || 1);
+  const amp = (es) => mediana(es.map((e) => e.amplitudSigma));
+  seccion("1b. Contraste entre versiones");
+  console.log(`  ${"".padEnd(22)}${"histórico".padStart(12)}${"actual".padStart(12)}`);
+  console.log(
+    `  ${"umbrales derrumbados".padEnd(22)}${pct(colapso(eventosLegado)).padStart(12)}${pct(colapso(eventosInstr)).padStart(12)}`
+  );
+  console.log(
+    `  ${"amplitud mediana (σ)".padEnd(22)}${(amp(eventosLegado)?.toFixed(3) ?? "—").padStart(12)}${(amp(eventosInstr)?.toFixed(3) ?? "—").padStart(12)}`
+  );
+  const hLeg = entropiaNormalizada(cuenta(eventosLegado.map((e) => e.canal)));
+  const hAct = entropiaNormalizada(cuenta(eventosInstr.map((e) => e.canal)));
+  console.log(
+    `  ${"entropía por canal".padEnd(22)}${(hLeg?.toFixed(3) ?? "—").padStart(12)}${(hAct?.toFixed(3) ?? "—").padStart(12)}`
   );
 }
 
@@ -111,8 +179,8 @@ if (conMetricas < cerradas) {
 seccion("2. Resolución temporal del dispositivo");
 
 const resoluciones = [
-  ...sesiones.map((s) => s.metricas?.fasico?.resolucionMs),
-  ...selecciones.map((s) => s.resolucionTemporalMs),
+  ...(hayInstr ? instrumentadas : sesiones).map((s) => s.metricas?.fasico?.resolucionMs),
+  ...seleccionesAlcance.map((s) => s.resolucionTemporalMs),
 ].filter((x) => typeof x === "number");
 
 if (!resoluciones.length) {
@@ -152,17 +220,17 @@ if (!resoluciones.length) {
 
 seccion("3. Auditoría de los eventos registrados");
 
-if (!eventos.length) {
-  console.log("  Sin eventos en el registro.");
+if (!alcance.length) {
+  console.log("  Sin eventos en el alcance analizado.");
 } else {
-  const umbrales = eventos.map((e) => e.umbral).filter((x) => typeof x === "number");
-  const colapsados = eventos.filter((e) => typeof e.umbral === "number" && e.umbral < 0.01);
+  const umbrales = alcance.map((e) => e.umbral).filter((x) => typeof x === "number");
+  const colapsados = alcance.filter((e) => typeof e.umbral === "number" && e.umbral < 0.01);
 
-  console.log(`  total ${eventos.length}`);
+  console.log(`  total ${alcance.length}`);
   console.log(`  umbral: mediana ${mediana(umbrales)?.toFixed(4)}  min ${Math.min(...umbrales).toFixed(4)}`);
-  console.log(`  resolubles ${eventos.filter((e) => e.resoluble).length}`);
-  console.log(`  marcados como parpadeo ${eventos.filter((e) => e.posibleParpadeo).length}`);
-  console.log(`  banda: ${JSON.stringify(cuenta(eventos.map((e) => e.banda)))}`);
+  console.log(`  resolubles ${alcance.filter((e) => e.resoluble).length}`);
+  console.log(`  marcados como parpadeo ${alcance.filter((e) => e.posibleParpadeo).length}`);
+  console.log(`  banda: ${JSON.stringify(cuenta(alcance.map((e) => e.banda)))}`);
 
   /**
    * FIRMA DEL UMBRAL DERRUMBADO
@@ -174,11 +242,11 @@ if (!eventos.length) {
    * primeros no son expresion.
    */
   if (colapsados.length) {
-    const sanos = eventos.filter((e) => typeof e.umbral === "number" && e.umbral >= 0.01);
+    const sanos = alcance.filter((e) => typeof e.umbral === "number" && e.umbral >= 0.01);
     const ampCol = mediana(colapsados.map((e) => e.amplitudSigma));
     const ampSan = mediana(sanos.map((e) => e.amplitudSigma));
     console.log();
-    console.log(`  ⚠ ${colapsados.length}/${eventos.length} (${pct(colapsados.length / eventos.length)}) con umbral < 0,01`);
+    console.log(`  ⚠ ${colapsados.length}/${alcance.length} (${pct(colapsados.length / alcance.length)}) con umbral < 0,01`);
     console.log(`    amplitud mediana con umbral derrumbado: ${ampCol?.toFixed(4)} σ`);
     console.log(`    amplitud mediana en canales sanos:      ${ampSan?.toFixed(4)} σ`);
     if (ampSan && ampCol && ampSan / ampCol > 10) {
@@ -191,7 +259,7 @@ if (!eventos.length) {
   }
 
   /* ── estructura del reparto por canal ── */
-  const porCanal = cuenta(eventos.map((e) => e.canal));
+  const porCanal = cuenta(alcance.map((e) => e.canal));
   const h = entropiaNormalizada(porCanal);
   console.log();
   console.log("  Reparto por canal (entropía normalizada, 1 = uniforme = ruido):");
@@ -213,15 +281,15 @@ if (!eventos.length) {
 
 seccion("4. Vía tónica y acuerdo entre clasificadores (OE 5)");
 
-const conEstado = selecciones.filter((s) => s.predominante);
-console.log(`  selecciones con estado atribuido: ${conEstado.length}/${selecciones.length}`);
+const conEstado = seleccionesAlcance.filter((s) => s.predominante);
+console.log(`  selecciones con estado atribuido: ${conEstado.length}/${seleccionesAlcance.length}`);
 if (conEstado.length) {
   console.log(`  estado predominante: ${JSON.stringify(cuenta(conEstado.map((s) => s.predominante)))}`);
-  const tasas = selecciones.map((s) => s.tasaValidez).filter((x) => typeof x === "number");
+  const tasas = seleccionesAlcance.map((s) => s.tasaValidez).filter((x) => typeof x === "number");
   if (tasas.length) console.log(`  tasa de validez de la ventana: mediana ${pct(mediana(tasas))}`);
 }
 
-const kappas = selecciones
+const kappas = seleccionesAlcance
   .map((s) => s.acuerdo?.kappa)
   .filter((x) => typeof x === "number" && Number.isFinite(x));
 if (kappas.length) {
@@ -247,11 +315,85 @@ if (kappas.length) {
 
 /* ────────────────────────────── conclusión ───────────────────────────────── */
 
-seccion("5. Qué sostiene este registro");
+seccion("5. Plausibilidad fisiológica de la tasa de eventos");
+
+/**
+ * LA COMPROBACIÓN QUE MÁS RÁPIDO DELATA UN DETECTOR ROTO.
+ *
+ * No hace falta verdad de referencia para saber que algo va mal: basta contar.
+ * Un rostro produce del orden de unos pocos eventos expresivos por minuto. Si el
+ * detector reporta cientos, no está aislando expresiones, está siguiendo
+ * movimiento facial de cualquier origen — habla, parpadeo, reacomodo postural.
+ *
+ * Es la comprobación que destapó que arreglar el derrumbe del umbral no bastaba:
+ * las amplitudes pasaron a ser reales, pero la sesión 28 seguía dando 5,38
+ * eventos por segundo, y ninguna cara sostiene eso.
+ */
+const RATE_PLAUSIBLE_MIN = 30; // eventos por minuto: cota generosa
+
+const tasas = [];
+for (const s of (hayInstr ? instrumentadas : sesiones)) {
+  const ini = s.inicio;
+  const fin = s.fin ?? s.metricasActualizadas;
+  if (!ini || !fin || fin <= ini) continue;
+  const seg = (fin - ini) / 1000;
+  const n = eventos.filter((e) => e.sesionId === s.id).length;
+  if (seg < 5) continue;
+  tasas.push({ id: s.id, seg, n, porMin: (n / seg) * 60 });
+}
+
+if (!tasas.length) {
+  console.log("  Sin duraciones utilizables para calcular la tasa.");
+} else {
+  for (const t of tasas) {
+    const marca = t.porMin > RATE_PLAUSIBLE_MIN ? "✗" : "✓";
+    console.log(
+      `  ${marca} sesión ${String(t.id).padStart(3)}  ${t.seg.toFixed(0).padStart(4)} s  ` +
+      `${String(t.n).padStart(4)} eventos  →  ${t.porMin.toFixed(0).padStart(4)} por minuto`
+    );
+  }
+  const peor = Math.max(...tasas.map((t) => t.porMin));
+  if (peor > RATE_PLAUSIBLE_MIN) {
+    console.log();
+    console.log(`  ✗ ${peor.toFixed(0)} eventos por minuto no es una tasa de expresión facial.`);
+    console.log("    El detector está siguiendo movimiento facial de cualquier origen. Los");
+    console.log("    canales que dominan lo confirman: mandíbula y parpadeo apuntan a habla");
+    console.log("    y a fisiología, no a comunicación. Hasta poder excluir esos artefactos,");
+    console.log("    los recuentos de eventos no son recuentos de expresiones.");
+  }
+}
+
+/* ─────────── umbrales medidos frente a umbrales supuestos ────────────────── */
+
+seccion("6. ¿Umbrales medidos o supuestos?");
+
+const supuestos = (hayInstr ? instrumentadas : sesiones)
+  .map((s) => s.metricas?.fasico)
+  .filter(Boolean);
+
+if (!supuestos.length) {
+  console.log("  Sin métricas: no se puede saber.");
+} else {
+  for (const f of supuestos) {
+    console.log(
+      `  ${f.canalesConUmbralSupuesto ?? "?"} de ${f.canalesTotales ?? "?"} canales con umbral supuesto`
+    );
+  }
+  const peor = Math.max(...supuestos.map((f) => (f.canalesConUmbralSupuesto ?? 0) / (f.canalesTotales || 1)));
+  if (peor > 0.5) {
+    console.log();
+    console.log(`  ⚠ Más de la mitad de los umbrales (${pct(peor)}) no se midieron: se asumieron.`);
+    console.log("    El detector no está caracterizando el ruido del participante en esos");
+    console.log("    canales, lo está sustituyendo por una referencia. Los eventos que salgan");
+    console.log("    de ahí dependen de esa sustitución y no de una medición.");
+  }
+}
+
+seccion("7. Qué sostiene este registro");
 
 const med = resoluciones.length ? mediana(resoluciones) : null;
-const colapso = eventos.length
-  ? eventos.filter((e) => typeof e.umbral === "number" && e.umbral < 0.01).length / eventos.length
+const colapso = alcance.length
+  ? alcance.filter((e) => typeof e.umbral === "number" && e.umbral < 0.01).length / alcance.length
   : 0;
 
 const problemas = [];
@@ -264,8 +406,19 @@ else if (cegueraFinal >= 50)
     `resolución de ${med} ms: el ${cegueraFinal.toFixed(0)} % de la banda de Ekman queda fuera de alcance`
   );
 if (colapso > 0.05) problemas.push(`${pct(colapso)} de los eventos vienen de umbrales derrumbados`);
-if (conMetricas < sesiones.length) problemas.push("faltan métricas de instrumento en parte de las sesiones");
+if (!hayInstr) problemas.push("ninguna sesión registró métricas de instrumento");
 if (kappas.length && mediana(kappas) < 0.21) problemas.push("el acuerdo entre clasificadores es insignificante");
+if (tasas.length && Math.max(...tasas.map((t) => t.porMin)) > RATE_PLAUSIBLE_MIN)
+  problemas.push(
+    `${Math.max(...tasas.map((t) => t.porMin)).toFixed(0)} eventos por minuto: el detector sigue movimiento facial, no expresión`
+  );
+if (supuestos.length) {
+  const p = Math.max(...supuestos.map((f) => (f.canalesConUmbralSupuesto ?? 0) / (f.canalesTotales || 1)));
+  if (p > 0.5) problemas.push(`${pct(p)} de los umbrales son supuestos y no medidos`);
+}
+const hFinal = alcance.length ? entropiaNormalizada(cuenta(alcance.map((e) => e.canal))) : null;
+if (hFinal !== null && hFinal > 0.85)
+  problemas.push(`entropía ${hFinal.toFixed(3)}: el reparto por canal no muestra estructura`);
 
 if (!problemas.length) {
   console.log("  El registro es interpretable. Se puede analizar la asociación entre");

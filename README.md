@@ -142,36 +142,57 @@ La sensibilidad del 48 % ante un gesto débil es el precio del criterio de
 umbral, y hay que declararlo: **una ventana sin eventos no demuestra que no hubo
 expresión.** Solo dice que no se detectó.
 
-### Lo que se ha medido sobre un registro real
+### Lo que se ha medido sobre registros reales
 
-Registro del 24-08-2026: 22 sesiones, 66 selecciones, 367 eventos.
+Dos registros del 24-08-2026, antes y después de las correcciones.
+
+**Lo que se corrigió y se verificó que quedó corregido:**
+
+| | antes | después |
+|---|---|---|
+| Umbrales derrumbados a cero | 40,6 % de los eventos | **0 %** |
+| Amplitud mediana | 0,182 σ | **2,542 σ** |
+| Cadencia | 15,6 fps | **31,2 fps** |
+| Tasa de detección facial | — | 96,4 % (sesión 28) |
+| Tasa de validez de la ventana | 55 % | 100 % |
+| Marca de tiempo | repintado | `captureTime` |
+
+El salto de cadencia salió de apagar la segunda opinión: el segundo clasificador
+estaba costando la mitad de los fotogramas, tal como advertía su propio módulo.
+
+**Lo que sigue sin resolver, y es lo que impide sostener conclusiones:**
 
 | Medida | Valor | Lectura |
 |---|---|---|
-| Resolución temporal | 194 ms (≈ 15,6 fps) | 96 % de la banda de Ekman fuera de alcance |
-| Eventos con umbral derrumbado | 163 / 367 (44 %) | ruido numérico, ya corregido |
-| Entropía del reparto por canal | 0,973 | prácticamente uniforme: firma de ruido |
-| Kappa de Cohen entre clasificadores | mediana −0,016 | peor que el azar |
-| Tasa de validez de la ventana | 55 % | casi la mitad de los fotogramas se descarta |
-| Estado tónico predominante | neutro en 45 de 57 | el problema del «todo neutro» |
+| Tasa de eventos | **323 por minuto** | ningún rostro sostiene esa tasa |
+| Canales dominantes | AU26, AU43, AU1, AU2 | mandíbula y parpadeo: habla y fisiología |
+| Umbrales supuestos | **12 de 16** | el ruido no se mide, se sustituye |
+| Entropía por canal | 0,863 | sin estructura clara |
+| Ceguera en la banda de Ekman | 36 % | mejoró desde 96 %, aún lejos |
+| Kappa entre clasificadores | mediana −0,016 | peor que el azar |
 
-**Ese registro no sostiene ninguna conclusión sobre la expresión facial del
-participante**, y decirlo es parte del resultado. Sirve como evidencia de que el
-sistema corre de extremo a extremo y como caracterización del instrumento, que
-es exactamente lo que hacía falta para saber qué corregir.
+**El detector está siguiendo movimiento facial, no expresión.** Corregir el
+derrumbe del umbral hizo que las amplitudes fueran reales, pero no bastó: 323
+eventos por minuto, con la mandíbula y el parpadeo al frente, describen a alguien
+hablando, no comunicándose con la cara.
 
-De ahí salieron dos correcciones ya aplicadas: el piso `SIGMA_D_MINIMA`, que
-evita que un canal inmóvil durante la calibración quede con umbral cero, y la
-persistencia periódica de las métricas de instrumento, porque 11 de las 22
-sesiones habían quedado sin cerrar y por tanto sin procedencia.
+Ninguno de los dos registros sostiene conclusiones sobre la expresión facial del
+participante, y decirlo es parte del resultado. Sirven como evidencia de que el
+sistema corre de extremo a extremo y como caracterización del instrumento, que es
+lo que permitió encontrar y ordenar todo lo anterior.
 
-Queda pendiente y sin resolver la cadencia: **15,6 fps está muy lejos de los 60
-necesarios.** Hasta que se establezca si la causa es la cámara, el delegado de
-inferencia o la segunda opinión compitiendo por la GPU —estaba activa durante
-esas sesiones— el sistema no puede afirmar detección de microexpresiones en este
-dispositivo.
+### Lo que falta, en orden
 
----
+1. **Excluir habla y parpadeo.** Es el bloqueante. Sin separar el movimiento
+   articulatorio y el fisiológico del expresivo, los recuentos no son recuentos
+   de expresiones. El marcado de parpadeo ya existe, pero solo cubre los canales
+   periorbitales y no se aplica a la mandíbula.
+2. **Medir el ruido de los canales que hoy se supone.** Doce de dieciséis toman
+   una referencia sustituta porque quedaron inmóviles en la calibración. Una
+   calibración más larga, o una que provoque movimiento deliberado, los mediría.
+3. **Llegar a 60 fps.** A 31 fps queda fuera el 36 % de la banda de Ekman. La
+   segunda opinión ya no compite; el siguiente candidato es mover la inferencia
+   a un Web Worker.
 
 ## Privacidad
 

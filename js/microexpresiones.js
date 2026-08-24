@@ -487,9 +487,55 @@ export class DetectorFasico {
    * imperfecta que lo declara es mejor que uno que nunca arranca — el mismo
    * criterio que ya usa la línea base tónica en `app.js`.
    */
+  /**
+   * Sustituto empírico para el ruido que no se pudo medir.
+   *
+   * POR QUÉ NO ALCANZA CON LA CONSTANTE
+   * SIGMA_D_MINIMA evita el derrumbe a cero, pero es un número que elegí yo. En
+   * el registro del 24-08-2026 resultó que 12 de los 16 canales caían al piso, o
+   * sea que la constante estaba decidiendo casi todos los umbrales del sistema:
+   * el detector ya no media el ruido del participante, lo suponía. Y lo suponía
+   * bajo: la sesión 28 produjo 5,38 eventos por segundo, 323 por minuto, una
+   * cifra que ningún rostro sostiene.
+   *
+   * QUÉ SE HACE EN SU LUGAR
+   * Los canales que SÍ tuvieron ruido medible durante el calentamiento son la
+   * mejor referencia disponible de cuánto ruido tiene este dispositivo, con esta
+   * iluminación, en esta sesión. Su mediana se usa para los canales que no lo
+   * tuvieron. Es una estimación tomada de los datos y no de mi criterio, se
+   * recalcula sola en cada sesión, y se adapta a un dispositivo ruidoso o a uno
+   * limpio sin que nadie toque nada.
+   *
+   * La constante queda como último recurso, para el caso en que NINGÚN canal
+   * fuera medible. Ahí no hay nada de dónde estimar y hay que asumir.
+   */
+  #sigmaSustituta(sigmasCrudas) {
+    const medibles = sigmasCrudas.filter((x) => x > 1e-6);
+    if (!medibles.length) return SIGMA_D_MINIMA;
+    return Math.max(mediana(medibles), SIGMA_D_MINIMA);
+  }
+
   #fijarUmbrales(forzar = false) {
     this.umbral = {};
     this.ruidoResumen = {};
+
+    /* Primera pasada: se mide lo que se pueda, sin decidir todavía. La
+       referencia para lo no medible sale de lo medible, así que hay que verlo
+       todo antes de fijar ningún umbral. */
+    const crudasPorEscala = {};
+    for (const esc of this.escalasMs) {
+      crudasPorEscala[esc] = this.canales
+        .map((c) => {
+          const ds = this.ruido[c]?.[esc] ?? [];
+          return ds.length >= 20 ? mad(ds) * 1.4826 : -1;
+        })
+        .filter((x) => x >= 0);
+    }
+    const sustituta = {};
+    for (const esc of this.escalasMs) {
+      sustituta[esc] = this.#sigmaSustituta(crudasPorEscala[esc]);
+    }
+    this.sigmaSustituta = sustituta;
     for (const c of this.canales) {
       this.umbral[c] = {};
       const porEscala = {};
@@ -511,15 +557,19 @@ export class DetectorFasico {
         }
         const med = mediana(ds);
         const sigmaCruda = mad(ds) * 1.4826;
-        const sigma = Math.max(sigmaCruda, SIGMA_D_MINIMA);
-        if (sigmaCruda < SIGMA_D_MINIMA) pisos++;
+        /* Si el canal no tuvo ruido medible, se toma la referencia empirica de
+           los canales que si lo tuvieron en esta misma sesion, en vez de una
+           constante elegida a mano. */
+        const sigma = Math.max(sigmaCruda, sustituta[esc]);
+        if (sigmaCruda < sustituta[esc]) pisos++;
         this.umbral[c][esc] = med + this.kRuido * sigma;
         porEscala[esc] = {
           n: ds.length,
           mediana: Number(med.toFixed(4)),
           sigma: Number(sigma.toFixed(4)),
           sigmaCruda: Number(sigmaCruda.toFixed(4)),
-          piso: sigmaCruda < SIGMA_D_MINIMA,
+          sustituta: Number(sustituta[esc].toFixed(4)),
+          piso: sigmaCruda < sustituta[esc],
           umbral: Number(this.umbral[c][esc].toFixed(4)),
           suficiente: true,
         };
