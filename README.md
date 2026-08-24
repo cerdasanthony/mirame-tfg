@@ -29,22 +29,40 @@ El sistema observa y clasifica configuraciones faciales. **La interpretación de
 ## Arquitectura
 
 ```
-Cámara (MediaDevices)
+Cámara (MediaDevices, 60 fps solicitados)
+      ↓
+requestVideoFrameCallback  ·  marca de tiempo de CAPTURA, no de repintado
       ↓
 MediaPipe Face Landmarker  ·  puntos de referencia 3D + blendshapes
       ↓
-Características observables  ·  7 medidas con nombre
-      ↓
-Normalización contra la línea base de la sesión
-      ↓
-Clasificación descriptiva  ·  positivo / neutro / negativo leve / negativo intenso
-      ↓
-Ventana temporal de 8 s previos a la selección
-      ↓
-Registro: pictograma + distribución de estados  →  IndexedDB
-      ↓
-Consulta e interpretación por parte de la persona cuidadora
+      ├──────────────────────────────┬──────────────────────────────┐
+      ↓                              ↓
+  VÍA TÓNICA                     VÍA FÁSICA
+  segundos                       milisegundos
+      ↓                              ↓
+  7 características              16 Unidades de Acción (FACS)
+      ↓                              ↓
+  z contra línea base            z contra línea base de AU
+      ↓                              ↓
+  suavizado + histéresis         filtro adaptado a transitorios
+  + dwell de 500 ms              (sin suavizar, canal por canal)
+      ↓                              ↓
+  positivo / neutro /            eventos con inicio, ápice y fin
+  negativo leve / intenso        40–200 / 200–500 / >500 ms
+      ↓                              ↓
+      └──────────────┬───────────────┘
+                     ↓
+      Ventana de 5 s previos a la selección
+                     ↓
+      Registro: pictograma + estados + eventos  →  IndexedDB
+                     ↓
+      Consulta e interpretación por parte de la persona cuidadora
 ```
+
+Las dos vías miden el mismo rostro a dos escalas de tiempo. La tónica describe
+cómo estaba; la fásica, qué pasó por él. La segunda existe porque el dwell de
+500 ms de la primera hace **estructuralmente imposible** registrar una
+microexpresión, que según Ekman dura entre 40 y 200 ms.
 
 ### Módulos
 
@@ -54,6 +72,8 @@ Consulta e interpretación por parte de la persona cuidadora
 | A · Captura y detección | Cámara, Face Landmarker, blendshapes | `js/face.js` |
 | A · Características | Siete medidas observables y línea base | `js/features.js` |
 | B · Clasificación | Reglas de umbral y ventana temporal | `js/classifier.js` |
+| A′ · Unidades de Acción | AU de FACS, valencia y perfil de expresividad | `js/facs.js` |
+| B′ · Vía fásica | Detección de transitorios breves | `js/microexpresiones.js` |
 | Persistencia | Sesiones, selecciones e índice de asociación | `js/storage.js` |
 | Orquestación | Flujo de sesión y panel en vivo | `js/app.js` |
 
@@ -75,11 +95,81 @@ Después, abrir `http://localhost:8000`. Para probar desde una tablet en la mism
 
 ---
 
-## Estado de la calibración
+## Pruebas
 
-⚠️ **Los pesos y umbrales de `js/classifier.js` son valores iniciales sin calibrar.** Están puestos para que el flujo funcione de extremo a extremo, no porque hayan sido validados con nadie. Se ajustan con las grabaciones de calibración y el procedimiento debe quedar documentado en el informe.
+Dos programas, que responden dos preguntas distintas.
 
-Cualquier resultado obtenido antes de esa calibración es una prueba de que el sistema corre, no de que clasifique correctamente.
+```bash
+node pruebas/deteccion-fasica.mjs
+```
+
+Caracteriza el **algoritmo** sobre señal sintética, donde sí existe verdad de
+referencia porque la señal se construye. Mide sensibilidad, especificidad, error
+de duración y el efecto de la cadencia, sobre 40 realizaciones independientes de
+ruido por condición — una sola corrida ilustra, no caracteriza.
+
+```bash
+node pruebas/analisis-sesion.mjs <export.json>
+```
+
+Caracteriza el **instrumento** sobre un registro real exportado desde la
+aplicación. No puede saber si un evento ocurrió de veras; sí puede establecer si
+el registro tiene la calidad necesaria para que la pregunta tenga sentido.
+
+## Estado de la calibración y de la medición
+
+⚠️ **Los pesos y umbrales de `js/classifier.js` siguen siendo valores iniciales
+sin calibrar.** Están puestos para que el flujo funcione de extremo a extremo, no
+porque hayan sido validados con nadie.
+
+### Lo que se ha medido sobre señal sintética
+
+Con transitorios de duración y amplitud conocidas, sobre 40 realizaciones:
+
+| Condición | Resultado |
+|---|---|
+| Ruido puro, 26 s | ningún evento espurio |
+| 130 ms · 3 σ · 60 fps | 100 % de detección, error de duración 23 ms |
+| 130 ms · 3 σ · 30 fps | **0 % de detección** |
+| 130 ms · 1,2 σ · 60 fps | 48 % de detección |
+| Expresión sostenida de 3 s | correctamente ignorada por la vía fásica |
+
+A 30 fps el evento no se mide peor: la anchura medida no alcanza el mínimo
+resoluble y se rechaza entero, sin dejar rastro. Para la banda estricta de Ekman,
+60 fps no es una mejora deseable sino la condición para que exista la medición.
+
+La sensibilidad del 48 % ante un gesto débil es el precio del criterio de
+umbral, y hay que declararlo: **una ventana sin eventos no demuestra que no hubo
+expresión.** Solo dice que no se detectó.
+
+### Lo que se ha medido sobre un registro real
+
+Registro del 24-08-2026: 22 sesiones, 66 selecciones, 367 eventos.
+
+| Medida | Valor | Lectura |
+|---|---|---|
+| Resolución temporal | 194 ms (≈ 15,6 fps) | 96 % de la banda de Ekman fuera de alcance |
+| Eventos con umbral derrumbado | 163 / 367 (44 %) | ruido numérico, ya corregido |
+| Entropía del reparto por canal | 0,973 | prácticamente uniforme: firma de ruido |
+| Kappa de Cohen entre clasificadores | mediana −0,016 | peor que el azar |
+| Tasa de validez de la ventana | 55 % | casi la mitad de los fotogramas se descarta |
+| Estado tónico predominante | neutro en 45 de 57 | el problema del «todo neutro» |
+
+**Ese registro no sostiene ninguna conclusión sobre la expresión facial del
+participante**, y decirlo es parte del resultado. Sirve como evidencia de que el
+sistema corre de extremo a extremo y como caracterización del instrumento, que
+es exactamente lo que hacía falta para saber qué corregir.
+
+De ahí salieron dos correcciones ya aplicadas: el piso `SIGMA_D_MINIMA`, que
+evita que un canal inmóvil durante la calibración quede con umbral cero, y la
+persistencia periódica de las métricas de instrumento, porque 11 de las 22
+sesiones habían quedado sin cerrar y por tanto sin procedencia.
+
+Queda pendiente y sin resolver la cadencia: **15,6 fps está muy lejos de los 60
+necesarios.** Hasta que se establezca si la causa es la cámara, el delegado de
+inferencia o la segunda opinión compitiendo por la GPU —estaba activa durante
+esas sesiones— el sistema no puede afirmar detección de microexpresiones en este
+dispositivo.
 
 ---
 
