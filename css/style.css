@@ -68,9 +68,21 @@ button { font: inherit; cursor: pointer; }
 
 /* ═════════════════════════ Barra superior ═════════════════════════ */
 
+/* ENCABEZADO
+   Era un rectangulo marron a borde completo, que en una pantalla para un nino se
+   lee como barra de herramientas. Ahora es azul, de la misma familia que el
+   icono del lanzador: el nino toca un icono azul y se abre una pantalla azul.
+
+   El azul es PROFUNDO y no brillante a proposito. Un color saturado en una
+   superficie grande cansa en sesiones largas, que es justo el uso previsto. Lo
+   llamativo se consigue con la franja de color del canto inferior, que ocupa
+   seis pixeles, y no con los cincuenta y ocho de la barra.
+
+   El punto mas claro del degradado, #125672, da 7,53:1 de contraste contra el
+   texto: cumple el nivel AAA de WCAG y no solo el AA. */
 .barra {
   height: var(--barra-alto);
-  background: linear-gradient(120deg, #3a2c20 0%, var(--barra) 55%, #241b14 100%);
+  background: linear-gradient(118deg, #0B4A66 0%, #125672 52%, #0A4159 100%);
   color: #fdf6ec;
   display: flex;
   align-items: center;
@@ -79,7 +91,19 @@ button { font: inherit; cursor: pointer; }
   position: relative;
   z-index: 30;
   border-radius: 0 0 var(--radio) var(--radio);
-  box-shadow: 0 4px 18px rgba(43, 33, 24, .18);
+  box-shadow: 0 4px 18px rgba(11, 74, 102, .22);
+  overflow: hidden;
+}
+/* Franja con los cuatro colores de categoria en el canto inferior.
+   Es la parte llamativa del encabezado, y no es decorativa: repite el mismo
+   codigo de color que el nino esta aprendiendo en los pictogramas, en vez de
+   introducir un color nuevo que compita con el. */
+.barra::after {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: 0; height: 6px;
+  background: linear-gradient(90deg,
+    #1D7A8C 0 25%, #3F8F3A 25% 50%, #C2701A 50% 75%, #B03A55 75% 100%);
+  opacity: .92;
 }
 
 .marca { display: flex; align-items: center; gap: .6rem; }
@@ -98,8 +122,8 @@ button { font: inherit; cursor: pointer; }
   font-size: .78rem; font-weight: 600;
   padding: .32rem .8rem .32rem .6rem;
   border-radius: 99px;
-  background: rgba(253, 246, 236, .1);
-  color: #e8d9c4;
+  background: rgba(253, 246, 236, .13);
+  color: #dceff6;
 }
 .chip-punto { width: 7px; height: 7px; border-radius: 99px; background: currentColor; }
 .chip-espera .chip-punto { animation: latido 1.5s ease-in-out infinite; }

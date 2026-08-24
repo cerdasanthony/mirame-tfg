@@ -35,6 +35,11 @@ let listo = false;
 
 export const estado = { disponible: false, motivo: null, evaluaciones: 0 };
 
+/* Ultimo recorte: si se pudo alinear y cuantos grados se corrigieron. La
+   proporcion de fotogramas alineados es un dato de calidad y se reporta. */
+let ultimaAlineacion = { alineado: false, gradosCorregidos: null, interocular: null };
+export const alineacion = () => ultimaAlineacion;
+
 /**
  * DESACTIVADA POR DEFECTO.
  *
@@ -81,7 +86,96 @@ export async function init() {
 }
 
 /** Recorta el rostro del video usando la caja que encierra los landmarks. */
-function recortar(video, landmarks) {
+/* Comisuras externa e interna de cada ojo en la malla de MediaPipe. El centro
+   del ojo se toma como el punto medio entre ambas: es mas estable que un solo
+   punto y no exige activar los puntos de iris, que encarecen la deteccion. */
+const OJO_IZQ = [33, 133];
+const OJO_DER = [362, 263];
+
+const centroOjo = (landmarks, idx) => {
+  const a = landmarks[idx[0]], b = landmarks[idx[1]];
+  if (!a || !b) return null;
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+};
+
+/**
+ * Recorta el rostro y lo ALINEA por el eje de los ojos.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * POR QUE ALINEAR
+ *
+ * Los clasificadores de expresion se entrenan sobre corpus de rostros alineados:
+ * la linea que une los ojos queda horizontal y el rostro ocupa una porcion
+ * estable del recorte. Entregarles la cara tal como sale de la camara, inclinada
+ * unos grados porque la persona ladea la cabeza, es presentarle al modelo una
+ * configuracion que no vio durante el entrenamiento, y la clasificacion se
+ * degrada sin que nada avise.
+ *
+ * Con un participante infantil el problema es mayor, no menor: la cabeza rara
+ * vez esta recta frente a una tablet.
+ *
+ * Esto es tambien la unica forma en que las dos vias se ayudan de verdad en
+ * lugar de competir. MediaPipe ya calculo donde estan los ojos, asi que la
+ * correccion sale gratis: se usa la salida de un modelo para mejorar la entrada
+ * del otro. Hasta ahora el recorte solo usaba la caja envolvente y desperdiciaba
+ * esa informacion.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * COMO
+ *
+ * Se calcula el angulo del segmento que une los centros de ambos ojos y se
+ * dibuja el fotograma rotado ese angulo en sentido contrario, con el centro del
+ * rostro en el centro del lienzo. El tamano del recorte se deriva de la
+ * DISTANCIA INTEROCULAR y no de la caja envolvente: la caja crece y encoge segun
+ * el participante abra la boca o levante las cejas, mientras que la separacion
+ * entre los ojos es rigida y da una escala estable entre fotogramas.
+ *
+ * Si por la pose no se pueden ubicar ambos ojos, se vuelve al recorte por caja
+ * envolvente sin alinear, que es peor pero sigue siendo utilizable.
+ *
+ * Se exporta para poder comprobar la geometria sin cargar el modelo: la
+ * transformacion es la parte con riesgo y conviene tener como verificarla.
+ */
+export function recortar(video, landmarks) {
+  const w = video.videoWidth;
+  const h = video.videoHeight;
+
+  const izq = centroOjo(landmarks, OJO_IZQ);
+  const der = centroOjo(landmarks, OJO_DER);
+
+  if (izq && der) {
+    const ix = izq.x * w, iy = izq.y * h;
+    const dx = der.x * w, dy = der.y * h;
+    const interocular = Math.hypot(dx - ix, dy - iy);
+
+    if (interocular >= 8) {
+      const angulo = Math.atan2(dy - iy, dx - ix);
+      /* 2,9 veces la distancia interocular encuadra frente, ojos, nariz y boca
+         con algo de margen, que es el encuadre habitual de los corpus de
+         expresion facial. El centro se baja un poco respecto del eje de los
+         ojos para que la boca no quede pegada al borde inferior. */
+      const lado = interocular * 2.9;
+      const cx = (ix + dx) / 2;
+      const cy = (iy + dy) / 2 + interocular * 0.35;
+
+      ctx.save();
+      ctx.translate(LADO / 2, LADO / 2);
+      ctx.rotate(-angulo);
+      ctx.scale(LADO / lado, LADO / lado);
+      ctx.translate(-cx, -cy);
+      /* Fuera del fotograma no hay imagen; el negro de fondo es preferible a
+         que el borde arrastre el ultimo pixel repetido. */
+      ctx.fillStyle = "#000";
+      ctx.fillRect(cx - lado, cy - lado, lado * 2, lado * 2);
+      ctx.drawImage(video, 0, 0, w, h);
+      ctx.restore();
+
+      ultimaAlineacion = { alineado: true, gradosCorregidos: (angulo * 180) / Math.PI, interocular };
+      return lienzo;
+    }
+  }
+
+  /* Respaldo: caja envolvente, sin alinear. */
   let xMin = 1, yMin = 1, xMax = 0, yMax = 0;
   for (const p of landmarks) {
     if (p.x < xMin) xMin = p.x;
@@ -89,10 +183,6 @@ function recortar(video, landmarks) {
     if (p.y < yMin) yMin = p.y;
     if (p.y > yMax) yMax = p.y;
   }
-  const w = video.videoWidth;
-  const h = video.videoHeight;
-
-  // Margen: los clasificadores de expresión esperan algo de contexto alrededor.
   const margen = 0.12;
   const sx = Math.max(0, (xMin - margen * (xMax - xMin)) * w);
   const sy = Math.max(0, (yMin - margen * (yMax - yMin)) * h);
@@ -101,6 +191,7 @@ function recortar(video, landmarks) {
   if (sw < 8 || sh < 8) return null;
 
   ctx.drawImage(video, sx, sy, sw, sh, 0, 0, LADO, LADO);
+  ultimaAlineacion = { alineado: false, gradosCorregidos: null, interocular: null };
   return lienzo;
 }
 
