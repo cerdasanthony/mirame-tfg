@@ -415,9 +415,8 @@ body.calibrando .tablero { padding-bottom: 62px; }
    preferencia sobre el panel mismo, no sobre lo que el panel muestra. */
 .interruptor-fijar { font-size: .8rem; gap: .4rem; margin-right: .3rem; }
 .interruptor-fijar input { width: 17px; height: 17px; }
-/* Por debajo de 900 px el modo acoplado no cabe y el panel se comporta como
-   superpuesto, asi que el interruptor no tendria efecto: se oculta. */
-@media (max-width: 900px) { .interruptor-fijar { display: none; } }
+/* En telefono el interruptor sigue sirviendo: fija el panel como franja
+   inferior en lugar de al costado. */
 .btn-cerrar {
   background: none; border: 0; color: var(--tinta-3);
   font-size: 1.05rem; padding: .3rem .55rem; border-radius: 8px;
@@ -593,9 +592,26 @@ body.panel-acoplado .panel {
 body.panel-acoplado .aviso,
 body.panel-acoplado .salida { right: min(400px, 92vw); }
 
-/* En pantallas estrechas acoplar no cabe: vuelve a comportarse superpuesto. */
+/* En pantalla estrecha no cabe un panel al costado, pero fijarlo sigue siendo
+   util: pasa a ser una franja INFERIOR. El tablero se queda con la parte de
+   arriba, que es donde el nino mira y toca, y la instrumentacion ocupa la cuarta
+   parte de abajo, que alcanza para leer las cifras sin quitarle sitio al
+   comunicador. */
 @media (max-width: 900px) {
-  body.panel-acoplado .lienzo { padding-right: clamp(.7rem, 2vw, 1.4rem); }
+  body.panel-acoplado .lienzo {
+    padding-right: clamp(.7rem, 2vw, 1.4rem);
+    height: calc(75% - var(--barra-alto));
+  }
+  body.panel-acoplado .panel {
+    top: auto; left: 0; right: 0; bottom: 0;
+    width: 100%; height: 25%;
+    border-left: 0; border-top: 1px solid var(--linea);
+    box-shadow: 0 -10px 30px rgba(43, 33, 24, .12);
+  }
+  /* La cabecera del panel se queda pegada arriba de la franja, para que el
+     interruptor de fijar y el cierre esten siempre a mano. */
   body.panel-acoplado .aviso,
   body.panel-acoplado .salida { right: 0; }
+  /* El aviso de calibracion se sube por encima de la franja. */
+  body.panel-acoplado .aviso { bottom: calc(25% + .6rem); }
 }

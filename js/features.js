@@ -221,7 +221,21 @@ const NARIZ = 1;
 const BORDE_IZQ = 234;
 const BORDE_DER = 454;
 
-export function frontalidad(landmarks) {
+/**
+ * Frontalidad geometrica: comparacion de las dos mitades del rostro.
+ *
+ * SE CONSERVA COMO RESPALDO, PERO TIENE UN DEFECTO SERIO
+ * Mide la asimetria de la nariz respecto de los bordes del rostro EN EL PLANO DE
+ * LA IMAGEN, de modo que no distingue una cabeza girada de una cara colocada
+ * fuera del centro del encuadre. La camara frontal de un telefono tiene un
+ * angulo de vision amplio, y una cara descentrada muestra una perspectiva muy
+ * asimetrica aunque este mirando de frente.
+ *
+ * Se vio en un telefono: rostro detectado, mirando a la pantalla, y esta medida
+ * daba 21 %. Como el minimo para aceptar una muestra es 30 %, la calibracion
+ * rechazaba casi todos los fotogramas y se quedaba clavada en una sola muestra.
+ */
+export function frontalidadGeometrica(landmarks) {
   const n = landmarks[NARIZ];
   const i = landmarks[BORDE_IZQ];
   const d = landmarks[BORDE_DER];
@@ -232,4 +246,40 @@ export function frontalidad(landmarks) {
   const mayor = Math.max(dIzq, dDer);
   if (mayor < 1e-6) return 0;
   return Math.min(dIzq, dDer) / mayor;
+}
+
+/**
+ * Frontalidad a partir de la matriz de transformacion facial.
+ *
+ * MediaPipe ya entrega la orientacion de la cabeza en el espacio y el detector
+ * ya la pedia; simplemente no se estaba usando. Es una medida de ORIENTACION, no
+ * de posicion, asi que no la afecta que la cara este descentrada ni la
+ * perspectiva de un objetivo angular.
+ *
+ * COMO SE EVITA EL PROBLEMA DE LAS CONVENCIONES DE EJES
+ * La razon por la que antes se prefirio la geometria era no depender de como
+ * ordene el modelo sus ejes. Eso se resuelve sin tener que saberlo: la tercera
+ * columna de la submatriz de rotacion es el eje que sale de la cara, y su
+ * componente en profundidad, normalizada, es el coseno del angulo entre ese eje
+ * y el de la camara. Vale 1 mirando de frente y 0 de perfil, y no hace falta
+ * decidir cual angulo es guinada y cual cabeceo.
+ *
+ * La matriz llega en orden por columnas, de 16 elementos.
+ */
+export function frontalidadPorMatriz(matrix) {
+  if (!matrix || matrix.length < 11) return null;
+  const x = matrix[8], y = matrix[9], z = matrix[10];
+  const norma = Math.hypot(x, y, z);
+  if (norma < 1e-6) return null;
+  return Math.min(1, Math.abs(z) / norma);
+}
+
+/**
+ * Frontalidad del rostro, en [0, 1].
+ *
+ * Usa la matriz cuando esta disponible y cae en la geometria si no lo esta.
+ */
+export function frontalidad(landmarks, matrix = null) {
+  const porMatriz = frontalidadPorMatriz(matrix);
+  return porMatriz !== null ? porMatriz : frontalidadGeometrica(landmarks);
 }

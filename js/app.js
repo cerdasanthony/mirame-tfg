@@ -11,7 +11,7 @@
  */
 
 import * as face from "./face.js";
-import { extract, LineaBase, frontalidad } from "./features.js";
+import { extract, LineaBase, frontalidad, frontalidadGeometrica } from "./features.js";
 import { clasificar, Ventana, Suavizador, Estabilizador, UMBRALES, fijarUmbrales } from "./classifier.js";
 import * as store from "./storage.js";
 import { Tablero, PICTOGRAMAS } from "./board.js";
@@ -101,6 +101,7 @@ const estado = {
   estabilizador: new Estabilizador({ dwellMs: 500, factorRetroceso: 0.5 }),
   ultimoFotograma: 0,
   ultimaCaptura: 0,
+  frontalidadDetalle: null,
   ultimaMuestra: 0,
   ultimoPanel: 0,
   panelAbierto: false,
@@ -189,7 +190,16 @@ function bucle(tCaptura = performance.now()) {
   if (r === undefined) return face.programarFotograma(video, bucle);
 
   if (!estado.lineaBase.establecida) {
-    const fr = r ? frontalidad(r.landmarks) : null;
+    const fr = r ? frontalidad(r.landmarks, r.matrix) : null;
+    if (r) {
+      /* Se guardan las dos medidas: si difieren mucho, la geometrica esta
+         siendo enganada por la posicion de la cara en el encuadre, que es
+         justo lo que dejaba la calibracion clavada en un telefono. */
+      const g = frontalidadGeometrica(r.landmarks);
+      estado.frontalidadDetalle =
+        `matriz ${Math.round(fr * 100)} % · geométrica ${Math.round(g * 100)} %` +
+        `${r.matrix ? "" : " (sin matriz)"}`;
+    }
     if (fr !== null) el("frontalidad").textContent = Math.round(fr * 100) + " %";
     if (r && fr >= FRONTALIDAD_BASE) {
       estado.lineaBase.agregar(extract(r.blendshapes));
@@ -286,7 +296,7 @@ function bucle(tCaptura = performance.now()) {
     aplicarHeuristica(null);
     if (tocaPintar(tCaptura)) pintarPanel(null, null, null, null);
   } else {
-    const frente = frontalidad(r.landmarks);
+    const frente = frontalidad(r.landmarks, r.matrix);
     if (frente < FRONTALIDAD_MINIMA) {
       // Rostro presente pero girado: se descarta antes de clasificar.
       estado.descartadosPorPose++;
@@ -449,6 +459,7 @@ function diagTexto() {
     `dwell ${Math.round(estado.estabilizador.progresoCambio * 100)} %`,
     `segunda opinión ${segunda.estado.disponible ? segunda.estado.evaluaciones : 'no disponible'}`,
     `reloj ${d.reloj ?? "—"}${d.desfaseReloj !== undefined ? ` (desfase ${d.desfaseReloj} ms)` : ""}`,
+    `frontalidad ${estado.frontalidadDetalle ?? "—"}`,
   ];
   if (d.ultimoError) partes.push(`error: ${d.ultimoError}`);
   return partes.join(" · ");
