@@ -132,7 +132,12 @@ button { font: inherit; cursor: pointer; }
   gap: clamp(.6rem, 1.5vw, 1.15rem);
   min-height: 0;
 }
-@media (max-width: 700px) {
+/* Dos columnas por tres filas cuando la pantalla es mas alta que ancha.
+   El corte por ancho solo no basta: una tablet en vertical mide mas de 700 px
+   y se quedaba en 3x2, con celdas anchas y bajas que desaprovechan el alto.
+   Se conserva ademas el corte por ancho, porque un telefono en horizontal es
+   estrecho aunque no este en vertical. */
+@media (max-width: 700px), (orientation: portrait) {
   .tablero { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, 1fr); }
 }
 

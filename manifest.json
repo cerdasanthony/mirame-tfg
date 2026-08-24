@@ -4,7 +4,7 @@
   "description": "Comunicador de pictogramas con análisis automatizado de expresiones faciales. Procesamiento en el dispositivo.",
   "start_url": "./index.html",
   "display": "fullscreen",
-  "orientation": "landscape",
+  "orientation": "any",
   "background_color": "#f8f7f4",
   "theme_color": "#6d28d9",
   "icons": [
