@@ -207,6 +207,12 @@ button { font: inherit; cursor: pointer; }
 
 /* El emoji vive dentro de un disco tintado: así se lee como icono deliberado y
    no como un emoji suelto pegado sobre el fondo. */
+/* Con dibujo en vez de emoji el disco deja de necesitar tamano de fuente: el
+   SVG ocupa una fraccion del disco y se escala solo. El recuadro se mantiene
+   para que las teclas con dibujo y las que aun usan emoji se vean iguales. */
+.picto-dibujo { padding: 19%; }
+.picto-dibujo svg { display: block; }
+
 .picto-icono {
   display: grid; place-items: center;
   width: clamp(64px, 13vh, 108px);

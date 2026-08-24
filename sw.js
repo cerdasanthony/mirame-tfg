@@ -8,7 +8,7 @@
  * estando en linea y se conserva el funcionamiento sin conexion, que es lo que
  * exige el RNF-05. */
 
-const CACHE = "mirame-v18";
+const CACHE = "mirame-v19";
 const ARMAZON = [
   "./",
   "./index.html",
@@ -25,6 +25,7 @@ const ARMAZON = [
   "./js/heuristica.js",
   "./js/facs.js",
   "./js/microexpresiones.js",
+  "./js/pictogramas.js",
   "./assets/icon-192.png",
   "./assets/icon-512.png",
   "./assets/icon-maskable-512.png",

@@ -10,8 +10,12 @@
  * por función comunicativa y sostener el color como pista visual estable, para
  * que la posición y el tono se aprendan juntos.
  *
- * Los emoji son marcadores temporales; se sustituyen por ARASAAC en el Sprint 2.
+ * Los dibujos viven en `js/pictogramas.js`. El emoji de cada entrada se conserva
+ * como respaldo: si algun dia falta un dibujo, la tecla sigue mostrando algo en
+ * lugar de quedarse vacia.
  */
+
+import { dibujo } from "./pictogramas.js";
 
 export const CATEGORIAS = {
   necesidad: { etiqueta: "Necesidad", tono: "#1D7A8C", cara: "#E4F4F7", canto: "#10505D", disco: "#C6E9EF" },
@@ -99,9 +103,13 @@ export class Tablero {
         b.classList.add("picto-sugerido");
         b.setAttribute("aria-label", p.frase + " (sugerido por el sistema)");
       }
+      // El dibujo si existe; el emoji como respaldo.
+      const arte = dibujo(p.clave);
       b.innerHTML =
         (sugerido ? '<span class="picto-marca" aria-hidden="true"></span>' : "") +
-        `<span class="picto-icono" aria-hidden="true">${p.icono}</span>` +
+        `<span class="picto-icono${arte ? " picto-dibujo" : ""}" aria-hidden="true">` +
+        (arte ?? p.icono) +
+        `</span>` +
         `<span class="picto-etiqueta">${p.etiqueta}</span>`;
       b.addEventListener("click", () => {
         if (this.bloqueado) return;
