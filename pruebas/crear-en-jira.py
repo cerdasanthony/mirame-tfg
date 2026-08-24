@@ -29,6 +29,7 @@ Nunca van en el archivo. Se leen del entorno y no se imprimen:
 
 USO
 
+    python crear-en-jira.py backlog-y-sprints.md --proyectos  listar proyectos
     python crear-en-jira.py backlog-y-sprints.md --ensayo    ver que haria
     python crear-en-jira.py backlog-y-sprints.md             crear de verdad
 
@@ -93,6 +94,22 @@ class Jira:
             # El token no se incluye en el mensaje: solo el codigo y la respuesta.
             raise SystemExit("Jira devolvio %s en %s %s\n%s"
                              % (e.code, metodo, ruta, detalle))
+
+    def proyectos(self):
+        """
+        Proyectos visibles para esta cuenta.
+
+        Sirve cuando la creacion falla con 404 sobre la clave: Jira responde lo
+        mismo si el proyecto no existe que si la cuenta no lo ve, de modo que el
+        mensaje por si solo no distingue una clave equivocada de un permiso que
+        falta. Listando lo que la cuenta si alcanza, se sabe cual de las dos es.
+        """
+        try:
+            d = self.pedir("GET", "/rest/api/3/project/search?maxResults=100")
+            return [(p["key"], p["name"]) for p in d.get("values", [])]
+        except SystemExit:
+            d = self.pedir("GET", "/rest/api/3/project")
+            return [(p["key"], p["name"]) for p in d]
 
     def tipos(self):
         """Identificadores reales de los tipos del proyecto."""
@@ -177,6 +194,14 @@ def main():
     origen = sys.argv[1]
     ensayo = "--ensayo" in sys.argv
 
+    if "--proyectos" in sys.argv:
+        jira = Jira()
+        print("Proyectos visibles para esta cuenta en %s:\n" % jira.sitio)
+        for clave, nombre in jira.proyectos():
+            print("  %-12s %s" % (clave, nombre))
+        print("\nUsar la clave de la izquierda en JIRA_PROJECT.")
+        return
+
     epicas, historias = _gj.leer(origen)
 
     # Las epicas entran como incidencias normales con la etiqueta `epica`: la
@@ -210,7 +235,18 @@ def main():
     jira = Jira()
     print("Proyecto %s en %s" % (jira.proyecto, jira.sitio))
 
-    tipos = jira.tipos()
+    try:
+        tipos = jira.tipos()
+    except SystemExit as e:
+        print(e)
+        print("\nProyectos que esta cuenta si alcanza:")
+        try:
+            for clave, nombre in jira.proyectos():
+                print("  %-12s %s" % (clave, nombre))
+            print("\nCorregir JIRA_PROJECT con la clave correcta.")
+        except SystemExit:
+            print("  (tampoco se pudo listar: revisar el token y el sitio)")
+        raise SystemExit(1)
     print("Tipos disponibles: %s" % ", ".join("%s(%s)" % (n, i) for n, i in tipos.items()))
     # Se prefiere Story y se cae a lo que haya, por nombre exacto y sin traducir.
     tipo = None
