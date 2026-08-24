@@ -67,6 +67,21 @@ export async function cerrarSesion(id, metricas) {
   return promesa(store.put({ ...s, fin: Date.now(), metricas }));
 }
 
+/**
+ * Escribe las métricas de instrumento sin cerrar la sesión.
+ *
+ * `cerrarSesion` marca el fin y por tanto solo sirve una vez. Esto se llama
+ * periódicamente durante la sesión, para que un cierre abrupto —lo habitual en
+ * una tablet— no se lleve consigo la procedencia de los datos ya registrados.
+ */
+export async function actualizarMetricas(id, metricas) {
+  await abrir();
+  const store = tx("sesiones", "readwrite");
+  const s = await promesa(store.get(id));
+  if (!s) return;
+  return promesa(store.put({ ...s, metricas, metricasActualizadas: Date.now() }));
+}
+
 /** Registra una selección con la distribución de estados que la precedió. */
 export async function guardarSeleccion(registro) {
   await abrir();

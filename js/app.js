@@ -297,6 +297,11 @@ function bucle(tCaptura = performance.now()) {
           sesionId: estado.sesionId,
           ts: Date.now(),
           caracteristicas: crudas,
+          /* Sin el vector de AU no se puede reanalizar la via fasica de una
+             sesion ya grabada, que es exactamente lo que pide RF-31. Guardar
+             solo las siete caracteristicas tonicas dejaba fuera los dieciseis
+             canales sobre los que trabaja el detector de transitorios. */
+          au,
           frontalidad: Number(frente.toFixed(3)),
           puntaje: Number(c.puntaje.toFixed(4)),
           estado: c.estado,
@@ -305,6 +310,7 @@ function bucle(tCaptura = performance.now()) {
 
       aplicarHeuristica(c.estado);
       consultarSegundaOpinion(r.landmarks, c.estado);
+      persistirMetricas(ahora);
 
       if (tocaPintar(ahora)) {
         const discrepa =
@@ -533,6 +539,85 @@ function pintarBlendshapes(blendshapes) {
     )
     .join("");
 }
+
+/**
+ * Estado del INSTRUMENTO al cierre de la sesion.
+ *
+ * Reune en un solo objeto lo que el objetivo especifico 5 pide evaluar —tasa de
+ * deteccion facial, acuerdo entre clasificadores, latencia— junto a la
+ * caracterizacion temporal de la via fasica, que condiciona que se puede
+ * afirmar a partir de los eventos registrados.
+ *
+ * POR QUE SE GUARDA ESTO Y NO SOLO LOS DATOS
+ * Un registro de eventos sin las condiciones en que se tomo no es interpretable
+ * despues. Si en una sesion la camara dio 15 fps, los eventos de esa sesion no
+ * son comparables con los de otra que dio 60, y sin este bloque no habria forma
+ * de saberlo al analizar. Es la diferencia entre datos y datos con procedencia.
+ */
+function metricasSesion() {
+  const m = estado.detector.metricas;
+  const base = estado.baseAU.instantanea();
+  return {
+    /* Objetivo especifico 5 */
+    fotogramas: estado.fotogramas,
+    conRostro: estado.conRostro,
+    tasaDeteccion: estado.fotogramas ? estado.conRostro / estado.fotogramas : null,
+    descartadosPorPose: estado.descartadosPorPose,
+    acuerdo: estado.acuerdo.instantanea(),
+    segundaOpinionActiva: segunda.habilitada(),
+
+    /* Procedencia tecnica: condiciona todo lo demas */
+    delegado: face.diagnostico.delegado,
+    relojFotograma: face.diagnostico.reloj,
+
+    /* Caracterizacion temporal de la via fasica */
+    fasico: {
+      calibrado: m.calibrado,
+      fps: m.fps,
+      resolucionMs: m.resolucionMs,
+      cegueraEkmanPct: m.cegueraEkmanPct,
+      canalesUtiles: m.canalesUtiles,
+      canalesTotales: m.canalesTotales,
+      canalesConUmbralSupuesto: m.canalesConUmbralSupuesto,
+      eventosTotales: m.eventosTotales,
+      eventosLimpios: m.eventosLimpios,
+      porBanda: m.porBanda,
+      descartadosPorResolucion: m.descartadosPorResolucion,
+      marcadosComoParpadeo: m.marcadosComoParpadeo,
+    },
+
+    /* Cuanto se movio de hecho cada musculo, contra el ruido de su canal. Es lo
+       que permite distinguir «no expreso» de «no se pudo medir». */
+    expresividad: base ? estado.perfil.resumen(base.sigma) : null,
+    canalesResueltos: base ? estado.perfil.canalesResueltos(base.sigma) : null,
+  };
+}
+
+/**
+ * Persiste las metricas sin esperar a que la sesion termine.
+ *
+ * Las sesiones no siempre se cierran: en el registro exportado el 24-08-2026,
+ * varias de las 22 quedaron sin `fin` y por tanto sin metricas. En una tablet lo
+ * normal es que la pestana se cierre o el sistema descarte la pagina, y ahi no
+ * hay garantia de que una escritura a IndexedDB llegue a completarse. Escribir
+ * cada tanto durante la sesion convierte esa perdida total en, como mucho, la
+ * perdida de los ultimos segundos.
+ */
+const MS_METRICAS = 10000;
+let ultimaEscrituraMetricas = 0;
+
+function persistirMetricas(ahora) {
+  if (!estado.sesionId) return;
+  if (ahora - ultimaEscrituraMetricas < MS_METRICAS) return;
+  ultimaEscrituraMetricas = ahora;
+  store.actualizarMetricas(estado.sesionId, metricasSesion());
+}
+
+/* Ultimo intento al salir. `pagehide` es el evento que si se dispara en iOS y
+   Android cuando la pagina se descarta; `beforeunload` no es fiable ahi. */
+addEventListener("pagehide", () => {
+  if (estado.sesionId) store.actualizarMetricas(estado.sesionId, metricasSesion());
+});
 
 /* ══════════════════════ Selección ══════════════════════ */
 
