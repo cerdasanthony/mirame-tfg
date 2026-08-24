@@ -206,6 +206,13 @@ Los archivos de sesión exportados contienen datos del participante y están exc
 
 ---
 
+## Trazabilidad
+
+El cruce entre los requerimientos especificados y lo que el prototipo implementa
+está en [`docs/trazabilidad.md`](docs/trazabilidad.md), con lo que falta y por qué
+importa. Se mantiene junto al código para que la coherencia sea verificable y no
+declarativa.
+
 ## Contexto académico
 
 Trabajo Final de Graduación · Licenciatura en Informática con Énfasis en Desarrollo Web
