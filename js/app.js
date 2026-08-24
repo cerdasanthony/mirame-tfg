@@ -16,6 +16,7 @@ import { clasificar, Ventana, Suavizador } from "./classifier.js";
 import * as store from "./storage.js";
 import { Tablero, PAGINAS } from "./board.js";
 import { hablar } from "./speech.js";
+import * as segunda from "./segunda-opinion.js";
 
 const SEGUNDOS_LINEA_BASE = 5;
 const MUESTRAS_MINIMAS_BASE = 15;
@@ -26,6 +27,11 @@ const MS_SALIDA = 2600;
    producir una clasificacion mala. Requiere calibracion. */
 const FRONTALIDAD_MINIMA = 0.55;
 
+/* La segunda opinion corre a ritmo bajo: es una red convolucional sobre el
+   recorte del rostro y no hace falta consultarla en cada fotograma para medir
+   acuerdo. */
+const MS_SEGUNDA_OPINION = 400;
+
 const el = (id) => document.getElementById(id);
 const video = el("video");
 
@@ -35,6 +41,9 @@ const estado = {
   ventana: new Ventana(8, 0.4),
   suavizador: new Suavizador(),
   descartadosPorPose: 0,
+  acuerdo: new segunda.Acuerdo(),
+  ultimaSegunda: 0,
+  segundaCategoria: null,
   analisisActivo: false,
   baseIniciada: 0,
   ultimaSeleccion: performance.now(),
@@ -74,6 +83,12 @@ async function arrancar() {
     el("preview-base").hidden = false;
     chip(`Calibrando · ${cam.ancho}×${cam.alto}`, "chip-espera");
     requestAnimationFrame(bucle);
+
+    // Se carga en segundo plano: si falla, el sistema sigue con un solo modelo.
+    segunda.init().then((ok) => {
+      el("estado-segunda").textContent = ok ? "activa" : "no disponible";
+      if (!ok) el("estado-segunda").title = segunda.estado.motivo ?? "";
+    });
   } catch (e) {
     chip("Sin análisis facial", "chip-error");
     el("bloque-facial").style.opacity = ".45";
@@ -132,7 +147,13 @@ function bucle() {
       const norm = estado.lineaBase.normalizar(extract(r.blendshapes));
       const c = clasificar(norm, estado.suavizador);
       estado.ventana.agregar(c.estado, c.puntaje);
-      pintarPanel(c.estado, c.puntaje, r.blendshapes, frente, c.incierto);
+
+      consultarSegundaOpinion(r.landmarks, c.estado);
+      const discrepa =
+        estado.segundaCategoria !== null &&
+        segunda.colapsar(c.estado) !== estado.segundaCategoria;
+
+      pintarPanel(c.estado, c.puntaje, r.blendshapes, frente, c.incierto || discrepa);
     }
   }
 
@@ -150,6 +171,30 @@ function bucle() {
   requestAnimationFrame(bucle);
 }
 
+/**
+ * Consulta al segundo modelo con throttling y actualiza el acuerdo.
+ *
+ * No se espera el resultado: la respuesta llega asincrónica y se usa en los
+ * fotogramas siguientes. Bloquear el bucle por esto tiraria la tasa de captura.
+ */
+function consultarSegundaOpinion(landmarks, estadoPrincipal) {
+  const ahora = performance.now();
+  if (!segunda.estado.disponible) return;
+  if (ahora - estado.ultimaSegunda < MS_SEGUNDA_OPINION) return;
+  estado.ultimaSegunda = ahora;
+
+  segunda.opinar(video, landmarks).then((op) => {
+    if (!op) return;
+    estado.segundaCategoria = op.categoria;
+    estado.acuerdo.registrar(estadoPrincipal, op.categoria);
+
+    const prop = estado.acuerdo.proporcion;
+    el("acuerdo").textContent = prop === null ? "—" : Math.round(prop * 100) + " %";
+    el("segunda-categoria").textContent = op.categoria;
+    el("segunda-categoria").style.color = COLOR[op.categoria] ?? "var(--tinta-2)";
+  });
+}
+
 function diagTexto() {
   const d = face.diagnostico;
   const partes = [
@@ -158,6 +203,7 @@ function diagTexto() {
     `llamadas ${d.llamadas}`,
     `detecciones ${d.detecciones}`,
     `descartados por pose ${estado.descartadosPorPose}`,
+    `segunda opinión ${segunda.estado.disponible ? segunda.estado.evaluaciones : 'no disponible'}`,
   ];
   if (d.ultimoError) partes.push(`error: ${d.ultimoError}`);
   return partes.join(" · ");
@@ -166,6 +212,7 @@ function diagTexto() {
 /* ══════════════════════ Panel en vivo ══════════════════════ */
 
 const COLOR = {
+  negativo: "#be123c",
   positivo: "#15803d",
   neutro: "#57534e",
   "negativo leve": "#b45309",
@@ -242,6 +289,10 @@ const tablero = new Tablero(el("tablero"), async (picto) => {
     tasaValidez: d.tasaValidez,
     fotogramasValidos: d.fotogramasValidos,
     fotogramasTotales: d.fotogramasTotales,
+    // Acuerdo entre el clasificador geométrico y el modelo preentrenado, como
+    // medida de fiabilidad sin verdad de referencia disponible.
+    acuerdoModelos: estado.acuerdo.proporcion,
+    comparacionesAcuerdo: estado.acuerdo.comparaciones,
   });
 
   refrescarAsociacion();
