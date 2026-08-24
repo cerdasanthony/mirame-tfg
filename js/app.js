@@ -74,6 +74,16 @@ const MS_MUESTRA = 250;
 const MS_PANEL = 200;
 
 const el = (id) => document.getElementById(id);
+
+/* Mostrar u ocultar el aviso de calibracion.
+   Marca tambien el cuerpo, para que el tablero reserve el alto de la tira y la
+   ultima fila de pictogramas no quede por debajo de ella. La tira no captura
+   toques, pero taparla visualmente es igual de malo si el nino no ve lo que
+   quiere tocar. */
+function avisoCalibracion(visible) {
+  el("aviso-base").hidden = !visible;
+  document.body.classList.toggle("calibrando", visible);
+}
 const video = el("video");
 
 const estado = {
@@ -136,7 +146,7 @@ async function arrancar() {
     estado.analisisActivo = true;
     estado.baseIniciada = performance.now();
     el("preview-base").hidden = false;
-    el("aviso-base").hidden = false;
+    avisoCalibracion(true);
     chip(`Calibrando · ${cam.ancho}×${cam.alto}`, "chip-espera");
     face.programarFotograma(video, bucle);
 
@@ -206,7 +216,7 @@ function bucle(tCaptura = performance.now()) {
       // Ni siquiera lo mínimo: se explica el motivo y se sigue solo con tablero.
       estado.analisisActivo = false;
       chip("Sin línea base", "chip-error");
-      el("aviso-base").hidden = true;
+      avisoCalibracion(false);
       el("estado-base").textContent = "no obtenida";
       el("diag").textContent =
         `No se reunieron muestras suficientes en ${MS_TOPE_CALIBRACION / 1000} s ` +
@@ -226,7 +236,7 @@ function bucle(tCaptura = performance.now()) {
       store.crearSesion({ ...base, au: baseAU }).then((id) => (estado.sesionId = id));
       el("sigma-base").textContent = base.muestras + " muestras";
       el("preview-base").hidden = true;
-      el("aviso-base").hidden = true;
+      avisoCalibracion(false);
 
       // La quietud avisa si el rostro se movió durante la calibración. Con un
       // valor bajo, la referencia describe expresiones y no reposo, y ninguna
@@ -811,7 +821,7 @@ el("btn-recalibrar").addEventListener("click", () => {
   el("quietud").textContent = "—";
   el("estado-base").textContent = "0/" + MUESTRAS_MINIMAS_BASE;
   el("preview-base").hidden = false;
-  el("aviso-base").hidden = false;
+  avisoCalibracion(true);
   abrirPanel(false);
   face.programarFotograma(video, bucle);
 });

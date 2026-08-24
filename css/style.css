@@ -207,11 +207,14 @@ button { font: inherit; cursor: pointer; }
 
 /* El emoji vive dentro de un disco tintado: así se lee como icono deliberado y
    no como un emoji suelto pegado sobre el fondo. */
-/* Con dibujo en vez de emoji el disco deja de necesitar tamano de fuente: el
-   SVG ocupa una fraccion del disco y se escala solo. El recuadro se mantiene
-   para que las teclas con dibujo y las que aun usan emoji se vean iguales. */
-.picto-dibujo { padding: 19%; }
-.picto-dibujo svg { display: block; }
+/* El dibujo ocupa una fraccion del disco y se escala solo.
+   NO se usa padding en porcentaje: el porcentaje de padding resuelve contra el
+   ancho del BOTON, no contra el del disco, asi que un 19 % daba 71 px de relleno
+   en una caja de 143 y no quedaba area de contenido. Con `place-items: center`
+   encima, el 100 % del SVG resolvia contra esos cero pixeles y el dibujo se
+   renderizaba a 0x0: las teclas salian con el disco vacio.
+   Se dimensiona el SVG directamente, que resuelve contra el disco. */
+.picto-dibujo svg { display: block; width: 64%; height: 64%; }
 
 .picto-icono {
   display: grid; place-items: center;
@@ -325,6 +328,9 @@ button { font: inherit; cursor: pointer; }
   max-width: min(94vw, 460px);
 }
 .aviso[hidden] { display: none; }
+/* Mientras se calibra, el tablero reserva el alto de la tira para que la ultima
+   fila no quede por debajo de ella. */
+body.calibrando .tablero { padding-bottom: 62px; }
 .aviso-caja {
   display: flex; align-items: center; gap: .8rem;
   background: rgba(255, 255, 255, .94);
