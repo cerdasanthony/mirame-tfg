@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mírame</title>
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#6d28d9">
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+
+<body>
+
+  <!-- Pantalla 1 · inicio -->
+  <section id="pantalla-inicio" class="pantalla">
+    <h1>Mírame</h1>
+    <p class="lead">
+      Comunicador de pictogramas con análisis de expresiones faciales.
+      Todo el procesamiento ocurre en este dispositivo: el video no se guarda ni se envía a ningún servidor.
+    </p>
+    <div class="acciones">
+      <button id="btn-iniciar" class="btn btn-principal" type="button">Iniciar sesión</button>
+      <button id="btn-omitir" class="btn btn-secundario" type="button">Usar solo el tablero</button>
+    </div>
+    <p id="mensaje" class="mensaje" role="status"></p>
+  </section>
+
+  <!-- Pantalla 2 · línea base -->
+  <section id="pantalla-calibracion" class="pantalla" hidden>
+    <h2>Línea base</h2>
+    <p class="lead">
+      Mantené el rostro en reposo frente a la cámara durante cinco segundos.
+      Esta referencia permite medir los cambios posteriores contra el rostro de la propia persona.
+    </p>
+    <div class="progreso"><i id="barra-calibracion"></i></div>
+    <p class="dato">Muestras capturadas: <strong id="muestras-calibracion">0</strong></p>
+  </section>
+
+  <!-- Pantalla 3 · sesión -->
+  <section id="pantalla-sesion" class="pantalla pantalla-sesion" hidden>
+
+    <div class="columna-principal">
+      <div id="resultado" class="resultado" hidden>
+        <div id="resultado-icono" class="resultado-icono"></div>
+        <div id="resultado-frase" class="resultado-frase"></div>
+        <div id="resultado-estado" class="resultado-estado"></div>
+      </div>
+      <div id="tablero" class="tablero"></div>
+      <button id="btn-pagina" class="btn btn-secundario" type="button">Página 2 →</button>
+    </div>
+
+    <aside class="columna-lateral">
+      <div id="panel-facial" class="tarjeta">
+        <div class="tarjeta-titulo">Estado facial observable</div>
+        <div class="estado-fila">
+          <span id="estado-actual" class="estado-badge">—</span>
+          <span id="valor-puntaje" class="estado-valor">0.00</span>
+        </div>
+        <div class="escala"><i id="barra-puntaje"></i></div>
+        <div class="escala-leyenda"><span>negativo</span><span>neutro</span><span>positivo</span></div>
+        <div class="dato">Rostro detectado: <strong id="tasa-deteccion">—</strong></div>
+        <div class="tarjeta-titulo">Blendshapes principales</div>
+        <div id="blendshapes" class="blendshapes"></div>
+      </div>
+
+      <div class="tarjeta">
+        <div class="tarjeta-titulo">Asociación pictograma · estado</div>
+        <div id="asociacion" class="asociacion"></div>
+        <p class="nota">
+          Recuento descriptivo de qué estado facial precedió a cada pictograma.
+          No afirma relación causal: la interpretación corresponde a la persona cuidadora.
+        </p>
+      </div>
+
+      <div class="tarjeta">
+        <div class="tarjeta-titulo">Registros</div>
+        <div class="acciones-admin">
+          <button id="btn-exportar" class="btn btn-secundario" type="button">Exportar</button>
+          <button id="btn-borrar" class="btn btn-peligro" type="button">Borrar todo</button>
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <video id="video" playsinline muted autoplay></video>
+
+  <script type="module" src="./js/app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => { }));
+    }
+  </script>
+</body>
+
+</html>

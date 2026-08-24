@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+
+# Registros de sesion exportados: contienen datos del participante
+*.json
+!manifest.json
+sesiones/
