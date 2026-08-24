@@ -22,7 +22,15 @@ let landmarker = null;
 let lastVideoTime = -1;
 
 /** Diagnóstico del último intento de detección, para mostrarlo en la interfaz. */
-export const diagnostico = { delegado: null, ultimoError: null, detecciones: 0, llamadas: 0 };
+export const diagnostico = {
+  delegado: null,
+  ultimoError: null,
+  detecciones: 0,
+  llamadas: 0,
+  /* Qué fuente de marca de tiempo se consiguió. Condiciona la exactitud de toda
+     medida de duración, así que se reporta en el panel y en el informe. */
+  reloj: null,
+};
 
 /**
  * Inicializa el detector.
@@ -53,6 +61,60 @@ export async function init(onEstado = () => {}) {
     diagnostico.delegado = "CPU";
   }
   return landmarker;
+}
+
+/**
+ * Programa el siguiente fotograma y entrega su MARCA DE TIEMPO DE CAPTURA.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * POR QUÉ NO ALCANZA CON requestAnimationFrame
+ *
+ * `requestAnimationFrame` avisa cuando el navegador va a pintar, no cuando la
+ * cámara capturó. Sellar los datos con `performance.now()` dentro de ese callback
+ * mide el instante en que JavaScript llegó a atender el fotograma, que incluye
+ * todo lo que se haya interpuesto: recolección de basura, la inferencia del
+ * fotograma anterior, el repintado del panel.
+ *
+ * Para la vía tónica da igual, porque promedia sobre segundos. Para la fásica no:
+ * ahí se están midiendo duraciones de entre 40 y 200 ms, y un jitter de 15 ms en
+ * el sellado es un error del 10 % sobre lo que se quiere medir. La banda de
+ * Ekman se decide con esas cifras.
+ *
+ * `requestVideoFrameCallback` entrega, en sus metadatos, `captureTime`: el
+ * instante en que la cámara capturó el fotograma, disponible justamente para
+ * fuentes locales como getUserMedia, que es este caso.
+ *
+ * MISMA LÍNEA DE TIEMPO, A PROPÓSITO
+ * `captureTime` y `presentationTime` son DOMHighResTimeStamp, el mismo reloj de
+ * `performance.now()`. Por eso se pueden mezclar con el resto del código sin
+ * convertir nada. NO se usa `mediaTime`, que sería la elección intuitiva, porque
+ * corre en la línea de tiempo del medio: mezclarla con los sellos de la ventana
+ * temporal o del acumulador de la línea base daría diferencias sin sentido.
+ *
+ * Se degrada en tres escalones, del mejor dato al peor, y se deja constancia de
+ * cuál se consiguió: la exactitud de la medición depende de eso y el informe
+ * tiene que poder declararla.
+ */
+export function programarFotograma(video, fn) {
+  if (typeof video.requestVideoFrameCallback === "function") {
+    video.requestVideoFrameCallback((ahora, meta) => {
+      if (meta?.captureTime != null) {
+        diagnostico.reloj = "captureTime";
+        fn(meta.captureTime);
+      } else if (meta?.presentationTime != null) {
+        diagnostico.reloj = "presentationTime";
+        fn(meta.presentationTime);
+      } else {
+        diagnostico.reloj = "rVFC sin metadatos";
+        fn(ahora);
+      }
+    });
+    return;
+  }
+  /* Safari antiguo y algunos WebView no lo implementan. El sistema sigue
+     funcionando con menos exactitud temporal, y el diagnóstico lo dice. */
+  diagnostico.reloj = "requestAnimationFrame";
+  requestAnimationFrame(() => fn(performance.now()));
 }
 
 /**
@@ -118,8 +180,41 @@ export async function openCamera(video) {
     );
   }
 
+  /**
+   * SE PIDEN 60 fps, NO 30.
+   *
+   * La frecuencia de muestreo es el unico parametro que fija cual es el evento
+   * mas breve que el sistema puede describir, y no se compensa despues con
+   * ningun umbral: lo que no se muestreo no esta en los datos.
+   *
+   * A 30 fps cada fotograma son 33 ms y hacen falta tres para tener subida,
+   * apice y bajada: el piso queda en ~100 ms. Como la microexpresion, segun
+   * Ekman, va de 40 a 200 ms, a 30 fps queda ciego el 38 % de esa banda. A
+   * 60 fps el piso baja a ~50 ms y la ceguera cae al 7 %.
+   *
+   * Medido sobre 40 realizaciones independientes de ruido en
+   * `pruebas/deteccion-fasica.mjs`, con un transitorio de 130 ms y 3 sigma:
+   *
+   *     60 fps → detectado en el 100 % de las corridas, error de duracion 23 ms
+   *     30 fps → detectado en el   0 % de las corridas
+   *
+   * El resultado a 30 fps no es «se mide peor». Es que la anchura medida no
+   * alcanza el minimo resoluble y el evento se rechaza entero, sin dejar rastro
+   * en el registro. Para la banda estricta de Ekman, 60 fps no es una mejora
+   * deseable: es la condicion para que la medicion exista.
+   *
+   * Se pide como `ideal` y no como `exact` a proposito. Si la tablet no da 60,
+   * negocia la que pueda y la aplicacion sigue funcionando; el detector mide la
+   * cadencia real y reporta la resolucion que efectivamente consiguio, en lugar
+   * de suponer la que se pidio. La resolucion no se declara: se mide.
+   */
   const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+    video: {
+      facingMode: "user",
+      width: { ideal: 640 },
+      height: { ideal: 480 },
+      frameRate: { ideal: 60, min: 24 },
+    },
     audio: false,
   });
   video.srcObject = stream;
