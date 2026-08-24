@@ -334,6 +334,8 @@ button { font: inherit; cursor: pointer; }
    «datos insuficientes», que es justo lo que RF-27 pide. */
 .aviso {
   position: fixed; z-index: 55;
+  /* Nunca mas ancho que la pantalla menos un margen a cada lado. */
+  width: max-content;
   left: 50%; transform: translateX(-50%);
   bottom: clamp(.6rem, 2vh, 1.2rem);
   /* Los toques atraviesan el aviso y llegan al pictograma de debajo. */
@@ -354,7 +356,14 @@ body.calibrando .tablero { padding-bottom: 62px; }
   box-shadow: 0 6px 22px rgba(43, 33, 24, .16);
 }
 .aviso-icono { font-size: 1.5rem; line-height: 1; flex: none; }
-.aviso-titulo { font-size: .9rem; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
+/* El titulo cede espacio antes que nadie y se recorta si hace falta.
+   Con `nowrap` y sin poder encogerse, en un telefono empujaba el conteo fuera
+   de la tira y se leia «1 muestra» cortado por la mitad. */
+.aviso-titulo {
+  font-size: .9rem; font-weight: 700; letter-spacing: -.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: 0 1 auto; min-width: 0;
+}
 /* La instruccion larga sobra en una tira: quien acompana ya la leyo la primera
    vez y el nino no la lee. Se conserva en el DOM para lectores de pantalla. */
 .aviso-texto {
@@ -362,7 +371,8 @@ body.calibrando .tablero { padding-bottom: 62px; }
   clip-path: inset(50%); white-space: nowrap;
 }
 .aviso-barra {
-  flex: 1; min-width: 70px; height: 7px;
+  /* La barra puede encogerse hasta 40 px antes que se recorte el texto. */
+  flex: 1 1 70px; min-width: 40px; height: 7px;
   background: var(--papel-hondo); border-radius: 99px; overflow: hidden;
 }
 .aviso-barra i { display: block; height: 100%; width: 0; background: var(--acento); transition: width 120ms linear; }

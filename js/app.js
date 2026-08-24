@@ -144,7 +144,7 @@ async function arrancar() {
     await face.init((t) => chip(t, "chip-espera"));
 
     estado.analisisActivo = true;
-    estado.baseIniciada = performance.now();
+    estado.baseIniciada = 0;   // lo fija la primera marca de captura
     el("preview-base").hidden = false;
     avisoCalibracion(true);
     chip(`Calibrando · ${cam.ancho}×${cam.alto}`, "chip-espera");
@@ -195,6 +195,21 @@ function bucle(tCaptura = performance.now()) {
       estado.lineaBase.agregar(extract(r.blendshapes));
       estado.baseAU.agregar(extraerAU(r.blendshapes));
     }
+    /* El origen se fija con la PRIMERA marca de captura, no con
+       performance.now().
+
+       La especificacion dice que `captureTime` comparte origen con
+       performance.now(), pero en la practica no siempre es asi: en un telefono
+       puede venir de otro reloj. Al restar dos relojes distintos el tiempo
+       transcurrido sale negativo o disparatado, con lo que la condicion de
+       cierre no se cumple NUNCA y la calibracion se queda acumulando muestras
+       para siempre. Se vio en un telefono: 56 muestras sobre un minimo de 15 y
+       la barra sin avanzar, y el tope de quince segundos tampoco saltaba porque
+       se compara contra el mismo numero.
+
+       Tomando el origen de la primera marca recibida, ambos extremos de la resta
+       vienen del mismo reloj y da igual cual sea. */
+    if (!estado.baseIniciada) estado.baseIniciada = tCaptura;
     const transcurridoMs = tCaptura - estado.baseIniciada;
     const transcurrido = transcurridoMs / 1000;
     const n = estado.lineaBase.cantidadMuestras;
@@ -208,6 +223,7 @@ function bucle(tCaptura = performance.now()) {
     chip(`Calibrando · ${n}/${MUESTRAS_MINIMAS_BASE}`, "chip-espera");
     el("aviso-progreso").style.width = Math.min(100, (n / MUESTRAS_MINIMAS_BASE) * 100) + "%";
     el("aviso-n").textContent = n;
+    el("aviso-unidad").textContent = n === 1 ? " muestra" : " muestras";
 
     const porMuestras = n >= MUESTRAS_MINIMAS_BASE && transcurrido >= SEGUNDOS_LINEA_BASE;
     const porTope = transcurridoMs >= MS_TOPE_CALIBRACION && n >= MUESTRAS_ACEPTABLES_BASE;
@@ -268,7 +284,7 @@ function bucle(tCaptura = performance.now()) {
     estado.suavizador.reiniciar();
     estado.ultimoFotograma = 0;
     aplicarHeuristica(null);
-    if (tocaPintar()) pintarPanel(null, null, null, null);
+    if (tocaPintar(tCaptura)) pintarPanel(null, null, null, null);
   } else {
     const frente = frontalidad(r.landmarks);
     if (frente < FRONTALIDAD_MINIMA) {
@@ -276,7 +292,7 @@ function bucle(tCaptura = performance.now()) {
       estado.descartadosPorPose++;
       estado.ventana.agregarDescartado();
       aplicarHeuristica(null);
-      if (tocaPintar()) pintarPanel(null, null, r.blendshapes, frente);
+      if (tocaPintar(tCaptura)) pintarPanel(null, null, r.blendshapes, frente);
     } else {
       estado.conRostro++;
       const ahora = tCaptura;
@@ -418,6 +434,12 @@ function tocaPintar(ahora = performance.now()) {
 
 function diagTexto() {
   const d = face.diagnostico;
+  /* La diferencia entre el reloj de captura y performance.now(). Si no es
+     cercana a cero, los dos relojes no comparten origen y cualquier resta que
+     los mezcle esta mal. Fue la causa de que la calibracion no terminara. */
+  if (estado.ultimaCaptura) {
+    d.desfaseReloj = Math.round(estado.ultimaCaptura - performance.now());
+  }
   const partes = [
     `video ${video.videoWidth}×${video.videoHeight}`,
     `delegado ${d.delegado ?? "—"}`,
@@ -426,6 +448,7 @@ function diagTexto() {
     `descartados por pose ${estado.descartadosPorPose}`,
     `dwell ${Math.round(estado.estabilizador.progresoCambio * 100)} %`,
     `segunda opinión ${segunda.estado.disponible ? segunda.estado.evaluaciones : 'no disponible'}`,
+    `reloj ${d.reloj ?? "—"}${d.desfaseReloj !== undefined ? ` (desfase ${d.desfaseReloj} ms)` : ""}`,
   ];
   if (d.ultimoError) partes.push(`error: ${d.ultimoError}`);
   return partes.join(" · ");
@@ -813,7 +836,7 @@ el("btn-recalibrar").addEventListener("click", () => {
   estado.baseAU = new LineaBase(CANALES_AU);
   estado.detector.reiniciar();
   estado.perfil = new PerfilExpresividad();
-  estado.baseIniciada = performance.now();
+  estado.baseIniciada = 0;   // lo fija la primera marca de captura
   estado.analisisActivo = true;
   estado.fotogramas = 0;
   estado.conRostro = 0;
