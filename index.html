@@ -3,91 +3,114 @@
 
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <title>Mírame</title>
   <link rel="manifest" href="./manifest.json">
-  <meta name="theme-color" content="#6d28d9">
+  <meta name="theme-color" content="#1c1917">
   <link rel="stylesheet" href="./css/style.css">
 </head>
 
 <body>
 
-  <!-- Pantalla 1 · inicio -->
-  <section id="pantalla-inicio" class="pantalla">
-    <h1>Mírame</h1>
-    <p class="lead">
-      Comunicador de pictogramas con análisis de expresiones faciales.
-      Todo el procesamiento ocurre en este dispositivo: el video no se guarda ni se envía a ningún servidor.
-    </p>
-    <div class="acciones">
-      <button id="btn-iniciar" class="btn btn-principal" type="button">Iniciar sesión</button>
-      <button id="btn-omitir" class="btn btn-secundario" type="button">Usar solo el tablero</button>
-    </div>
-    <p id="mensaje" class="mensaje" role="status"></p>
-    <p id="entorno" class="diag"></p>
-  </section>
-
-  <!-- Pantalla 2 · línea base -->
-  <section id="pantalla-calibracion" class="pantalla" hidden>
-    <h2>Línea base</h2>
-    <p class="lead">
-      Mantené el rostro en reposo frente a la cámara durante cinco segundos.
-      Esta referencia permite medir los cambios posteriores contra el rostro de la propia persona.
-    </p>
-    <div class="progreso"><i id="barra-calibracion"></i></div>
-    <p class="dato">Muestras capturadas: <strong id="muestras-calibracion">0</strong></p>
-    <p id="diag-calibracion" class="diag"></p>
-  </section>
-
-  <!-- Pantalla 3 · sesión -->
-  <section id="pantalla-sesion" class="pantalla pantalla-sesion" hidden>
-
-    <div class="columna-principal">
-      <div id="resultado" class="resultado" hidden>
-        <div id="resultado-icono" class="resultado-icono"></div>
-        <div id="resultado-frase" class="resultado-frase"></div>
-        <div id="resultado-estado" class="resultado-estado"></div>
-      </div>
-      <div id="tablero" class="tablero"></div>
-      <button id="btn-pagina" class="btn btn-secundario" type="button">Página 2 →</button>
+  <!-- ══ Barra superior ══ -->
+  <header class="barra">
+    <div class="marca">
+      <span class="marca-punto" aria-hidden="true"></span>
+      <span class="marca-nombre">Mírame</span>
     </div>
 
-    <aside class="columna-lateral">
-      <div id="panel-facial" class="tarjeta">
-        <div class="tarjeta-titulo">Estado facial observable</div>
-        <div class="estado-fila">
-          <span id="estado-actual" class="estado-badge">—</span>
-          <span id="valor-puntaje" class="estado-valor">0.00</span>
-        </div>
-        <div class="escala"><i id="barra-puntaje"></i></div>
-        <div class="escala-leyenda"><span>negativo</span><span>neutro</span><span>positivo</span></div>
-        <div class="dato">Rostro detectado: <strong id="tasa-deteccion">—</strong></div>
-        <div class="tarjeta-titulo">Blendshapes principales</div>
-        <div id="blendshapes" class="blendshapes"></div>
-        <p id="diag-sesion" class="diag"></p>
-      </div>
+    <div class="barra-estado">
+      <span id="chip-camara" class="chip chip-espera">
+        <span class="chip-punto" aria-hidden="true"></span>
+        <span id="chip-camara-texto">Iniciando cámara…</span>
+      </span>
+    </div>
 
-      <div class="tarjeta">
-        <div class="tarjeta-titulo">Asociación pictograma · estado</div>
-        <div id="asociacion" class="asociacion"></div>
-        <p class="nota">
-          Recuento descriptivo de qué estado facial precedió a cada pictograma.
-          No afirma relación causal: la interpretación corresponde a la persona cuidadora.
-        </p>
-      </div>
+    <button id="btn-panel" class="btn-icono" type="button" aria-expanded="false" aria-controls="panel">
+      <span aria-hidden="true">☰</span>
+      <span class="btn-icono-texto">Cuidador</span>
+    </button>
+  </header>
 
-      <div class="tarjeta">
-        <div class="tarjeta-titulo">Registros</div>
-        <div class="acciones-admin">
-          <button id="btn-exportar" class="btn btn-secundario" type="button">Exportar</button>
-          <button id="btn-borrar" class="btn btn-peligro" type="button">Borrar todo</button>
-        </div>
-      </div>
-    </aside>
-  </section>
+  <!-- ══ Tablero ══ -->
+  <main class="lienzo">
+    <div id="tablero" class="tablero" role="group" aria-label="Tablero de pictogramas"></div>
 
-  <div id="preview" class="preview">
+    <nav class="paginacion" aria-label="Páginas del tablero">
+      <div id="puntos" class="puntos"></div>
+      <button id="btn-pagina" class="btn-pagina" type="button">Siguiente página</button>
+    </nav>
+  </main>
+
+  <!-- ══ Mensaje seleccionado ══ -->
+  <div id="mensaje-salida" class="salida" hidden aria-live="assertive">
+    <div class="salida-tarjeta">
+      <div id="salida-icono" class="salida-icono" aria-hidden="true"></div>
+      <div id="salida-frase" class="salida-frase"></div>
+      <div id="salida-estado" class="salida-estado"></div>
+    </div>
+  </div>
+
+  <!-- ══ Panel del cuidador ══ -->
+  <aside id="panel" class="panel" aria-label="Panel del cuidador" hidden>
+    <div class="panel-cabecera">
+      <h2>Panel del cuidador</h2>
+      <button id="btn-cerrar-panel" class="btn-cerrar" type="button" aria-label="Cerrar panel">✕</button>
+    </div>
+
+    <section class="bloque" id="bloque-facial">
+      <h3>Estado facial observable</h3>
+      <div class="estado-fila">
+        <span id="estado-actual" class="estado-badge">—</span>
+        <span id="valor-puntaje" class="estado-valor">0.00</span>
+      </div>
+      <div class="escala"><i id="barra-puntaje"></i></div>
+      <div class="escala-leyenda"><span>negativo</span><span>neutro</span><span>positivo</span></div>
+      <dl class="metricas">
+        <div><dt>Rostro detectado</dt><dd id="tasa-deteccion">—</dd></div>
+        <div><dt>Línea base</dt><dd id="estado-base">pendiente</dd></div>
+      </dl>
+    </section>
+
+    <section class="bloque">
+      <h3>Blendshapes principales</h3>
+      <div id="blendshapes" class="blendshapes">
+        <p class="vacio">Sin datos todavía.</p>
+      </div>
+    </section>
+
+    <section class="bloque">
+      <h3>Asociación pictograma · estado</h3>
+      <div id="asociacion" class="asociacion"></div>
+      <p class="nota">
+        Recuento descriptivo de qué estado facial precedió a cada pictograma.
+        No afirma relación causal: la interpretación corresponde a la persona cuidadora.
+      </p>
+    </section>
+
+    <section class="bloque">
+      <h3>Registros</h3>
+      <div class="acciones-admin">
+        <button id="btn-exportar" class="btn btn-secundario" type="button">Exportar</button>
+        <button id="btn-borrar" class="btn btn-peligro" type="button">Borrar todo</button>
+      </div>
+    </section>
+
+    <details class="bloque diagnostico">
+      <summary>Diagnóstico técnico</summary>
+      <p id="diag" class="diag"></p>
+      <p id="entorno" class="diag"></p>
+    </details>
+  </aside>
+
+  <div id="velo" class="velo" hidden></div>
+
+  <!-- ══ Vista previa de cámara ══ -->
+  <div id="preview" class="preview" hidden>
     <video id="video" playsinline muted autoplay></video>
+    <div id="preview-base" class="preview-base" hidden>
+      <i id="barra-base"></i>
+    </div>
   </div>
 
   <script type="module" src="./js/app.js"></script>

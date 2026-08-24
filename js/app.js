@@ -1,20 +1,25 @@
 /**
- * Mírame — Orquestación de la sesión.
+ * Mírame — Orquestación.
  *
- * Flujo: permiso de cámara → línea base de 5 s en reposo → sesión activa.
- * En cada fotograma se extraen las características, se normalizan contra la
- * línea base, se clasifica el estado y se acumula en la ventana temporal.
- * Al tocar un pictograma se guarda la distribución de los segundos previos.
+ * No hay pantalla de inicio: la aplicación abre directamente en el tablero,
+ * porque quien la usa es un niño y cualquier paso previo es una barrera. La
+ * cámara y el modelo se levantan en segundo plano y la línea base se captura
+ * sola durante los primeros segundos con rostro visible.
+ *
+ * Si algo del análisis facial falla, el tablero sigue funcionando. Esa es la
+ * condición de diseño, no un caso de error.
  */
 
 import * as face from "./face.js";
 import { extract, LineaBase } from "./features.js";
 import { clasificar, Ventana } from "./classifier.js";
 import * as store from "./storage.js";
-import { Tablero } from "./board.js";
+import { Tablero, PAGINAS } from "./board.js";
 import { hablar } from "./speech.js";
 
 const SEGUNDOS_LINEA_BASE = 5;
+const MUESTRAS_MINIMAS_BASE = 15;
+const MS_SALIDA = 2600;
 
 const el = (id) => document.getElementById(id);
 const video = el("video");
@@ -23,112 +28,99 @@ const estado = {
   sesionId: null,
   lineaBase: new LineaBase(),
   ventana: new Ventana(8, 0.4),
-  fase: "inicio", // inicio | calibrando | activa | sin-analisis
-  inicioCalibracion: 0,
+  analisisActivo: false,
+  baseIniciada: 0,
   ultimaSeleccion: performance.now(),
   fotogramas: 0,
   conRostro: 0,
+  temporizadorSalida: null,
 };
 
-const msg = (texto, tipo = "info") => {
-  const m = el("mensaje");
-  m.textContent = texto;
-  m.className = "mensaje mensaje-" + tipo;
-};
+/* ══════════════════════ Estado de la cámara ══════════════════════ */
 
-/* ─────────────────────────── Inicio de sesión ─────────────────────────── */
+function chip(texto, clase) {
+  el("chip-camara-texto").textContent = texto;
+  el("chip-camara").className = "chip " + clase;
+}
 
-el("btn-iniciar").addEventListener("click", async () => {
-  const btn = el("btn-iniciar");
-  btn.disabled = true;
-  msg("Solicitando acceso a la cámara…");
+/* ══════════════════════ Arranque ══════════════════════ */
+
+(async function arrancar() {
+  estado.sesionId = await store.crearSesion(null);
+  tablero.render();
+  pintarPuntos();
+  refrescarAsociacion();
+
+  el("entorno").textContent = [
+    window.isSecureContext ? "conexión segura" : "CONEXIÓN NO SEGURA — la cámara no funcionará",
+    navigator.mediaDevices?.getUserMedia ? "cámara expuesta" : "CÁMARA NO DISPONIBLE en este navegador",
+  ].join(" · ");
 
   try {
     const cam = await face.openCamera(video);
-    msg(`Cámara activa · ${cam.ancho}×${cam.alto}`);
-    el("preview").classList.add("visible");
-    await face.init((t) => msg(t));
-    msg(`Modelo listo · procesamiento en ${face.diagnostico.delegado}`);
+    el("preview").hidden = false;
+    chip("Cargando modelo…", "chip-espera");
+    await face.init((t) => chip(t, "chip-espera"));
+
+    estado.analisisActivo = true;
+    estado.baseIniciada = performance.now();
+    el("preview-base").hidden = false;
+    chip(`Calibrando · ${cam.ancho}×${cam.alto}`, "chip-espera");
+    requestAnimationFrame(bucle);
   } catch (e) {
-    btn.disabled = false;
-    msg(
-      "No se pudo iniciar el análisis facial: " + e.message +
-      " · El tablero funciona igual sin cámara.",
-      "error"
-    );
-    return;
+    chip("Sin análisis facial", "chip-error");
+    el("bloque-facial").style.opacity = ".45";
+    el("estado-actual").textContent = "no disponible";
+    el("diag").textContent = "Motivo: " + e.message;
   }
+})();
 
-  estado.fase = "calibrando";
-  estado.inicioCalibracion = performance.now();
-  el("pantalla-inicio").hidden = true;
-  el("pantalla-calibracion").hidden = false;
-  requestAnimationFrame(bucle);
-});
-
-el("btn-omitir").addEventListener("click", () => iniciarSesion(false));
-
-async function iniciarSesion(conAnalisis) {
-  const base = conAnalisis ? estado.lineaBase.cerrar() : null;
-  estado.sesionId = await store.crearSesion(base);
-  estado.fase = conAnalisis ? "activa" : "sin-analisis";
-  el("pantalla-inicio").hidden = true;
-  el("pantalla-calibracion").hidden = true;
-  el("pantalla-sesion").hidden = false;
-  el("panel-facial").hidden = !conAnalisis;
-  el("preview").classList.toggle("visible", conAnalisis);
-  tablero.render();
-}
-
-/* ──────────────────────────── Bucle de video ──────────────────────────── */
+/* ══════════════════════ Bucle de video ══════════════════════ */
 
 function bucle() {
-  if (estado.fase === "inicio" || estado.fase === "sin-analisis") return;
-
+  if (!estado.analisisActivo) return;
   const r = face.detect(video, performance.now());
 
-  if (estado.fase === "calibrando") {
+  if (!estado.lineaBase.establecida) {
     if (r) estado.lineaBase.agregar(extract(r.blendshapes));
-    const transcurrido = (performance.now() - estado.inicioCalibracion) / 1000;
-    el("barra-calibracion").style.width =
-      Math.min(100, (transcurrido / SEGUNDOS_LINEA_BASE) * 100) + "%";
-    el("muestras-calibracion").textContent = estado.lineaBase.cantidadMuestras;
-    el("diag-calibracion").textContent = diagTexto();
+    const transcurrido = (performance.now() - estado.baseIniciada) / 1000;
+    const n = estado.lineaBase.cantidadMuestras;
+    el("barra-base").style.width =
+      Math.min(100, (n / MUESTRAS_MINIMAS_BASE) * 100) + "%";
+    el("estado-base").textContent = `${n}/${MUESTRAS_MINIMAS_BASE}`;
 
-    if (transcurrido >= SEGUNDOS_LINEA_BASE) {
-      if (estado.lineaBase.cantidadMuestras > 0) {
-        iniciarSesion(true);
-      } else {
-        msg(
-          "No se detectó ningún rostro durante la calibración. " + diagTexto() +
-          " · La sesión continúa solo con el tablero.",
-          "error"
-        );
-        iniciarSesion(false);
-        return;
-      }
+    // La línea base se cierra por muestras, no por reloj: un niño puede tardar
+    // en quedar encuadrado y cerrar por tiempo daría una referencia inservible.
+    if (n >= MUESTRAS_MINIMAS_BASE && transcurrido >= SEGUNDOS_LINEA_BASE) {
+      const base = estado.lineaBase.cerrar();
+      store.cerrarSesion(estado.sesionId, null);
+      store.crearSesion(base).then((id) => (estado.sesionId = id));
+      el("preview-base").hidden = true;
+      el("estado-base").textContent = "establecida";
+      chip("Análisis activo", "chip-activa");
     }
-  } else if (estado.fase === "activa") {
-    estado.fotogramas++;
-    if (r) {
-      estado.conRostro++;
-      const norm = estado.lineaBase.normalizar(extract(r.blendshapes));
-      const { estado: e, puntaje } = clasificar(norm);
-      estado.ventana.agregar(e, puntaje);
-      pintarPanel(e, puntaje, r.blendshapes);
-    } else {
-      estado.ventana.agregarSinRostro();
-      pintarPanel(null, null, null);
-    }
-    el("tasa-deteccion").textContent =
-      estado.fotogramas ? Math.round((estado.conRostro / estado.fotogramas) * 100) + " %" : "—";
-    el("diag-sesion").textContent = diagTexto();
+    return requestAnimationFrame(bucle);
   }
+
+  estado.fotogramas++;
+  if (r) {
+    estado.conRostro++;
+    const norm = estado.lineaBase.normalizar(extract(r.blendshapes));
+    const { estado: e, puntaje } = clasificar(norm);
+    estado.ventana.agregar(e, puntaje);
+    pintarPanel(e, puntaje, r.blendshapes);
+  } else {
+    estado.ventana.agregarSinRostro();
+    pintarPanel(null, null, null);
+  }
+
+  el("tasa-deteccion").textContent =
+    Math.round((estado.conRostro / estado.fotogramas) * 100) + " %";
+  el("diag").textContent = diagTexto();
 
   requestAnimationFrame(bucle);
 }
 
-/** Resumen técnico del detector, visible en pantalla para depuración. */
 function diagTexto() {
   const d = face.diagnostico;
   const partes = [
@@ -141,20 +133,20 @@ function diagTexto() {
   return partes.join(" · ");
 }
 
-/* ─────────────────────────── Panel en vivo ─────────────────────────── */
+/* ══════════════════════ Panel en vivo ══════════════════════ */
 
 const COLOR = {
   positivo: "#15803d",
-  neutro: "#52525b",
+  neutro: "#57534e",
   "negativo leve": "#b45309",
-  "negativo intenso": "#b91c1c",
+  "negativo intenso": "#be123c",
 };
 
 function pintarPanel(e, puntaje, blendshapes) {
   const badge = el("estado-actual");
   if (!e) {
     badge.textContent = "sin rostro";
-    badge.style.color = "#a1a1aa";
+    badge.style.color = "var(--tinta-3)";
     el("barra-puntaje").style.width = "0%";
     return;
   }
@@ -165,7 +157,7 @@ function pintarPanel(e, puntaje, blendshapes) {
   const barra = el("barra-puntaje");
   barra.style.width = Math.abs(puntaje) * 50 + "%";
   barra.style.left = puntaje < 0 ? 50 - Math.abs(puntaje) * 50 + "%" : "50%";
-  barra.style.background = puntaje < 0 ? "#ef4444" : "#22c55e";
+  barra.style.background = puntaje < 0 ? "#e11d48" : "#16a34a";
 
   if (blendshapes) {
     const top = Object.entries(blendshapes)
@@ -181,27 +173,33 @@ function pintarPanel(e, puntaje, blendshapes) {
   }
 }
 
-/* ───────────────────────────── Selección ───────────────────────────── */
+/* ══════════════════════ Selección ══════════════════════ */
 
 const tablero = new Tablero(el("tablero"), async (picto) => {
   const d = estado.ventana.distribucion();
   const latencia = performance.now() - estado.ultimaSeleccion;
   estado.ultimaSeleccion = performance.now();
 
-  el("resultado-icono").textContent = picto.icono;
-  el("resultado-frase").textContent = picto.frase;
-  el("resultado-estado").textContent = d.suficiente
-    ? `estado facial previo: ${d.predominante}`
-    : "datos insuficientes en la ventana previa";
-  el("resultado").hidden = false;
+  el("salida-icono").textContent = picto.icono;
+  el("salida-frase").textContent = picto.frase;
+  el("salida-estado").textContent = !estado.analisisActivo
+    ? ""
+    : d.suficiente
+      ? `estado facial previo · ${d.predominante}`
+      : "datos faciales insuficientes en la ventana previa";
+  el("mensaje-salida").hidden = false;
   hablar(picto.frase);
+
+  clearTimeout(estado.temporizadorSalida);
+  estado.temporizadorSalida = setTimeout(() => (el("mensaje-salida").hidden = true), MS_SALIDA);
 
   await store.guardarSeleccion({
     sesionId: estado.sesionId,
     pictograma: picto.clave,
     etiqueta: picto.etiqueta,
+    categoria: picto.categoria,
     latenciaMs: Math.round(latencia),
-    // Cuando no hay datos suficientes NO se atribuye estado (RF-27).
+    // Sin datos suficientes NO se atribuye estado (RF-27).
     predominante: d.suficiente ? d.predominante : null,
     proporciones: d.suficiente ? d.proporciones : null,
     puntajePromedio: d.suficiente ? d.puntajePromedio : null,
@@ -213,31 +211,65 @@ const tablero = new Tablero(el("tablero"), async (picto) => {
   refrescarAsociacion();
 });
 
-el("btn-pagina").addEventListener("click", () => {
-  const p = tablero.cambiarPagina();
-  el("btn-pagina").textContent = `Página ${p + 1} →`;
+el("mensaje-salida").addEventListener("click", () => {
+  clearTimeout(estado.temporizadorSalida);
+  el("mensaje-salida").hidden = true;
 });
 
-/* ─────────────────────── Índice de asociación ─────────────────────── */
+/* ══════════════════════ Paginación ══════════════════════ */
+
+function pintarPuntos() {
+  el("puntos").innerHTML = PAGINAS.map(
+    (_, i) =>
+      `<button class="punto" type="button" data-i="${i}" aria-current="${i === tablero.pagina}" aria-label="Página ${i + 1}"></button>`
+  ).join("");
+}
+
+el("puntos").addEventListener("click", (ev) => {
+  const b = ev.target.closest(".punto");
+  if (!b) return;
+  tablero.irA(Number(b.dataset.i));
+  pintarPuntos();
+});
+
+el("btn-pagina").addEventListener("click", () => {
+  tablero.siguiente();
+  pintarPuntos();
+});
+
+/* ══════════════════════ Panel del cuidador ══════════════════════ */
+
+function abrirPanel(abierto) {
+  el("panel").hidden = !abierto;
+  el("velo").hidden = !abierto;
+  el("btn-panel").setAttribute("aria-expanded", String(abierto));
+}
+el("btn-panel").addEventListener("click", () => abrirPanel(el("panel").hidden));
+el("btn-cerrar-panel").addEventListener("click", () => abrirPanel(false));
+el("velo").addEventListener("click", () => abrirPanel(false));
+document.addEventListener("keydown", (e) => e.key === "Escape" && abrirPanel(false));
+
+/* ══════════════════════ Índice de asociación ══════════════════════ */
 
 async function refrescarAsociacion() {
   const idx = await store.indiceAsociacion();
-  const filas = Object.entries(idx);
+  const filas = Object.entries(idx).sort((a, b) => b[1].total - a[1].total);
   if (!filas.length) {
-    el("asociacion").innerHTML = '<p class="vacio">Aún no hay selecciones con datos faciales suficientes.</p>';
+    el("asociacion").innerHTML =
+      '<p class="vacio">Aún no hay selecciones con datos faciales suficientes.</p>';
     return;
   }
   el("asociacion").innerHTML = filas
     .map(
       ([clave, d]) =>
-        `<div class="asoc"><span class="asoc-pic">${clave}</span>
-         <span class="asoc-estado" style="color:${COLOR[d.predominante]}">${d.predominante}</span>
-         <span class="asoc-n">${d.total} ${d.total === 1 ? "selección" : "selecciones"}</span></div>`
+        `<div class="asoc"><span class="asoc-pic">${clave}</span>` +
+        `<span class="asoc-estado" style="color:${COLOR[d.predominante]}">${d.predominante}</span>` +
+        `<span class="asoc-n">${d.total} ${d.total === 1 ? "selección" : "selecciones"}</span></div>`
     )
     .join("");
 }
 
-/* ──────────────────────────── Administración ──────────────────────────── */
+/* ══════════════════════ Registros ══════════════════════ */
 
 el("btn-exportar").addEventListener("click", async () => {
   const json = await store.exportarJSON();
@@ -253,11 +285,3 @@ el("btn-borrar").addEventListener("click", async () => {
   await store.borrarTodo();
   refrescarAsociacion();
 });
-
-/* Diagnóstico de entorno visible desde el arranque. */
-el("entorno").textContent = [
-  window.isSecureContext ? "conexión segura" : "CONEXIÓN NO SEGURA — la cámara no funcionará",
-  navigator.mediaDevices?.getUserMedia ? "cámara disponible" : "CÁMARA NO DISPONIBLE en este navegador",
-].join(" · ");
-
-refrescarAsociacion();
