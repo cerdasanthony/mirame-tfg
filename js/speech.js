@@ -14,21 +14,34 @@
  * exactamente lo contrario de lo que se busca.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * QUÉ SE PUEDE Y QUÉ NO
+ * NO SE PUEDE FABRICAR UNA VOZ INFANTIL SUBIENDO EL TONO
  *
- * No hay voces infantiles: el sistema solo ofrece adultas. Comprobado en este
- * equipo, las cinco voces en español eran Helena, Laura, Pablo, Raúl y Sabina,
- * todas de adulto. Así que la voz de niño se APROXIMA, y conviene decirlo tal
- * cual en el informe en vez de afirmar que se usa una voz infantil.
+ * Se intentó y sonaba mal. Conviene dejar escrito por qué, porque la conclusión
+ * no es de ajuste sino de fondo.
  *
- * La aproximación tiene dos partes. Se elige una voz femenina, cuya frecuencia
- * fundamental está más cerca de la de un niño que la de una masculina. Y se sube
- * el tono, porque un niño en edad preescolar ronda los 250–300 Hz frente a los
- * ~200 Hz de una mujer adulta.
+ * Lo que distingue la voz de un niño de la de un adulto no es solo la frecuencia
+ * fundamental: es también la posición de los formantes, que dependen de un tracto
+ * vocal más corto. El parámetro `pitch` de la Web Speech API mueve la frecuencia
+ * fundamental y deja los formantes donde estaban, de modo que no se obtiene un
+ * niño sino la misma voz adulta desplazada, que es justo lo que el oído reconoce
+ * como procesado. Cuanto más se sube, más artificial, y en ningún punto suena
+ * infantil.
  *
- * El tono no se sube más porque a partir de cierto punto la voz deja de sonar
- * infantil y empieza a sonar procesada, y la inteligibilidad es lo primero: si
- * no se entiende, no comunica.
+ * Con un tono de 1,45 el resultado era claramente sintético. La API no da acceso
+ * a los formantes, así que por este camino no hay nada que ajustar: no es que
+ * falte encontrar el valor bueno, es que no existe.
+ *
+ * LO QUE SÍ SE HACE
+ *
+ * Dejar de sonar genérica por donde sí se puede: eligiendo bien la voz. Una voz
+ * femenina de acento americano, cercano al del participante, ya no es la voz por
+ * defecto del navegador. El tono sube apenas, lo justo para aligerarla sin que
+ * aparezca el artefacto, y la velocidad baja un poco, que ayuda a entenderla.
+ *
+ * Si en algún momento hace falta de veras una voz infantil, la salida no es este
+ * parámetro sino un motor de síntesis con voces de niño, y eso implica archivos
+ * de voz propios y quedaría fuera del alcance de una prueba de concepto que se
+ * ejecuta entera en el dispositivo.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * EL ACENTO IMPORTA Y ANTES ESTABA MAL
@@ -78,10 +91,15 @@ export function voces() {
     .sort((a, b) => puntuar(b) - puntuar(a));
 }
 
-/* Ajustes, recordados entre sesiones. El tono por defecto sube respecto del
-   normal sin llegar a sonar procesado; la velocidad queda algo por debajo de la
-   normal, lo que ayuda a la inteligibilidad sin volverse lenta. */
-const POR_DEFECTO = { voz: null, tono: 1.45, velocidad: 0.95 };
+/* Ajustes, recordados entre sesiones.
+   El tono queda apenas por encima del normal: aligera la voz sin que aparezca el
+   artefacto de desplazar la fundamental dejando los formantes quietos. La
+   velocidad, algo por debajo de la normal, ayuda a entenderla sin volverse
+   lenta. */
+/* 1,10 y no 1,12: el deslizador del panel avanza de 0,05 en 0,05, y un valor
+   fuera de esa rejilla hacia que el control mostrara una posicion y la cifra de
+   al lado otra. */
+const POR_DEFECTO = { voz: null, tono: 1.1, velocidad: 0.95 };
 
 export function ajustes() {
   try {

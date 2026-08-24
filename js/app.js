@@ -945,6 +945,14 @@ for (const [id, clave] of [["voz-tono", "tono"], ["voz-velocidad", "velocidad"]]
 }
 el("btn-probar-voz").addEventListener("click", () => hablar("Hola, quiero jugar"));
 
+/* Los ajustes quedan guardados, asi que un valor probado en su momento sigue
+   vigente aunque el valor por defecto del programa cambie. Esto lo devuelve. */
+el("btn-voz-defecto").addEventListener("click", () => {
+  localStorage.removeItem("mirame.voz");
+  pintarControlesVoz();
+  hablar("Hola, quiero jugar");
+});
+
 el("btn-exportar").addEventListener("click", async () => {
   const json = await store.exportarJSON();
   const a = document.createElement("a");

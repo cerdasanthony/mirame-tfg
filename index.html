@@ -286,11 +286,22 @@
       <div class="acciones-admin" style="margin-top:.7rem">
         <button id="btn-probar-voz" class="btn btn-secundario" type="button">Probar voz</button>
       </div>
+      <div class="acciones-admin" style="margin-top:.5rem">
+        <button id="btn-voz-defecto" class="btn btn-secundario" type="button">Volver a los valores por defecto</button>
+      </div>
       <p class="nota">
-        La voz dice lo que el niño está diciendo, no lo que hace la aplicación, así
-        que conviene que corresponda a su edad. El sistema no ofrece voces
-        infantiles: se aproxima eligiendo una voz femenina y subiendo el tono.
-        Subirlo demasiado la vuelve ininteligible, que es peor que sonar adulta.
+        La voz dice lo que el niño está diciendo, no lo que hace la aplicación.
+        Lo que la saca de sonar genérica es <strong>elegir bien la voz</strong>:
+        femenina y de acento americano, cercano al del participante, en vez de la
+        que el navegador traiga por defecto.
+      </p>
+      <p class="nota">
+        Subir mucho el tono <strong>no produce una voz infantil</strong>. Lo que
+        distingue a la de un niño no es solo la frecuencia fundamental sino los
+        formantes, que dependen de un tracto vocal más corto, y este parámetro no
+        los toca: mueve la fundamental y deja los formantes quietos, con lo que se
+        oye la misma voz adulta desplazada. Por encima de 1,3 el artefacto ya se
+        nota.
       </p>
     </section>
 
