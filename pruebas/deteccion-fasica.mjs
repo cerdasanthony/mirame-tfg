@@ -303,6 +303,60 @@ seccion("6. Resolución temporal según la cadencia de la cámara");
   );
 }
 
+/* ───────── 7. Regresion: canal inmovil durante el calentamiento ───────────── */
+
+seccion("7. Canal sin varianza en el calentamiento (regresión)");
+{
+  /**
+   * ESTE CASO LO ENCONTRO UNA SESION REAL, NO LA SIMULACION.
+   *
+   * En el registro exportado el 24-08-2026, los canales AU6, AU9, AU10 y AU12
+   * quedaron con umbral exactamente 0,000: sus blendshapes fueron constantes
+   * durante el calentamiento, la MAD dio cero y el umbral se derrumbo. Resultado
+   * medido sobre esos datos: 163 de 367 eventos —el 44 %— salieron de canales
+   * con umbral por debajo de 0,01, con amplitud mediana de 0,004 sigma frente a
+   * 0,951 sigma en los canales sanos.
+   *
+   * La simulacion no lo reproducia porque su ruido gaussiano nunca es
+   * exactamente constante. Un rostro real si: un musculo quieto da un blendshape
+   * que no cambia. Se reproduce aca a proposito para que no vuelva a pasar.
+   */
+  const det = new DetectorFasico({ canales: ["AU12", "AU43"], calentamientoMs: 5000 });
+  const dt = 1000 / 60;
+  for (let i = 0; i * dt < 26000; i++) {
+    const t = i * dt;
+    /* AU12 permanece EXACTAMENTE constante durante todo el calentamiento y
+       despues fluctua levemente, como haria un musculo en reposo con ruido de
+       cuantizacion. */
+    const au12 = t < 6000 ? 0 : (i % 3 === 0 ? 0.02 : 0);
+    det.agregar({ AU12: au12, AU43: 0 }, t);
+  }
+
+  const l = limpios(det);
+  const m = det.metricas;
+  console.log(
+    `    canales con umbral supuesto: ${m.canalesConUmbralSupuesto} de ${m.canalesTotales}`
+  );
+  comprobar(
+    "el umbral no se derrumba a cero: no hay avalancha de eventos",
+    l.length === 0,
+    `${l.length} eventos (antes del arreglo: cientos)`
+  );
+  comprobar(
+    "y deja constancia de que ese umbral es supuesto, no medido",
+    m.canalesConUmbralSupuesto > 0,
+    `${m.canalesConUmbralSupuesto} canal(es)`
+  );
+  /* El canal NO se apaga: un canal inmovil en la calibracion es justo lo que
+     produce un participante hipoexpresivo, y es donde un gesto posterior mas
+     destacaria. Se le pone piso, no mordaza. */
+  comprobar(
+    "el canal sigue disponible en lugar de quedar apagado",
+    m.canalesUtiles === m.canalesTotales,
+    `${m.canalesUtiles}/${m.canalesTotales} utilizables`
+  );
+}
+
 /* ─────────────────────────────── resultado ───────────────────────────────── */
 
 console.log(`\n${pasadas} comprobaciones pasadas, ${fallidas} fallidas.`);

@@ -146,6 +146,59 @@ export function banda(fwhmMs) {
 /** Duración total estimada a partir de la FWHM medida. */
 export const totalDesdeFwhm = (fwhmMs) => fwhmMs / FACTOR_FORMA;
 
+/**
+ * Piso para la dispersión del contraste d, en unidades de sigma basal.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * POR QUÉ EXISTE: LO ENCONTRÓ UNA SESIÓN REAL, NO LA SIMULACIÓN
+ *
+ * En la sesión 22 del registro exportado el 24-08-2026, cuatro canales —AU6,
+ * AU9, AU10 y AU12— quedaron con umbral EXACTAMENTE 0,000. El motivo: durante
+ * el calentamiento esos blendshapes valieron siempre lo mismo, la desviación
+ * absoluta mediana dio cero, y τ = mediana + k·0 se derrumbó a cero. Un canal
+ * con umbral cero dispara con cualquier fluctuación numérica.
+ *
+ * La consecuencia, medida sobre esos datos: de 367 eventos registrados, 163
+ * —el 44 %— salieron de canales con umbral por debajo de 0,01. Su amplitud
+ * mediana fue de 0,004 sigma, frente a 0,951 sigma en los canales bien
+ * calibrados: doscientas cuarenta veces menos. Eran ruido numérico registrado
+ * como expresión, y ademas repartido de forma casi uniforme entre los dieciséis
+ * canales, que es la firma inconfundible del ruido y no la de un rostro.
+ *
+ * La simulación no lo detectó porque genera ruido gaussiano continuo en todos
+ * los canales: nunca produce una señal exactamente constante. El rostro real sí,
+ * y con frecuencia — un músculo que no se mueve da un blendshape que no cambia.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * POR QUÉ ES UN PISO Y NO UN APAGADO DEL CANAL
+ *
+ * La tentación es descartar el canal sin varianza. Sería un error: un canal
+ * quieto durante la calibración es exactamente lo que produce un participante
+ * hipoexpresivo, y es justo aquel en el que un gesto posterior destacaría más.
+ * Apagarlo tiraría la señal que este trabajo busca.
+ *
+ * Lo correcto es reconocer que de un canal constante NO SE PUEDE ESTIMAR el
+ * ruido, y que en ausencia de estimación hay que asumir la cota conservadora en
+ * lugar de asumir cero.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * DE DÓNDE SALE EL VALOR
+ *
+ * La entrada del detector ya viene en puntuaciones z respecto de la línea base
+ * del participante, de modo que 1,0 es una dispersión basal completa. Se rechaza
+ * creer que un canal sea más silencioso que un cuarto de su propia dispersión
+ * basal. Con k = 3, el umbral mínimo queda en 0,75 sigma, coherente con el corte
+ * de 1,0 sigma que ya usa la vía tónica para el mismo participante: las dos vías
+ * exigen desviaciones del mismo orden, que es lo que corresponde si miden el
+ * mismo constructo.
+ *
+ * Es hermano del SIGMA_MINIMA de `features.js`, que resuelve el mismo problema
+ * un nivel más abajo, sobre los blendshapes crudos. Que hicieran falta los dos
+ * no es redundancia: son dos normalizaciones encadenadas y cada una puede
+ * degenerar por su cuenta.
+ */
+export const SIGMA_D_MINIMA = 0.25;
+
 const mediana = (xs) => {
   if (!xs.length) return 0;
   const o = [...xs].sort((a, b) => a - b);
@@ -441,6 +494,7 @@ export class DetectorFasico {
       this.umbral[c] = {};
       const porEscala = {};
       let suficiente = true;
+      let pisos = 0;
 
       /* Cada escala tiene su propio ruido: el filtro ancho promedia más muestras
          y por tanto fluctúa menos. Un umbral común las trataría como iguales y
@@ -456,12 +510,16 @@ export class DetectorFasico {
           continue;
         }
         const med = mediana(ds);
-        const sigma = mad(ds) * 1.4826;
+        const sigmaCruda = mad(ds) * 1.4826;
+        const sigma = Math.max(sigmaCruda, SIGMA_D_MINIMA);
+        if (sigmaCruda < SIGMA_D_MINIMA) pisos++;
         this.umbral[c][esc] = med + this.kRuido * sigma;
         porEscala[esc] = {
           n: ds.length,
           mediana: Number(med.toFixed(4)),
           sigma: Number(sigma.toFixed(4)),
+          sigmaCruda: Number(sigmaCruda.toFixed(4)),
+          piso: sigmaCruda < SIGMA_D_MINIMA,
           umbral: Number(this.umbral[c][esc].toFixed(4)),
           suficiente: true,
         };
@@ -476,6 +534,12 @@ export class DetectorFasico {
            canal jamás dispararía. */
         utilizable:
           this.escalasMs.filter((e) => porEscala[e]?.suficiente).length >= this.minEscalas,
+        /* Cuantas escalas no tenian ruido estimable y tomaron el piso. Un canal
+           con todas las escalas al piso es un canal que estuvo inmovil en la
+           calibracion: sigue activo, pero su umbral es supuesto, no medido, y el
+           informe tiene que poder decir cuantos estaban en esa situacion. */
+        escalasConPiso: pisos,
+        umbralSupuesto: pisos === this.escalasMs.length,
         sigma: porEscala[this.escalasMs[0]]?.sigma ?? null,
         porEscala,
       };
@@ -670,9 +734,15 @@ export class DetectorFasico {
       ? this.canales.filter((c) => this.ruidoResumen[c]?.utilizable).length
       : 0;
 
+    const supuestos = this.ruidoResumen
+      ? this.canales.filter((c) => this.ruidoResumen[c]?.umbralSupuesto).length
+      : 0;
+
     return {
       calibrado: this.calibrado,
       canalesUtiles: utiles,
+      /* Canales cuyo umbral no se pudo medir y se asumio por el piso. */
+      canalesConUmbralSupuesto: supuestos,
       canalesTotales: this.canales.length,
       degradado: Boolean(this.degradado),
       progresoCalentamiento: this.progresoCalentamiento,
