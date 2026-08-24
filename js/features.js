@@ -2,13 +2,21 @@
  * Módulo A — Características faciales observables y línea base.
  *
  * De los 52 blendshapes que entrega MediaPipe se toma un subconjunto reducido y
- * se agrupa en siete características con nombre. Todas se expresan como
- * DESVIACIÓN respecto de la línea base de la sesión: la geometría facial varía
- * entre personas, así que el rostro se mide contra sí mismo y no contra un
- * promedio poblacional.
+ * se agrupa en siete características con nombre.
  *
- * Nada de esto afirma nada sobre lo que la persona siente. Son medidas de la
- * configuración del rostro.
+ * NORMALIZACIÓN POR PUNTUACIÓN z
+ * Las medidas no se expresan como diferencia cruda respecto del reposo, sino
+ * como puntuación z: cuántas desviaciones estándar se aparta la medida actual
+ * de la distribución observada durante la línea base de esa sesión.
+ *
+ * La diferencia importa. Una variación de 0,05 en la curvatura de la boca puede
+ * ser ruido en un rostro cuya boca fluctúa constantemente, y una señal clara en
+ * otro que la mantiene estable. La diferencia cruda no distingue esos dos casos;
+ * la puntuación z sí, porque incorpora la variabilidad propia del participante.
+ *
+ * Consecuencia práctica: los umbrales del clasificador dejan de ser números
+ * elegidos a mano y pasan a expresarse en unidades de sigma, derivadas de la
+ * distribución basal del propio participante.
  */
 
 /** Promedio de un conjunto de blendshapes, tolerante a nombres ausentes. */
@@ -41,20 +49,31 @@ export const CARACTERISTICAS = [
 ];
 
 /**
+ * Piso para la desviación estándar.
+ *
+ * Si una característica apenas varió durante la línea base —por ejemplo, la
+ * apertura bucal en un participante que no abrió la boca—, su sigma tiende a
+ * cero y la división amplifica el ruido hasta el absurdo. El piso acota esa
+ * amplificación. Su valor está en la escala de los blendshapes, que van de 0 a 1.
+ */
+const SIGMA_MINIMA = 0.02;
+
+/**
  * Acumulador de línea base (RF-10).
  *
  * Se alimenta durante los primeros segundos de la sesión con el rostro en
- * reposo y luego se congela. A partir de ahí, `normalizar` devuelve la
- * desviación de cada característica respecto de ese reposo.
+ * reposo y luego se congela, calculando media y desviación estándar de cada
+ * característica.
  */
 export class LineaBase {
   constructor() {
     this.muestras = [];
-    this.valores = null;
+    this.media = null;
+    this.sigma = null;
   }
 
   agregar(caracteristicas) {
-    if (this.valores) return;
+    if (this.media) return;
     this.muestras.push(caracteristicas);
   }
 
@@ -63,33 +82,56 @@ export class LineaBase {
   }
 
   get establecida() {
-    return this.valores !== null;
+    return this.media !== null;
   }
 
-  /** Congela la línea base con el promedio de lo acumulado. */
+  /**
+   * Congela la línea base calculando media y desviación estándar muestral.
+   *
+   * Se usa el divisor n−1 (corrección de Bessel) porque la línea base es una
+   * muestra del reposo del participante, no la población completa de sus
+   * estados en reposo.
+   */
   cerrar() {
-    if (!this.muestras.length) {
-      throw new Error("No hay muestras para establecer la línea base");
-    }
-    this.valores = {};
+    const n = this.muestras.length;
+    if (n < 2) throw new Error("La línea base necesita al menos dos muestras");
+
+    this.media = {};
+    this.sigma = {};
     for (const c of CARACTERISTICAS) {
-      const suma = this.muestras.reduce((a, m) => a + m[c], 0);
-      this.valores[c] = suma / this.muestras.length;
+      const vals = this.muestras.map((m) => m[c]);
+      const mu = vals.reduce((a, b) => a + b, 0) / n;
+      const varianza = vals.reduce((a, v) => a + (v - mu) ** 2, 0) / (n - 1);
+      this.media[c] = mu;
+      this.sigma[c] = Math.max(Math.sqrt(varianza), SIGMA_MINIMA);
     }
-    return this.valores;
+    return { media: this.media, sigma: this.sigma, muestras: n };
   }
 
-  /** Devuelve las características como desviación respecto de la línea base. */
+  /**
+   * Devuelve las características como puntuación z respecto de la línea base.
+   *
+   * Antes de cerrarla, devuelve ceros: sin distribución de referencia no hay
+   * nada contra qué normalizar, y devolver los valores crudos los haría pasar
+   * por puntuaciones z, que es peor que no devolver nada.
+   */
   normalizar(caracteristicas) {
-    if (!this.valores) return { ...caracteristicas };
     const out = {};
+    if (!this.media) {
+      for (const c of CARACTERISTICAS) out[c] = 0;
+      return out;
+    }
     for (const c of CARACTERISTICAS) {
-      out[c] = caracteristicas[c] - this.valores[c];
+      out[c] = (caracteristicas[c] - this.media[c]) / this.sigma[c];
     }
     return out;
   }
-}
 
+  /** Estado serializable, para guardarlo con la sesión y poder reanalizarla. */
+  instantanea() {
+    return this.media ? { media: this.media, sigma: this.sigma, muestras: this.muestras.length } : null;
+  }
+}
 
 /**
  * Frontalidad del rostro, en [0, 1].

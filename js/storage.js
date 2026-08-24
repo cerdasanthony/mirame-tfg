@@ -6,7 +6,7 @@
  */
 
 const DB_NOMBRE = "mirame";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 let db = null;
 
 export async function abrir() {
@@ -17,6 +17,10 @@ export async function abrir() {
       const d = req.result;
       if (!d.objectStoreNames.contains("sesiones")) {
         d.createObjectStore("sesiones", { keyPath: "id", autoIncrement: true });
+      }
+      if (!d.objectStoreNames.contains("muestras")) {
+        const m = d.createObjectStore("muestras", { keyPath: "id", autoIncrement: true });
+        m.createIndex("porSesion", "sesionId");
       }
       if (!d.objectStoreNames.contains("selecciones")) {
         const s = d.createObjectStore("selecciones", { keyPath: "id", autoIncrement: true });
@@ -61,6 +65,36 @@ export async function guardarSeleccion(registro) {
   return promesa(tx("selecciones", "readwrite").add({ ts: Date.now(), ...registro }));
 }
 
+/**
+ * Guarda el vector de características CRUDO de un fotograma (RF-31).
+ *
+ * Sin esto, ajustar un umbral obliga a volver a grabar sesiones con el
+ * participante, lo que es inviable. Conservando las medidas previas a la
+ * normalización se puede reclasificar una sesión ya registrada con otros
+ * parámetros, cuantas veces haga falta, sin repetir nada.
+ *
+ * Metodológicamente separa la recolección del análisis, que es lo correcto: los
+ * umbrales se calibran sobre datos reales sin contaminar la toma de datos.
+ *
+ * Se registra a frecuencia reducida a propósito; guardar treinta vectores por
+ * segundo llenaría el almacenamiento sin aportar información adicional.
+ */
+export async function guardarMuestra(m) {
+  await abrir();
+  return promesa(tx("muestras", "readwrite").add(m));
+}
+
+export async function muestrasDeSesion(sesionId) {
+  await abrir();
+  const idx = tx("muestras", "readonly").index("porSesion");
+  return promesa(idx.getAll(sesionId));
+}
+
+export async function todasLasMuestras() {
+  await abrir();
+  return promesa(tx("muestras", "readonly").getAll());
+}
+
 export async function todasLasSelecciones() {
   await abrir();
   return promesa(tx("selecciones", "readonly").getAll());
@@ -95,7 +129,12 @@ export async function exportarJSON() {
   await abrir();
   const sesiones = await promesa(tx("sesiones", "readonly").getAll());
   const selecciones = await todasLasSelecciones();
-  return JSON.stringify({ exportado: new Date().toISOString(), sesiones, selecciones }, null, 2);
+  const muestras = await todasLasMuestras();
+  return JSON.stringify(
+    { exportado: new Date().toISOString(), sesiones, selecciones, muestras },
+    null,
+    2
+  );
 }
 
 /** Borra de forma definitiva todo lo almacenado (RF-25). */
@@ -103,4 +142,5 @@ export async function borrarTodo() {
   await abrir();
   await promesa(tx("sesiones", "readwrite").clear());
   await promesa(tx("selecciones", "readwrite").clear());
+  await promesa(tx("muestras", "readwrite").clear());
 }

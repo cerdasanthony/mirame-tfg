@@ -12,7 +12,7 @@
 
 import * as face from "./face.js";
 import { extract, LineaBase, frontalidad } from "./features.js";
-import { clasificar, Ventana, Suavizador } from "./classifier.js";
+import { clasificar, Ventana, Suavizador, Estabilizador } from "./classifier.js";
 import * as store from "./storage.js";
 import { Tablero, PAGINAS } from "./board.js";
 import { hablar } from "./speech.js";
@@ -33,6 +33,10 @@ const FRONTALIDAD_MINIMA = 0.55;
    acuerdo. */
 const MS_SEGUNDA_OPINION = 400;
 
+/* Frecuencia de registro de vectores crudos para reanálisis posterior. Guardar
+   treinta por segundo llenaría el almacenamiento sin aportar información. */
+const MS_MUESTRA = 250;
+
 const el = (id) => document.getElementById(id);
 const video = el("video");
 
@@ -41,6 +45,9 @@ const estado = {
   lineaBase: new LineaBase(),
   ventana: new Ventana(8, 0.4),
   suavizador: new Suavizador(),
+  estabilizador: new Estabilizador({ dwellMs: 500, factorRetroceso: 0.5 }),
+  ultimoFotograma: 0,
+  ultimaMuestra: 0,
   descartadosPorPose: 0,
   acuerdo: new segunda.Acuerdo(),
   ultimaSegunda: 0,
@@ -120,8 +127,10 @@ function bucle() {
     // en quedar encuadrado y cerrar por tiempo daría una referencia inservible.
     if (n >= MUESTRAS_MINIMAS_BASE && transcurrido >= SEGUNDOS_LINEA_BASE) {
       const base = estado.lineaBase.cerrar();
+      estado.estabilizador.reiniciar();
       store.cerrarSesion(estado.sesionId, null);
       store.crearSesion(base).then((id) => (estado.sesionId = id));
+      el("sigma-base").textContent = base.muestras + " muestras";
       el("preview-base").hidden = true;
       el("estado-base").textContent = "establecida";
       chip("Análisis activo", "chip-activa");
@@ -137,6 +146,7 @@ function bucle() {
   if (!r) {
     estado.ventana.agregarSinRostro();
     estado.suavizador.reiniciar();
+    estado.ultimoFotograma = 0;
     aplicarHeuristica(null);
     pintarPanel(null, null, null, null);
   } else {
@@ -149,9 +159,31 @@ function bucle() {
       pintarPanel(null, null, r.blendshapes, frente);
     } else {
       estado.conRostro++;
-      const norm = estado.lineaBase.normalizar(extract(r.blendshapes));
-      const c = clasificar(norm, estado.suavizador);
+      const ahora = performance.now();
+      const dtMs = estado.ultimoFotograma ? Math.min(200, ahora - estado.ultimoFotograma) : 33;
+      estado.ultimoFotograma = ahora;
+
+      const crudas = extract(r.blendshapes);
+      const norm = estado.lineaBase.normalizar(crudas);
+      const c = clasificar(norm, {
+        suavizador: estado.suavizador,
+        estabilizador: estado.estabilizador,
+        dtMs,
+      });
       estado.ventana.agregar(c.estado, c.puntaje);
+
+      // Vector crudo para reanálisis posterior (RF-31).
+      if (ahora - estado.ultimaMuestra >= MS_MUESTRA) {
+        estado.ultimaMuestra = ahora;
+        store.guardarMuestra({
+          sesionId: estado.sesionId,
+          ts: Date.now(),
+          caracteristicas: crudas,
+          frontalidad: Number(frente.toFixed(3)),
+          puntaje: Number(c.puntaje.toFixed(4)),
+          estado: c.estado,
+        });
+      }
 
       aplicarHeuristica(c.estado);
       consultarSegundaOpinion(r.landmarks, c.estado);
@@ -195,7 +227,10 @@ function consultarSegundaOpinion(landmarks, estadoPrincipal) {
     estado.acuerdo.registrar(estadoPrincipal, op.categoria);
 
     const prop = estado.acuerdo.proporcion;
+    const k = estado.acuerdo.kappa;
     el("acuerdo").textContent = prop === null ? "—" : Math.round(prop * 100) + " %";
+    el("kappa").textContent = k === null ? "—" : k.toFixed(2);
+    el("kappa-lectura").textContent = estado.acuerdo.interpretacion;
     el("segunda-categoria").textContent = op.categoria;
     el("segunda-categoria").style.color = COLOR[op.categoria] ?? "var(--tinta-2)";
   });
@@ -228,6 +263,7 @@ function diagTexto() {
     `llamadas ${d.llamadas}`,
     `detecciones ${d.detecciones}`,
     `descartados por pose ${estado.descartadosPorPose}`,
+    `dwell ${Math.round(estado.estabilizador.progresoCambio * 100)} %`,
     `segunda opinión ${segunda.estado.disponible ? segunda.estado.evaluaciones : 'no disponible'}`,
   ];
   if (d.ultimoError) partes.push(`error: ${d.ultimoError}`);
@@ -316,8 +352,8 @@ const tablero = new Tablero(el("tablero"), async (picto, _cat, eraSugerido) => {
     fotogramasTotales: d.fotogramasTotales,
     // Acuerdo entre el clasificador geométrico y el modelo preentrenado, como
     // medida de fiabilidad sin verdad de referencia disponible.
-    acuerdoModelos: estado.acuerdo.proporcion,
-    comparacionesAcuerdo: estado.acuerdo.comparaciones,
+    // El porcentaje crudo sobreestima la concordancia; kappa la corrige por azar.
+    acuerdo: estado.acuerdo.instantanea(),
     // Módulo C (RF-20). El registro de «se sugirió X, se eligió Y» es el dato
     // más informativo del sistema: una selección que ignora la sugerencia dice
     // más que una que la acepta.

@@ -76,6 +76,7 @@
       <dl class="metricas">
         <div><dt>Rostro detectado</dt><dd id="tasa-deteccion">—</dd></div>
         <div><dt>Línea base</dt><dd id="estado-base">pendiente</dd></div>
+        <div><dt>Muestras basales</dt><dd id="sigma-base">—</dd></div>
         <div><dt>Frontalidad</dt><dd id="frontalidad">—</dd></div>
       </dl>
     </section>
@@ -87,8 +88,10 @@
         <span id="estado-segunda" class="estado-valor">cargando…</span>
       </div>
       <dl class="metricas">
-        <div><dt>Acuerdo entre modelos</dt><dd id="acuerdo">—</dd></div>
+        <div><dt>Acuerdo observado</dt><dd id="acuerdo">—</dd></div>
+        <div><dt>Kappa de Cohen</dt><dd id="kappa">—</dd></div>
       </dl>
+      <p class="dato">Concordancia: <strong id="kappa-lectura">sin datos</strong></p>
       <p class="nota">
         Un segundo modelo preentrenado clasifica el rostro recortado por un camino
         independiente del análisis geométrico. El acuerdo entre ambos es una medida
