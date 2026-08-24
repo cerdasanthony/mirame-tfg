@@ -12,7 +12,7 @@
 
 import * as face from "./face.js";
 import { extract, LineaBase, frontalidad } from "./features.js";
-import { clasificar, Ventana, Suavizador, Estabilizador } from "./classifier.js";
+import { clasificar, Ventana, Suavizador, Estabilizador, UMBRALES, fijarUmbrales } from "./classifier.js";
 import * as store from "./storage.js";
 import { Tablero, PAGINAS } from "./board.js";
 import { hablar } from "./speech.js";
@@ -112,6 +112,10 @@ async function arrancar() {
 function bucle() {
   if (!estado.analisisActivo) return;
   const r = face.detect(video, performance.now());
+
+  // Fotograma repetido: no hay nada nuevo que medir. No cuenta ni como válido
+  // ni como faltante, porque no describe nada del participante.
+  if (r === undefined) return requestAnimationFrame(bucle);
 
   if (!estado.lineaBase.establecida) {
     if (r && frontalidad(r.landmarks) >= FRONTALIDAD_MINIMA) {
@@ -497,5 +501,23 @@ function montarControlesHeuristica() {
   });
 }
 
+function montarControlesUmbrales() {
+  const campos = { "u-positivo": "positivo", "u-neutro": "neutro", "u-neglev": "negativoLeve" };
+  const pintar = () => {
+    for (const [id, k] of Object.entries(campos)) el(id).value = UMBRALES[k];
+    el("ancho-neutro").textContent = (UMBRALES.positivo - UMBRALES.neutro).toFixed(2) + " σ";
+  };
+  for (const [id, k] of Object.entries(campos)) {
+    el(id).addEventListener("change", (e) => {
+      const v = Number(e.target.value);
+      if (Number.isFinite(v)) fijarUmbrales({ [k]: v });
+      estado.estabilizador.reiniciar();
+      pintar();
+    });
+  }
+  pintar();
+}
+
+montarControlesUmbrales();
 montarControlesHeuristica();
 arrancar();

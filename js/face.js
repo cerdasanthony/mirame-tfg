@@ -58,17 +58,26 @@ export async function init(onEstado = () => {}) {
 /**
  * Procesa un fotograma del elemento <video>.
  *
- * Devuelve `null` si el fotograma se repite, si el video aún no tiene
- * dimensiones o si no hay rostro. La ausencia de rostro es un estado normal de
- * operación, no un error: el llamador la registra como dato faltante (RF-11).
+ * DISTINGUE DOS AUSENCIAS QUE NO SON LO MISMO:
+ *
+ *   `undefined` — no hay fotograma nuevo que procesar. Ocurre porque
+ *                 requestAnimationFrame corre a ~60 Hz y la cámara entrega
+ *                 ~30 fps: la mitad de las llamadas reciben el mismo fotograma.
+ *                 NO es un fallo de detección y el llamador debe ignorarlo.
+ *
+ *   `null`      — había fotograma nuevo y no se detectó rostro. Eso sí es un
+ *                 dato faltante y se registra como tal (RF-11).
+ *
+ * Confundirlas hunde la tasa de detección a la mitad de su valor real y hace
+ * que selecciones perfectamente válidas se descarten por falta de datos.
  */
 export function detect(video, timestampMs) {
   if (!landmarker) throw new Error("face.init() no fue llamado");
 
   // Sin dimensiones el detector lanza excepción; se espera a que haya metadata.
-  if (!video.videoWidth || !video.videoHeight) return null;
-  if (video.readyState < 2) return null;
-  if (video.currentTime === lastVideoTime) return null;
+  if (!video.videoWidth || !video.videoHeight) return undefined;
+  if (video.readyState < 2) return undefined;
+  if (video.currentTime === lastVideoTime) return undefined; // fotograma repetido
   lastVideoTime = video.currentTime;
 
   diagnostico.llamadas++;

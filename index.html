@@ -116,6 +116,22 @@
     </section>
 
     <section class="bloque">
+      <h3>Calibración de umbrales</h3>
+      <p class="nota" style="margin-top:0">
+        Cortes del compuesto, en desviaciones estándar respecto del reposo de esta
+        sesión. Ampliar la banda neutra reduce el ruido y clasifica más como neutro;
+        estrecharla aumenta la sensibilidad y también la oscilación.
+      </p>
+      <label class="campo"><span>Positivo desde</span>
+        <input type="number" id="u-positivo" step="0.05"><span class="campo-unidad">σ</span></label>
+      <label class="campo"><span>Neutro desde</span>
+        <input type="number" id="u-neutro" step="0.05"><span class="campo-unidad">σ</span></label>
+      <label class="campo"><span>Negativo leve desde</span>
+        <input type="number" id="u-neglev" step="0.05"><span class="campo-unidad">σ</span></label>
+      <p class="dato">Banda neutra: <strong id="ancho-neutro">—</strong></p>
+    </section>
+
+    <section class="bloque">
       <h3>Módulo C · reordenamiento</h3>
 
       <label class="interruptor">

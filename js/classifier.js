@@ -29,12 +29,32 @@ const PESOS = {
   aperturaBucal: 0.0, // Sin signo: apunta a habla, bostezo o llanto por igual.
 };
 
-/** Cortes del compuesto, en unidades de sigma de la línea base. */
+/**
+ * Cortes del compuesto, en unidades de sigma de la línea base.
+ *
+ * Son ajustables en caliente desde el panel del cuidador porque la anchura de
+ * la banda neutra es justamente el parámetro que hay que calibrar con cada
+ * participante: demasiado ancha y todo se clasifica como neutro, demasiado
+ * estrecha y el estado oscila con el ruido. El valor definitivo debe salir del
+ * reanálisis de sesiones grabadas, no de una elección a priori.
+ */
+const CLAVE_UMBRALES = "mirame.umbrales";
+
 export const UMBRALES = {
   positivo: 1.0,
   neutro: -0.75,
   negativoLeve: -2.0,
 };
+
+try {
+  Object.assign(UMBRALES, JSON.parse(localStorage.getItem(CLAVE_UMBRALES) ?? "{}"));
+} catch { /* configuración corrupta: se conservan los valores por defecto */ }
+
+export function fijarUmbrales(nuevos) {
+  Object.assign(UMBRALES, nuevos);
+  localStorage.setItem(CLAVE_UMBRALES, JSON.stringify(UMBRALES));
+  return UMBRALES;
+}
 
 /**
  * Ancho de la histéresis, en sigmas.
