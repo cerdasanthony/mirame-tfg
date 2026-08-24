@@ -71,7 +71,7 @@ const video = el("video");
 const estado = {
   sesionId: null,
   lineaBase: new LineaBase(),
-  ventana: new Ventana(8, 0.4),
+  ventana: new Ventana(5, 0.4, 1500),
   suavizador: new Suavizador(),
   estabilizador: new Estabilizador({ dwellMs: 500, factorRetroceso: 0.5 }),
   ultimoFotograma: 0,
@@ -455,7 +455,7 @@ const tablero = new Tablero(el("tablero"), async (picto, _cat, eraSugerido) => {
   el("salida-estado").textContent = !estado.analisisActivo
     ? ""
     : d.suficiente
-      ? `estado facial previo · ${d.predominante}`
+      ? resumenVentana(d)
       : "datos faciales insuficientes en la ventana previa";
   el("mensaje-salida").hidden = false;
   hablar(picto.frase);
@@ -471,6 +471,9 @@ const tablero = new Tablero(el("tablero"), async (picto, _cat, eraSugerido) => {
     latenciaMs: Math.round(latencia),
     // Sin datos suficientes NO se atribuye estado (RF-27).
     predominante: d.suficiente ? d.predominante : null,
+    // El estado no neutro dominante y cuánto ocupó de la ventana ponderada.
+    expresivo: d.suficiente ? d.expresivo : null,
+    proporcionExpresiva: d.suficiente ? d.proporcionExpresiva : null,
     proporciones: d.suficiente ? d.proporciones : null,
     puntajePromedio: d.suficiente ? d.puntajePromedio : null,
     tasaValidez: d.tasaValidez,
@@ -489,6 +492,22 @@ const tablero = new Tablero(el("tablero"), async (picto, _cat, eraSugerido) => {
 
   refrescarAsociacion();
 });
+
+/**
+ * Resume la ventana previa para mostrarla junto al pictograma.
+ *
+ * Decir solamente la moda oculta lo importante: sobre un rostro que la mayor
+ * parte del tiempo está en reposo, «neutro» gana por pluralidad aunque una
+ * parte sustancial de la ventana haya sido expresiva. Cuando lo expresivo pesa
+ * lo suficiente, se nombra explícitamente con su proporción.
+ */
+function resumenVentana(d) {
+  const pct = (v) => Math.round(v * 100);
+  if (d.expresivo && d.proporcionExpresiva >= 0.25) {
+    return `${d.expresivo} ${pct(d.proporcionExpresiva)} % · neutro ${pct(d.proporciones.neutro)} %`;
+  }
+  return `estado facial previo · ${d.predominante} ${pct(d.proporciones[d.predominante])} %`;
+}
 
 el("mensaje-salida").addEventListener("click", () => {
   clearTimeout(estado.temporizadorSalida);
@@ -564,7 +583,7 @@ el("btn-recalibrar").addEventListener("click", () => {
   estado.lineaBase = new LineaBase();
   estado.suavizador.reiniciar();
   estado.estabilizador.reiniciar();
-  estado.ventana = new Ventana(8, 0.4);
+  estado.ventana = new Ventana(5, 0.4, 1500);
   estado.baseIniciada = performance.now();
   estado.analisisActivo = true;
   estado.fotogramas = 0;

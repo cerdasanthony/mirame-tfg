@@ -232,14 +232,30 @@ export function clasificar(z, { suavizador = null, estabilizador = null, dtMs = 
 /**
  * Ventana temporal deslizante (RF-13, RF-15, RF-27).
  *
- * Guarda los estados de los últimos `segundos` y calcula su distribución. Los
- * fotogramas sin rostro válido entran como `null` y cuentan para la tasa de
- * validez.
+ * PONDERACIÓN POR CERCANÍA
+ * Los fotogramas no pesan igual. Lo que ocurre en el instante previo a que la
+ * mano toque el pictograma es la información relevante; lo que ocurrió seis
+ * segundos antes, mucho menos. El peso decae exponencialmente hacia atrás con
+ * una semivida configurable.
+ *
+ * Sin esta ponderación, un gesto de dos segundos justo antes de la selección
+ * queda diluido entre seis segundos de reposo y el resumen dice «neutro»
+ * aunque el momento comunicativo no lo fuera. Observado sobre datos reales del
+ * participante: ventanas con 57 % de fotogramas expresivos se reportaban como
+ * neutras porque «neutro» seguía siendo la categoría más frecuente.
+ *
+ * SE REPORTA MÁS QUE LA MODA
+ * La moda de cuatro categorías sobre un rostro que la mayor parte del tiempo
+ * está en reposo devuelve «neutro» casi siempre, y esconde que una parte
+ * sustancial de la ventana no lo era. Junto al estado predominante se devuelve
+ * el estado expresivo —el más fuerte de los no neutros— con su proporción, que
+ * es lo que la persona cuidadora necesita para interpretar.
  */
 export class Ventana {
-  constructor(segundos = 8, minValidos = 0.4) {
+  constructor(segundos = 5, minValidos = 0.4, semividaMs = 1500) {
     this.segundos = segundos;
     this.minValidos = minValidos;
+    this.semividaMs = semividaMs;
     this.muestras = [];
   }
 
@@ -263,33 +279,45 @@ export class Ventana {
   }
 
   /**
-   * Distribución de estados en la ventana.
+   * Distribución ponderada de estados en la ventana.
    *
    * Si la proporción de fotogramas con rostro cae por debajo del mínimo, se
    * devuelve `suficiente: false` y el llamador registra «datos insuficientes»
    * en lugar de atribuir un estado (RF-27).
    */
-  distribucion() {
+  distribucion(ahora = performance.now()) {
     const total = this.muestras.length;
     const validas = this.muestras.filter((m) => m.estado !== null);
     const tasaValidez = total ? validas.length / total : 0;
 
-    const conteo = Object.fromEntries(ESTADOS.map((e) => [e, 0]));
-    for (const m of validas) conteo[m.estado]++;
+    // Peso exponencial: 1 en el instante actual, 0,5 una semivida atrás.
+    const peso = (m) => Math.pow(0.5, (ahora - m.t) / this.semividaMs);
+
+    const acum = Object.fromEntries(ESTADOS.map((e) => [e, 0]));
+    let sumaPesos = 0;
+    let puntajePonderado = 0;
+    for (const m of validas) {
+      const w = peso(m);
+      acum[m.estado] += w;
+      puntajePonderado += m.puntaje * w;
+      sumaPesos += w;
+    }
 
     const proporciones = {};
-    for (const e of ESTADOS) {
-      proporciones[e] = validas.length ? conteo[e] / validas.length : 0;
-    }
+    for (const e of ESTADOS) proporciones[e] = sumaPesos ? acum[e] / sumaPesos : 0;
 
-    const promedio = validas.length
-      ? validas.reduce((a, m) => a + m.puntaje, 0) / validas.length
+    const predominante = sumaPesos
+      ? ESTADOS.reduce((a, b) => (acum[a] >= acum[b] ? a : b))
+      : null;
+
+    // Estado expresivo: el no neutro con más peso, y cuánto ocupó de la ventana.
+    const noNeutros = ESTADOS.filter((e) => e !== "neutro");
+    const expresivo = sumaPesos
+      ? noNeutros.reduce((a, b) => (acum[a] >= acum[b] ? a : b))
+      : null;
+    const proporcionExpresiva = sumaPesos
+      ? noNeutros.reduce((s, e) => s + proporciones[e], 0)
       : 0;
-
-    let predominante = null;
-    if (validas.length) {
-      predominante = ESTADOS.reduce((a, b) => (conteo[a] >= conteo[b] ? a : b));
-    }
 
     return {
       suficiente: tasaValidez >= this.minValidos && validas.length > 0,
@@ -298,7 +326,10 @@ export class Ventana {
       fotogramasValidos: validas.length,
       proporciones,
       predominante,
-      puntajePromedio: promedio,
+      // El más fuerte de los estados no neutros y el peso total de lo expresivo.
+      expresivo,
+      proporcionExpresiva,
+      puntajePromedio: sumaPesos ? puntajePonderado / sumaPesos : 0,
     };
   }
 }
