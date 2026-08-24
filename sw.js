@@ -8,7 +8,7 @@
  * estando en linea y se conserva el funcionamiento sin conexion, que es lo que
  * exige el RNF-05. */
 
-const CACHE = "mirame-v21";
+const CACHE = "mirame-v23";
 const ARMAZON = [
   "./",
   "./index.html",
@@ -61,8 +61,26 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
+
+  /* «Red primero» no bastaba, y por un motivo que no estaba a la vista: la CACHE
+     HTTP DEL NAVEGADOR se interpone ANTES que este trabajador. Un `fetch` normal
+     puede resolverse contra esa cache y devolver un archivo viejo sin llegar a
+     tocar la red, de modo que la estrategia decia red primero pero servia lo
+     mismo que cache primero.
+     Ocurrio dos veces en desarrollo: la aplicacion quedaba con el JavaScript
+     nuevo y la hoja de estilos vieja, una combinacion que no existe en ningun
+     despliegue y que produce fallos imposibles de reproducir. Un tablero entero
+     con los discos vacios salio de ahi.
+     Con `cache: "reload"` la peticion salta la cache HTTP y va a la red de
+     verdad. Se limita al propio origen: los recursos de CDN, que estan
+     versionados y no cambian, se siguen aprovechando de la cache. */
+  const mismoOrigen = new URL(e.request.url).origin === location.origin;
+  const peticion = mismoOrigen
+    ? new Request(e.request, { cache: "reload" })
+    : e.request;
+
   e.respondWith(
-    fetch(e.request)
+    fetch(peticion)
       .then((res) => {
         const copia = res.clone();
         caches.open(CACHE).then((c) => c.put(e.request, copia)).catch(() => {});

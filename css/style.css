@@ -190,18 +190,23 @@ button { font: inherit; cursor: pointer; }
   position: relative;
   background: var(--cara, #fff);
   border: 0;
-  border-bottom: var(--canto) solid var(--canto-color, #ccc);
   border-radius: var(--radio);
+  /* El canto NO se hace con border-bottom.
+     Un borde de un solo lado sobre una esquina redondeada se dibuja en cuna: el
+     navegador lo va afinando hasta desaparecer en los extremos, y el color se ve
+     cortado justo en las esquinas. Una sombra interior sigue el radio completo y
+     mantiene el grosor de lado a lado. */
+  box-shadow: inset 0 calc(var(--canto) * -1) 0 0 var(--canto-color, #ccc);
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   gap: .55rem;
-  padding: .9rem .6rem;
+  padding: .9rem .6rem calc(.9rem + var(--canto));
   min-height: 0;
-  transition: transform 90ms ease, border-bottom-width 90ms ease, filter var(--curva);
+  transition: transform 90ms ease, box-shadow 90ms ease, filter var(--curva);
 }
 .picto:active {
   transform: translateY(var(--canto));
-  border-bottom-width: 0;
+  box-shadow: inset 0 0 0 0 var(--canto-color, #ccc);
   filter: brightness(.97);
 }
 
@@ -490,7 +495,15 @@ body.calibrando .tablero { padding-bottom: 62px; }
 
 /* La sugerencia se marca sin desequilibrar el tablero: sigue siendo una tecla
    más y no debe leerse como la única opción disponible. */
-.picto-sugerido { box-shadow: 0 0 0 3px var(--tono); }
+/* El aro de sugerencia se suma al canto en la misma propiedad; si se declarara
+   solo, borraria el canto de la tecla sugerida. */
+.picto-sugerido {
+  box-shadow: inset 0 calc(var(--canto) * -1) 0 0 var(--canto-color, #ccc),
+              0 0 0 3px var(--tono);
+}
+.picto-sugerido:active {
+  box-shadow: inset 0 0 0 0 var(--canto-color, #ccc), 0 0 0 3px var(--tono);
+}
 .picto-marca {
   position: absolute; top: .7rem; right: .7rem;
   width: 11px; height: 11px; border-radius: 99px;

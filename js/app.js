@@ -826,6 +826,31 @@ el("btn-recalibrar").addEventListener("click", () => {
   face.programarFotograma(video, bucle);
 });
 
+/**
+ * Descarta el service worker y sus caches, y recarga.
+ *
+ * Una aplicacion instalada no ofrece recarga forzada como la del navegador, de
+ * modo que si queda con archivos de dos versiones distintas no hay forma de
+ * salir de ahi desde la propia pantalla. Este boton es esa salida.
+ *
+ * No toca IndexedDB: los registros de sesion son datos del participante y no
+ * tienen nada que ver con la version del codigo.
+ */
+el("btn-actualizar").addEventListener("click", async (ev) => {
+  const boton = ev.currentTarget;
+  boton.disabled = true;
+  boton.textContent = "Actualizando…";
+  try {
+    const regs = await navigator.serviceWorker?.getRegistrations?.() ?? [];
+    await Promise.all(regs.map((r) => r.unregister()));
+    const claves = await caches.keys();
+    await Promise.all(claves.map((k) => caches.delete(k)));
+  } catch (e) {
+    /* Si algo de esto falla la recarga sigue valiendo la pena. */
+  }
+  location.reload();
+});
+
 el("btn-exportar").addEventListener("click", async () => {
   const json = await store.exportarJSON();
   const a = document.createElement("a");
