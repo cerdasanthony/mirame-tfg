@@ -97,7 +97,15 @@ def epica_de(titulo):
 
 
 def fecha_fin(rango):
-    """Ultimo dia del sprint, en el formato dd/MMM/yy que espera el importador."""
+    """
+    Ultimo dia del sprint, en formato numerico dd/MM/yyyy.
+
+    Se usa numerico y no dd/MMM/yy a proposito. `strftime` abrevia los meses en
+    el idioma del sistema, que aqui es ingles, y produce «30/aug/26»; un Jira en
+    espanol espera «ago» y rechaza el archivo con «Formato de fecha no valido».
+    Con cifras no hay idioma de por medio, y el ano de cuatro digitos quita
+    tambien la ambiguedad del siglo.
+    """
     m = re.search(r"(\d+)\s*(?:[a-z]{3})?\s*[–-]\s*(\d+)\s*([a-z]{3})", rango)
     if not m:
         return ""
@@ -106,7 +114,7 @@ def fecha_fin(rango):
     if not mes:
         return ""
     anio = ANIO_FIN if mes <= 6 else ANIO_INICIO
-    return date(anio, mes, dia).strftime("%d/%b/%y").lower()
+    return date(anio, mes, dia).strftime("%d/%m/%Y")
 
 
 def estado_de(texto):
