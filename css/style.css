@@ -555,7 +555,14 @@ body.calibrando .tablero { padding-bottom: 62px; }
 .preview {
   position: relative;
   height: calc(var(--barra-alto) - 16px);
-  aspect-ratio: 4 / 3;
+  /* PROPORCION REAL, NO SUPUESTA.
+     Estaba fijada en 4/3, que es lo que se le PIDE a la camara. Un telefono
+     entrega a menudo otra cosa —vertical, o 16/9— y forzar 4/3 recortaba la
+     imagen de forma desigual: la cara aparecia descuadrada y a veces cortada
+     por la mitad. La proporcion la escribe `face.js` al abrir la camara, con
+     las dimensiones que el dispositivo entrego de verdad; 4/3 queda solo como
+     valor de partida mientras no haya imagen. */
+  aspect-ratio: var(--proporcion-camara, 4 / 3);
   border-radius: 10px;
   overflow: hidden;
   background: #000;
@@ -579,6 +586,12 @@ body:has(.panel:not([hidden])):not(.panel-acoplado) .preview {
   body:has(.panel:not([hidden])):not(.panel-acoplado) .preview { transform: none; }
 }
 #video { display: block; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+/* En un telefono la barra es estrecha y el recuadro compite con el estado de
+   calibracion, que es la informacion que hace falta durante esos segundos. Se
+   le pone un maximo para que no se coma la fila. */
+@media (max-width: 640px) {
+  .preview { max-width: 28vw; }
+}
 
 .preview-base { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255, 255, 255, .28); }
 .preview-base[hidden] { display: none; }

@@ -141,6 +141,12 @@ async function arrancar() {
 
   try {
     const cam = await face.openCamera(video);
+    /* La proporcion del recuadro se toma de lo que el dispositivo entrego, no
+       de lo que se le pidio: el telefono suele negociar otra distinta y forzar
+       la solicitada recorta la imagen de forma desigual. */
+    if (cam.ancho && cam.alto) {
+      document.documentElement.style.setProperty("--proporcion-camara", `${cam.ancho} / ${cam.alto}`);
+    }
     el("preview").hidden = false;
     chip("Cargando modelo…", "chip-espera");
     await face.init((t) => chip(t, "chip-espera"));
@@ -1056,9 +1062,31 @@ for (const b of document.querySelectorAll("#segmentos button")) {
   });
 }
 
+/**
+ * Acusa recibo de una accion del panel.
+ *
+ * POR QUE HACE FALTA
+ * Al pasar los botones a icono se quedaron sin ninguna respuesta visible.
+ * Exportar descarga un archivo que el navegador puede guardar sin avisar, y
+ * borrar solo cambia cifras que estaban en cero. Un boton que funciona pero no
+ * acusa recibo se siente averiado, y asi se reporto: «los toco y no hacen
+ * nada». Hacian su trabajo; lo que faltaba era decirlo.
+ */
+let temporizadorAccion = null;
+function avisarAccion(texto) {
+  const p = el("acciones-estado");
+  if (!p) return;
+  p.textContent = texto;
+  clearTimeout(temporizadorAccion);
+  temporizadorAccion = setTimeout(() => (p.textContent = ""), 3200);
+}
+
 el("btn-recalibrar").addEventListener("click", () => {
-  if (!video.srcObject) return;
+  /* Sin camara no hay nada que recalibrar, y callarse deja al boton pareciendo
+     roto justo cuando el motivo es otro. */
+  if (!video.srcObject) return avisarAccion("No hay cámara activa: no hay línea base que recalibrar.");
   reiniciarCalibracion();
+  avisarAccion("Tomando otra vez la línea base.");
 });
 
 /**
@@ -1113,6 +1141,9 @@ async function reconectarCamara() {
   try {
     face.cerrarCamara(video);
     const cam = await face.openCamera(video);
+    if (cam.ancho && cam.alto) {
+      document.documentElement.style.setProperty("--proporcion-camara", `${cam.ancho} / ${cam.alto}`);
+    }
     chip(`Calibrando · ${cam.ancho}×${cam.alto}`, "chip-espera");
     reiniciarCalibracion();
   } catch (e) {
@@ -1137,7 +1168,9 @@ addEventListener("visibilitychange", () => {
 el("btn-actualizar").addEventListener("click", async (ev) => {
   const boton = ev.currentTarget;
   boton.disabled = true;
-  boton.textContent = "Actualizando…";
+  /* Se avisa aparte y NO con `textContent`: el boton es ahora un icono, y
+     escribirle texto encima borraria el SVG que lo identifica. */
+  avisarAccion("Descartando la copia guardada y recargando…");
   try {
     const regs = await navigator.serviceWorker?.getRegistrations?.() ?? [];
     await Promise.all(regs.map((r) => r.unregister()));
@@ -1202,12 +1235,14 @@ el("btn-exportar").addEventListener("click", async () => {
   a.download = `mirame-sesiones-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
+  avisarAccion(`Registros exportados a ${a.download}`);
 });
 
 el("btn-borrar").addEventListener("click", async () => {
   if (!confirm("¿Borrar de forma definitiva todos los registros del dispositivo?")) return;
   await store.borrarTodo();
   refrescarAsociacion();
+  avisarAccion("Todos los registros fueron borrados.");
 });
 
 /* ══════════════════════ Arranque ══════════════════════ */
