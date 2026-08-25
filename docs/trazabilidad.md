@@ -80,7 +80,7 @@ Estado a **24 de agosto de 2026**.
 | RF-23 | 🟡 | `js/app.js` | se configuran umbrales y frontalidad; no la ventana temporal ni la frecuencia de análisis |
 | RF-24 | 🟡 | `js/storage.js` | exporta JSON; falta CSV |
 | RF-25 | ✅ | `js/storage.js` | |
-| RF-28 | ⬜ | — | marcado de condiciones contextuales de sesión |
+| RF-28 | 🟡 | `js/storage.js`, `index.html` | marcado de segmentos observados (reposo, sonrisa, puchero, malestar) que viaja con cada muestra; falta el marcado de condiciones contextuales como cansancio o alimentación reciente |
 | RF-29 | ⬜ | — | **registro de la observación independiente** |
 
 ---

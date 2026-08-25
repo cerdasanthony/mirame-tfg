@@ -646,3 +646,14 @@ body.panel-acoplado .salida { right: min(400px, 92vw); }
 .grupo-nota { font-weight: 400; font-size: .78rem; opacity: .6; }
 .grupo > summary:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
 @media (prefers-reduced-motion: reduce) { .grupo > summary::before { transition: none; } }
+
+/* Marcado de segmentos: botones anchos, porque se pulsan durante la sesion. */
+.segmentos { display: flex; flex-wrap: wrap; gap: .4rem; margin: .6rem 0; }
+.segmentos button {
+  flex: 1 1 7rem; padding: .55rem .7rem; font: inherit; font-size: .85rem;
+  border: 1px solid var(--linea, rgba(0,0,0,.2)); border-radius: 6px;
+  background: transparent; color: inherit; cursor: pointer;
+}
+.segmentos button:hover { background: rgba(127,127,127,.12); }
+.segmentos button.seg-activo { background: currentColor; }
+.segmentos button.seg-activo { color: #fff; background: #a2600a; border-color: #a2600a; }

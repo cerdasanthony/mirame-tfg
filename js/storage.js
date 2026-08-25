@@ -152,8 +152,36 @@ export async function guardarSeleccion(registro) {
  * Se registra a frecuencia reducida a propósito; guardar treinta vectores por
  * segundo llenaría el almacenamiento sin aportar información adicional.
  */
+/**
+ * Etiqueta que la persona observadora asigna al tramo en curso (RF-28).
+ *
+ * POR QUE HACE FALTA
+ * Ajustar el clasificador sin saber que estaba haciendo el rostro es ajustar a
+ * ciegas: no hay forma de distinguir un falso positivo de un acierto. Ocurrio al
+ * comparar dos sesiones para decidir entre dos reglas de combinacion, y la
+ * comparacion no significaba nada porque ninguna de las dos venia etiquetada.
+ *
+ * No es una anotacion clinica ni un juicio sobre el estado del participante. Es
+ * la descripcion de lo que la persona que acompana observo: «en reposo»,
+ * «sonriendo», «puchero». Con eso, cada regla puede contrastarse contra algo.
+ *
+ * Vive en memoria y viaja con cada muestra. Al terminar la sesion, el registro
+ * dice a que tramo pertenece cada fotograma.
+ */
+let etiquetaActiva = null;
+
+export function marcarSegmento(etiqueta) {
+  etiquetaActiva = etiqueta || null;
+  return etiquetaActiva;
+}
+
+export function segmentoActual() {
+  return etiquetaActiva;
+}
+
 export async function guardarMuestra(m) {
   await abrir();
+  if (etiquetaActiva) m = { ...m, segmento: etiquetaActiva };
   return promesa(tx("muestras", "readwrite").add(m));
 }
 

@@ -269,7 +269,7 @@ function bucle(tCaptura = performance.now()) {
          marca, las sesiones anteriores y las nuevas se mezclarian en el analisis
          como si fueran comparables, y no lo son. */
       store.crearSesion({ ...base, au: baseAU }, {
-        versionReglas: 7,
+        versionReglas: 8,
         /* Solo el centro: con cada lado promediado no queda escala que elegir. */
         norma: { centro: NORMA.centro },
       }).then((id) => (estado.sesionId = id));
@@ -1018,6 +1018,18 @@ async function refrescarAsociacion() {
  * gesticuló durante la calibración y a partir de ahí todo se clasifica como
  * neutro. Sin este botón la única opción era recargar la página.
  */
+/* Marcado de segmentos (RF-28). Lo que la persona observadora ve, junto a lo
+   que el sistema mide, para poder contrastarlos despues. */
+for (const b of document.querySelectorAll("#segmentos button")) {
+  b.addEventListener("click", () => {
+    const etq = store.marcarSegmento(b.dataset.seg);
+    for (const o of document.querySelectorAll("#segmentos button")) {
+      o.classList.toggle("seg-activo", o.dataset.seg === (etq ?? ""));
+    }
+    el("segmento-activo").textContent = etq ? `Marcando: ${etq}` : "Sin marcar";
+  });
+}
+
 el("btn-recalibrar").addEventListener("click", () => {
   if (!video.srcObject) return;
   reiniciarCalibracion();
