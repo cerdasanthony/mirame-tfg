@@ -269,8 +269,9 @@ function bucle(tCaptura = performance.now()) {
          marca, las sesiones anteriores y las nuevas se mezclarian en el analisis
          como si fueran comparables, y no lo son. */
       store.crearSesion({ ...base, au: baseAU }, {
-        versionReglas: 3,
-        norma: { centro: NORMA.centro, escala: NORMA.escala, medida: NORMA.medida },
+        versionReglas: 4,
+        /* Solo el centro: con cada lado promediado no queda escala que elegir. */
+        norma: { centro: NORMA.centro },
       }).then((id) => (estado.sesionId = id));
       el("sigma-base").textContent = base.muestras + " muestras";
       el("preview-base").hidden = true;
@@ -362,7 +363,7 @@ function bucle(tCaptura = performance.now()) {
         if (estado.lineaBase.refinar(crudas)) {
           /* Estas muestras SI recorren la sesion, de modo que la escala medida
              sobre ellas es aceptable. La de la calibracion no lo era. */
-          calibrarNorma(estado.lineaBase.muestrasNormalizadas(), true);
+          calibrarNorma(estado.lineaBase.muestrasNormalizadas());
         }
         estado.baseAU.refinar(au);
         store.guardarMuestra({

@@ -20,17 +20,81 @@ export const ESTADOS = ["positivo", "neutro", "negativo leve", "negativo intenso
 
 import { qn } from "./features.js";
 
-/** Contribución de cada característica al compuesto. */
-const PESOS = {
-  sonrisa: +1.0,
-  comisurasAbajo: -0.9,
-  cejasAbajo: -0.7,
-  cejasInternasArriba: -0.4,
-  cejasExternasArriba: 0.0, // Sin peso propio: modula a AU1. Ver `evidencia()`.
-  tensionOcular: -0.5,
-  tensionLabial: -0.5,
-  aperturaBucal: 0.0, // Sin signo: apunta a habla, bostezo o llanto por igual.
-};
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DE DONDE SALEN LOS PESOS
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * De ningun sitio, y por eso son todos iguales.
+ *
+ * La version anterior usaba sonrisa +1,0, comisuras abajo −0,9, cejas abajo
+ * −0,7, tension ocular −0,5, tension labial −0,5 y ceja interna −0,4. Esos
+ * numeros los eligio una persona. La literatura establece QUE SIGNO lleva cada
+ * unidad de accion, porque las combinaciones de FACS lo determinan, pero no
+ * establece cuanto pesa una frente a otra. Sostener que la sonrisa vale 2,5
+ * veces la ceja interna exigiria una fuente que no existe.
+ *
+ * POR QUE PESOS IGUALES NO ES RENDIRSE
+ * Dawes (1979) mostro que los modelos lineales «impropios» —aquellos cuyos
+ * pesos no se estimaron de forma optima— predicen tan bien o mejor que los
+ * ajustados, y que la ponderacion unitaria es notablemente robusta. En
+ * particular, los pesos asignados por intuicion no superan a los pesos iguales,
+ * y con muestras pequenas la ventaja de cualquier ponderacion ajustada no
+ * sobrevive a una muestra nueva. Sustituir pesos inventados por pesos iguales no
+ * pierde capacidad predictiva: pierde una afirmacion que no se podia sostener.
+ *
+ * POR QUE NO SE IMPORTAN COEFICIENTES PUBLICADOS
+ * Existen trabajos que ajustan coeficientes de unidades de accion sobre
+ * valencia. Sus coeficientes se estimaron con personas adultas, ante estimulos
+ * de video, con codificacion humana o con otro extractor. Trasladarlos a un
+ * participante infantil sin habla, medido con blendshapes que son una
+ * aproximacion, seria afirmar una validez que nadie ha comprobado. Un peso
+ * prestado de otra poblacion no esta mejor fundado que un peso igual: esta peor,
+ * porque aparenta precision.
+ *
+ * PRECEDENTE EN LA PROPIA FUENTE QUE YA SE CITA
+ * El indice de Prkachin y Solomon (2008), que este trabajo ya emplea para la
+ * evidencia negativa, suma sus componentes SIN PONDERAR: AU4 mas el maximo entre
+ * AU6 y AU7 mas el maximo entre AU9 y AU10. La regla de maximo esta para no
+ * contar dos veces el mismo musculo, no para pesar unos mas que otros. Ponderar
+ * igual es lo coherente con la construccion que ya se cita.
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * POR QUE CADA LADO SE PROMEDIA EN LUGAR DE SUMARSE
+ *
+ * Hay una unidad de accion que aporta evidencia positiva y cinco que aportan
+ * negativa. Sumando con pesos iguales, el lado negativo tendria cinco veces mas
+ * capacidad de mover el resultado solo por ser mas numeroso, y eso es un sesgo
+ * de construccion, no un hallazgo sobre el rostro.
+ *
+ * Promediando cada lado por separado, ambos quedan expresados en la misma
+ * unidad —desviaciones tipicas de la linea base del participante— con
+ * independencia de cuantos canales tenga cada uno. El compuesto es entonces la
+ * diferencia entre dos cantidades comparables, y no hace falta ningun divisor
+ * elegido: el resultado ya esta en unidades de sigma.
+ */
+
+/** Unidades de accion que aportan evidencia de valencia positiva. */
+const POSITIVAS = ["sonrisa"];
+
+/** Unidades de accion que aportan evidencia de valencia negativa. */
+const NEGATIVAS = ["comisurasAbajo", "cejasAbajo", "cejasInternasArriba", "tensionOcular", "tensionLabial"];
+
+/**
+ * Canales que se registran pero no aportan a ninguna valencia.
+ *
+ * `cejasExternasArriba` es AU2 y modula a AU1, como se explica en `evidencia`.
+ * `aperturaBucal` es AU26 y acompana por igual al habla, al bostezo y al llanto,
+ * de modo que asignarle un signo seria inventar informacion.
+ */
+const SIN_VALENCIA = ["cejasExternasArriba", "aperturaBucal"];
+
+/* Se conserva para que el resto del modulo pueda recorrer todos los canales. */
+const PESOS = Object.fromEntries([
+  ...POSITIVAS.map((c) => [c, +1]),
+  ...NEGATIVAS.map((c) => [c, -1]),
+  ...SIN_VALENCIA.map((c) => [c, 0]),
+]);
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -53,45 +117,36 @@ const PESOS = {
  * ojos reduce el entrecerrado, la tensión ocular baja del reposo, y el sistema
  * lo contaba como evidencia de valencia positiva.
  *
- * Comprobado sobre el registro del 25-08-2026: el 15 % de las muestras
- * clasificadas como positivas no tenían la sonrisa elevada, y la tensión ocular
- * estaba por debajo del reposo el 36,6 % del tiempo.
- *
  * La ausencia de una acción no es evidencia de la acción contraria. Se rectifica
  * a cero: solo la presencia suma.
  *
  * ───────────────────────────────────────────────────────────────────────────
- * SORPRESA FRENTE A DISTRES
+ * DOS MODULACIONES, AMBAS CON LA MISMA FORMA
  *
- * También se observó que alzar las cejas se clasificaba como negativo. AU1, el
- * elevador de la ceja interna, entra con peso negativo porque forma parte de la
- * combinación de tristeza, AU1+AU4+AU15. Pero AU1 acompañada de AU2, el
- * elevador de la ceja externa, es sorpresa, cuya valencia no está declarada en
- * este trabajo. AU1 por sí sola no distingue una cosa de la otra: aparece en
- * ambas y significa distinto según qué la acompañe.
+ * AU2 descuenta a AU1. AU1 sola forma parte de la combinación de tristeza
+ * AU1+AU4+AU15; AU1 junto a AU2 es sorpresa, cuya valencia este trabajo no
+ * declara. AU1 por sí sola no distingue una de otra.
  *
- * La regla es la que sigue de esas combinaciones: AU2 cancela a AU1 en la
- * medida en que la acompaña. Si ambas suben por igual, el aporte es nulo y la
- * configuración se lee como sorpresa. Si sube AU1 sola, el aporte es completo y
- * se lee como distrés.
+ * AU12 descuenta a AU7. El tensado del orbicularis oculi acompaña a la sonrisa:
+ * es la constricción ocular del marcador de Duchenne (Ekman, Davidson y Friesen,
+ * 1990). Contarla como evidencia negativa mientras las comisuras suben invierte
+ * el signo de una sonrisa. En los registros, con la sonrisa por encima de dos
+ * sigmas la tensión ocular alcanzaba +7,27 σ en su percentil 90.
+ *
+ * En ambos casos solo el EXCESO cuenta, que es la forma de decir «esta unidad
+ * aporta evidencia únicamente en la medida en que no la explica la otra».
  */
 function evidencia(z) {
-  const rect = (c) => Math.max(0, z[c] ?? 0);
   const out = {};
-  for (const c of Object.keys(PESOS)) out[c] = rect(c);
-  // AU2 descuenta a AU1: lo que sube acompañado no cuenta como distrés.
+  for (const c of Object.keys(PESOS)) out[c] = Math.max(0, z[c] ?? 0);
   out.cejasInternasArriba = Math.max(0, out.cejasInternasArriba - out.cejasExternasArriba);
-  /* AU12 descuenta la tensión periorbital, por el mismo motivo y con la misma
-     forma. El tensado del orbicularis oculi acompaña a la sonrisa espontánea:
-     es el marcador de Duchenne, que distingue la sonrisa genuina de la
-     deliberada (Ekman, Davidson y Friesen, 1990). Contarlo como evidencia
-     negativa mientras las comisuras suben invierte el signo de una sonrisa.
-     Observado al probar la aplicación, y confirmado en los registros: con la
-     sonrisa por encima de dos sigmas, la tensión ocular alcanzaba +7,27 σ en su
-     percentil 90. Solo el exceso sobre la sonrisa cuenta como distrés. */
   out.tensionOcular = Math.max(0, out.tensionOcular - out.sonrisa);
   return out;
 }
+
+/** Media de un conjunto de canales sobre la evidencia rectificada. */
+const promedio = (e, canales) =>
+  canales.length ? canales.reduce((s, c) => s + (e[c] ?? 0), 0) / canales.length : 0;
 
 /**
  * Centro y escala del compuesto, medidos sobre la línea base.
@@ -113,45 +168,31 @@ function evidencia(z) {
  * al rectificar cinco de los seis pesos con signo son negativos y el compuesto
  * en reposo queda desplazado hacia abajo.
  */
-export const NORMA = { centro: 0, escala: null };
+export const NORMA = { centro: 0 };
 
-export function calibrarNorma(muestrasZ, medidaSobreSesion = false) {
+export function calibrarNorma(muestrasZ) {
+  /**
+   * Solo queda por medir el CENTRO, y ya no hay escala que elegir.
+   *
+   * La version anterior media tambien la dispersion del compuesto sobre la linea
+   * base y la usaba como divisor. Eso encerraba una contradiccion: a la persona
+   * se le pide quietud para calibrar, de modo que lo medido era el temblor de un
+   * rostro inmovil, y cuanto mejor colaboraba mas se amplificaba todo. En una
+   * sesion real esa escala resulto 0,127 y el puntaje llego a -337.
+   *
+   * Con cada lado promediado, el compuesto ya viene en unidades de sigma y no
+   * necesita divisor. Queda el desplazamiento que introduce la rectificacion:
+   * al truncar en cero, la media de la parte positiva del ruido no es cero. Ese
+   * desplazamiento SI se mide, porque es una constante aditiva y no un factor
+   * que amplifique.
+   */
   if (!muestrasZ?.length) return NORMA;
   const brutos = muestrasZ.map((z) => {
     const e = evidencia(z);
-    let s = 0;
-    for (const [c, w] of Object.entries(PESOS)) s += e[c] * w;
-    return s;
+    return promedio(e, POSITIVAS) - promedio(e, NEGATIVAS);
   });
   const orden = [...brutos].sort((a, b) => a - b);
   NORMA.centro = orden[orden.length >> 1];
-
-  /**
-   * LA ESCALA NO PUEDE SALIR DE LA QUIETUD DE LA CALIBRACION.
-   *
-   * La primera versión medía la dispersión del compuesto sobre las muestras de
-   * la línea base y la usaba como divisor. El razonamiento parecía sólido —medir
-   * en vez de suponer— pero contenía una contradicción: a la persona se le pide
-   * que se quede quieta durante la calibración, de modo que lo que se estaba
-   * midiendo era el temblor residual de un rostro inmóvil. Cuanto mejor
-   * colaboraba, más pequeño salía el divisor y más se amplificaba todo lo
-   * demás.
-   *
-   * Observado en una sesión real: la escala medida así resultó 0,127, lo que
-   * multiplicaba el compuesto por ocho, y el puntaje alcanzó valores de
-   * trescientos. Un rostro sin expresión se clasificaba como negativo intenso.
-   *
-   * La escala solo se acepta cuando procede de muestras tomadas A LO LARGO DE LA
-   * SESION, que sí recorren el rango de configuraciones que el rostro adopta.
-   * Mientras tanto se usa la norma euclídea del vector de pesos, que es el valor
-   * teórico de la desviación típica de una suma ponderada de variables
-   * tipificadas independientes, y no depende de ninguna ventana.
-   */
-  const esc = qn(brutos);
-  const teorica = Math.hypot(...Object.values(PESOS));
-  const aceptable = medidaSobreSesion && esc > 0.3 * teorica;
-  NORMA.escala = aceptable ? esc : teorica;
-  NORMA.medida = aceptable;
   return NORMA;
 }
 
@@ -200,10 +241,12 @@ const HISTERESIS = 0.25;
  */
 export function puntaje(z) {
   const e = evidencia(z);
-  let s = 0;
-  for (const [k, w] of Object.entries(PESOS)) s += e[k] * w;
-  const escala = NORMA.escala ?? Math.hypot(...Object.values(PESOS));
-  return (s - NORMA.centro) / escala;
+  /* Diferencia entre dos cantidades ya comparables: cada lado es una media de
+     puntuaciones z, de modo que el resultado esta en unidades de sigma sin
+     necesidad de ningun divisor. El centro se resta porque la rectificacion
+     desplaza el reposo: al truncar en cero, la media de cada lado en reposo no
+     vale cero sino el valor esperado de la parte positiva del ruido. */
+  return promedio(e, POSITIVAS) - promedio(e, NEGATIVAS) - NORMA.centro;
 }
 
 /** Estado que corresponde a un puntaje, sin considerar el estado previo. */
