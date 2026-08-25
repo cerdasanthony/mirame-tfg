@@ -157,6 +157,10 @@ equipo corrio, y desde ahi las metricas quedan atribuibles.
 
 | Qué | Cómo comprobarlo |
 |---|---|
+| **Toda la batería de una vez** | `node pruebas/todas.mjs` — 91 comprobaciones en cuatro baterías |
+| Regla de clasificación sobre puntuaciones z | `node pruebas/clasificacion.mjs` — 19 comprobaciones |
+| Cada expresión, del coeficiente al estado | `node pruebas/expresiones.mjs` — 38 comprobaciones |
+| La referencia contra la que se mide todo | `node pruebas/linea-base.mjs` — 21 comprobaciones |
 | Caracterización del algoritmo sobre señal sintética | `node pruebas/deteccion-fasica.mjs` — 13 comprobaciones |
 | Caracterización del instrumento sobre registros reales | `node pruebas/analisis-sesion.mjs <export.json>` |
 | Generación del juego de iconos | `python pruebas/generar-iconos.py <origen>` |
