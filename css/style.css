@@ -563,6 +563,21 @@ body.calibrando .tablero { padding-bottom: 62px; }
   flex-shrink: 0;
 }
 .preview[hidden] { display: none; }
+/* Con el panel superpuesto —la ruta #panel-flotante— el recuadro de la camara
+   se desplaza a la izquierda en lugar de quedar debajo. Es el unico control que
+   permite saber si el rostro esta encuadrado, y taparlo justo cuando se abre la
+   instrumentacion deja a la persona cuidadora sin la comprobacion mas basica. */
+body:has(.panel:not([hidden])):not(.panel-acoplado) .preview {
+  transform: translateX(calc(-1 * min(400px, 92vw)));
+  transition: transform 240ms cubic-bezier(.25, .9, .3, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  body:has(.panel:not([hidden])):not(.panel-acoplado) .preview { transition: none; }
+}
+@media (max-width: 900px) {
+  /* En pantalla estrecha el panel fijado es una franja inferior y no estorba. */
+  body:has(.panel:not([hidden])):not(.panel-acoplado) .preview { transform: none; }
+}
 #video { display: block; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
 
 .preview-base { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255, 255, 255, .28); }
@@ -601,6 +616,15 @@ body.panel-acoplado .panel {
 /* Los avisos se centran sobre el lienzo, no sobre la pantalla entera. */
 body.panel-acoplado .aviso,
 body.panel-acoplado .salida { right: min(400px, 92vw); }
+
+/* LA BARRA SUPERIOR TAMBIEN SE ESTRECHA.
+   Solo se apartaba el lienzo, de modo que el panel quedaba encima del extremo
+   derecho de la barra, que es justamente donde va el recuadro de la camara. La
+   persona cuidadora abria el panel para vigilar la deteccion y con ello tapaba
+   la unica forma de comprobar que el rostro estaba encuadrado. */
+body.panel-acoplado .barra {
+  padding-right: calc(min(400px, 92vw) + clamp(.7rem, 2vw, 1.4rem));
+}
 
 /* En pantalla estrecha no cabe un panel al costado, pero fijarlo sigue siendo
    util: pasa a ser una franja INFERIOR. El tablero se queda con la parte de

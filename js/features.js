@@ -473,10 +473,39 @@ export class LineaBase {
     };
     const juntas = [...this.muestras, ...this.refinamiento];
     const crudas = {};
+    this.mediaInicial ??= { ...this.media };
     for (const c of this.canales) {
       const vals = juntas.map((m) => m[c]);
-      this.media[c] = mediana(vals);
       crudas[c] = qn(vals);
+
+      /**
+       * LA POSICION SE CORRIGE, PERO NO PERSIGUE A LA EXPRESION.
+       *
+       * Refinar la mediana sobre la sesion corrige la deriva postural, que es
+       * para lo que se incorporo: si durante la calibracion los parpados
+       * estaban mas abiertos que de costumbre, todo el resto de la sesion se
+       * medira contra esa postura accidental.
+       *
+       * Pero tiene un efecto que no estaba a la vista. Al probar la aplicacion
+       * repitiendo un mismo gesto —pucheros, uno tras otro— ese gesto se
+       * convierte en el valor habitual del canal y deja de apartarse de la
+       * referencia. El sistema se adapta justo a lo que se le pide detectar.
+       * La mediana tolera hasta la mitad de muestras atipicas, de modo que en
+       * una sesion real, donde la expresion es esporadica, el problema no
+       * aparece; en una sesion de prueba, donde se repite a proposito, si.
+       *
+       * El limite distingue una cosa de otra. La deriva postural es lenta y
+       * pequena; una expresion repetida desplaza la mediana mucho mas. Se
+       * admite una correccion de hasta una desviacion tipica respecto de la
+       * posicion inicial: mas alla de eso ya no es una correccion sino una
+       * redefinicion de lo que se considera reposo.
+       */
+      const inicial = this.mediaInicial[c];
+      const propuesta = mediana(vals);
+      const tope = Math.max(crudas[c], SIGMA_MINIMA);
+      this.media[c] = Math.abs(propuesta - inicial) <= tope
+        ? propuesta
+        : inicial + Math.sign(propuesta - inicial) * tope;
     }
 
     const medibles = this.canales.map((c) => crudas[c]).filter((x) => x > SIGMA_MEDIBLE);
@@ -527,6 +556,17 @@ export class LineaBase {
           autocorrelacion: this.autocorrelacion ?? null,
           muestrasEfectivas: this.muestrasEfectivas ?? null,
           muestrasRefinamiento: this.muestrasRefinamiento ?? null,
+          /* Cuanto se desplazo la referencia respecto de la calibracion, en
+             desviaciones tipicas. Un valor cercano al tope indica que la sesion
+             estuvo dominada por una configuracion sostenida, y eso cambia como
+             se interpreta el resto. */
+          derivaReferencia: this.mediaInicial
+            ? Object.fromEntries(this.canales.map((c) => [
+                c,
+                Number(((this.media[c] - this.mediaInicial[c]) /
+                  Math.max(this.sigma[c], SIGMA_MINIMA)).toFixed(3)),
+              ]))
+            : null,
           estimadorEscala: "Qn (Rousseeuw y Croux, 1993)",
         }
       : null;
