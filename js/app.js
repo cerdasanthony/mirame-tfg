@@ -269,7 +269,7 @@ function bucle(tCaptura = performance.now()) {
          marca, las sesiones anteriores y las nuevas se mezclarian en el analisis
          como si fueran comparables, y no lo son. */
       store.crearSesion({ ...base, au: baseAU }, {
-        versionReglas: 6,
+        versionReglas: 7,
         /* Solo el centro: con cada lado promediado no queda escala que elegir. */
         norma: { centro: NORMA.centro },
       }).then((id) => (estado.sesionId = id));
@@ -336,6 +336,16 @@ function bucle(tCaptura = performance.now()) {
       estado.topeAU ??= {};
       for (const c of CANALES_AU) {
         if ((au[c] ?? 0) > (estado.topeAU[c] ?? 0)) estado.topeAU[c] = au[c];
+      }
+      /* Recorrido de LOS 52 blendshapes, no solo de los que hoy se usan.
+         Averiguar que unidades de accion faltaban exigio comparar a mano el
+         catalogo del modelo contra el codigo. Registrando el maximo de cada
+         coeficiente, la propia sesion dice cuales tienen recorrido en este
+         equipo y con este rostro, y cual de ellos valdria la pena incorporar.
+         Cuesta una comparacion por coeficiente y por fotograma. */
+      estado.topeBS ??= {};
+      for (const k in r.blendshapes) {
+        if (r.blendshapes[k] > (estado.topeBS[k] ?? 0)) estado.topeBS[k] = r.blendshapes[k];
       }
       const zAU = estado.baseAU.normalizar(au);
       for (const ev of estado.detector.agregar(zAU, ahora)) {
@@ -733,6 +743,9 @@ function metricasSesion() {
        sesiones enteras sin que nada lo advirtiera. */
     auSinRecorrido: canalesSinRecorrido(estado.topeAU ? [estado.topeAU] : []),
     topeAU: estado.topeAU ?? null,
+    /* Maximo de cada uno de los 52 coeficientes: dice que musculos tiene a su
+       alcance este equipo, mas alla de los que el compuesto usa hoy. */
+    topeBlendshapes: estado.topeBS ?? null,
 
     /* Caracterizacion temporal de la via fasica */
     fasico: {

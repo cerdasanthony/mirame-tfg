@@ -107,8 +107,13 @@ const POSITIVAS = ["sonrisa"];
  */
 const REGIONES_NEGATIVAS = {
   ceja: ["cejasInternasArriba", "cejasAbajo"],
-  ojo: ["tensionOcular"],
-  boca: ["comisurasAbajo", "menton", "tensionLabial"],
+  ojo: ["tensionOcular", "ojosAbiertos"],
+  /* Region nasolabial: el arrugador nasal y el elevador del labio superior son
+     el tercer termino del indice de Prkachin y Solomon, y la zona que FACS
+     asocia al asco. Faltaba por completo: una expresion de asco no tenia por
+     donde entrar al compuesto tonico. */
+  nariz: ["narizArrugada", "labioSuperiorArriba"],
+  boca: ["comisurasAbajo", "menton", "tensionLabial", "labiosFruncidos", "labiosEstirados"],
 };
 
 const NEGATIVAS = Object.values(REGIONES_NEGATIVAS).flat();
@@ -174,6 +179,17 @@ function evidencia(z) {
   for (const c of Object.keys(PESOS)) out[c] = Math.max(0, z[c] ?? 0);
   out.cejasInternasArriba = Math.max(0, out.cejasInternasArriba - out.cejasExternasArriba);
   out.tensionOcular = Math.max(0, out.tensionOcular - out.sonrisa);
+  /* AU4 habilita a AU5, con la forma inversa a las dos modulaciones anteriores.
+     La apertura palpebral aparece en el miedo, AU1+2+4+5+20+26, y en la
+     sorpresa, AU1+2+5+26. Lo que las separa es la presencia de AU4: el miedo la
+     tiene, la sorpresa no. AU5 aporta evidencia negativa solo hasta donde la
+     acompana el descenso de cejas; sin AU4 la configuracion es sorpresa, cuya
+     valencia este trabajo no declara, y no aporta nada.
+
+     Antes de rectificar, abrir mucho los ojos se clasificaba como positivo por
+     un error de signo. Rectificado, pasaba a neutro sin distinguir miedo de
+     sorpresa. Esta modulacion es la que permite separarlos. */
+  out.ojosAbiertos = Math.min(out.ojosAbiertos, out.cejasAbajo);
   return out;
 }
 
@@ -182,15 +198,35 @@ const promedio = (e, canales) =>
   canales.length ? canales.reduce((s, c) => s + (e[c] ?? 0), 0) / canales.length : 0;
 
 /**
- * Evidencia negativa: maximo dentro de cada region, media entre regiones.
- * El maximo evita contar dos veces la misma zona; la media entre regiones deja
- * el resultado en la misma unidad que el lado positivo, con independencia de
- * cuantas regiones o canales haya.
+ * Evidencia negativa: la mas fuerte de las regiones.
+ *
+ * POR QUE EL MAXIMO Y NO LA MEDIA
+ * Promediar entre regiones castiga a las configuraciones que FACS localiza en
+ * una sola zona. El asco es AU9+AU10, region nasolabial y nada mas; el puchero
+ * es AU17+AU18, region bucal y nada mas. Promediados entre cuatro regiones
+ * aportan una cuarta parte de su intensidad y no cruzan ningun corte. Cada
+ * region que se anade al catalogo empeora el problema, de modo que ampliar la
+ * cobertura muscular reducia la sensibilidad, que es lo contrario de lo buscado.
+ *
+ * Medido sobre una sesion con pucheros deliberados, 272 muestras:
+ *    media entre regiones   0 % de muestras no neutras
+ *    maximo entre regiones  24 %
+ * La mediana del compuesto queda en cero con ambas, de modo que el maximo no
+ * introduce sesgo: cambia la sensibilidad, no el centro.
+ *
+ * ADEMAS ES LO SIMETRICO
+ * El lado positivo es la evidencia mas fuerte de que dispone, AU12. Tomar del
+ * lado negativo su region mas fuerte deja ambos lados expresando lo mismo —la
+ * mejor evidencia disponible en su signo— y por tanto comparables por
+ * construccion, sin depender de cuantos canales tenga cada uno.
+ *
+ * El maximo DENTRO de cada region sigue evitando contar dos veces el mismo
+ * musculo, que es el sentido de la regla de Prkachin y Solomon (2008).
  */
 function evidenciaNegativaRegional(e) {
-  const regiones = Object.values(REGIONES_NEGATIVAS);
-  const porRegion = regiones.map((cs) => Math.max(...cs.map((c) => e[c] ?? 0)));
-  return porRegion.reduce((s, v) => s + v, 0) / regiones.length;
+  return Math.max(
+    ...Object.values(REGIONES_NEGATIVAS).map((cs) => Math.max(...cs.map((c) => e[c] ?? 0)))
+  );
 }
 
 /**

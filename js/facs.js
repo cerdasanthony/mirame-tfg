@@ -44,6 +44,7 @@
 export const AU = {
   AU1:  { nombre: "Inner Brow Raiser",    musculo: "frontalis, pars medialis",              bs: ["browInnerUp"],                            proxy: "directa" },
   AU2:  { nombre: "Outer Brow Raiser",    musculo: "frontalis, pars lateralis",             bs: ["browOuterUpLeft", "browOuterUpRight"],    proxy: "directa" },
+  AU5:  { nombre: "Upper Lid Raiser",     musculo: "levator palpebrae superioris",           bs: ["eyeWideLeft", "eyeWideRight"],            proxy: "directa" },
   AU4:  { nombre: "Brow Lowerer",         musculo: "corrugator supercilii, depressor supercilii", bs: ["browDownLeft", "browDownRight"],    proxy: "directa" },
   AU6:  { nombre: "Cheek Raiser",         musculo: "orbicularis oculi, pars orbitalis",     bs: ["cheekSquintLeft", "cheekSquintRight"],    proxy: "directa" },
   AU7:  { nombre: "Lid Tightener",        musculo: "orbicularis oculi, pars palpebralis",   bs: ["eyeSquintLeft", "eyeSquintRight"],        proxy: "directa" },
@@ -52,6 +53,8 @@ export const AU = {
   AU12: { nombre: "Lip Corner Puller",    musculo: "zygomaticus major",                     bs: ["mouthSmileLeft", "mouthSmileRight"],      proxy: "directa" },
   AU14: { nombre: "Dimpler",              musculo: "buccinator",                            bs: ["mouthDimpleLeft", "mouthDimpleRight"],    proxy: "directa" },
   AU15: { nombre: "Lip Corner Depressor", musculo: "depressor anguli oris",                 bs: ["mouthFrownLeft", "mouthFrownRight"],      proxy: "directa" },
+  AU16: { nombre: "Lower Lip Depressor",  musculo: "depressor labii inferioris",             bs: ["mouthLowerDownLeft", "mouthLowerDownRight"], proxy: "directa" },
+  AU18: { nombre: "Lip Puckerer",         musculo: "incisivii labii, orbicularis oris",      bs: ["mouthPucker"],                            proxy: "directa" },
   AU17: { nombre: "Chin Raiser",          musculo: "mentalis",                              bs: ["mouthShrugLower"],                        proxy: "parcial" },
   AU20: { nombre: "Lip Stretcher",        musculo: "risorius, platysma",                    bs: ["mouthStretchLeft", "mouthStretchRight"],  proxy: "directa" },
   AU24: { nombre: "Lip Pressor",          musculo: "orbicularis oris",                      bs: ["mouthPressLeft", "mouthPressRight"],      proxy: "directa" },

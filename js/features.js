@@ -53,6 +53,23 @@ export function extract(blendshapes) {
        que si estaba— no paso de 0,011. El gesto era AU17 practicamente puro, de
        modo que el compuesto no tenia por donde verlo. */
     menton: blendshapes.mouthShrugLower ?? 0,
+    /* AU5, Upper Lid Raiser. Aparece en el miedo (AU1+2+4+5+20+26) y en la
+       sorpresa (AU1+2+5+26). Como AU1, no distingue una de otra por si sola: lo
+       que las separa es AU4, presente en el miedo y ausente en la sorpresa. Ver
+       la modulacion en `evidencia`. Faltaba por completo del catalogo. */
+    ojosAbiertos: avg(blendshapes, ["eyeWideLeft", "eyeWideRight"]),
+    /* AU18, Lip Puckerer. Protrusion labial, que acompana al puchero junto al
+       mentalis. */
+    labiosFruncidos: blendshapes.mouthPucker ?? 0,
+    /* AU9 y AU10, arrugador nasal y elevador del labio superior. Son el tercer
+       termino del indice de Prkachin y Solomon —max(AU9, AU10)— y la region que
+       FACS asocia al asco. El compuesto tonico no tenia NINGUN canal en esa
+       zona, de modo que una expresion de asco no encontraba por donde entrar. */
+    narizArrugada: avg(blendshapes, ["noseSneerLeft", "noseSneerRight"]),
+    labioSuperiorArriba: avg(blendshapes, ["mouthUpperUpLeft", "mouthUpperUpRight"]),
+    /* AU20, Lip Stretcher, risorius. Estiramiento lateral de los labios, que
+       forma parte de la configuracion de miedo. */
+    labiosEstirados: avg(blendshapes, ["mouthStretchLeft", "mouthStretchRight"]),
     aperturaBucal: blendshapes.jawOpen ?? 0,
   };
 }
@@ -66,6 +83,11 @@ export const CARACTERISTICAS = [
   "tensionOcular",
   "tensionLabial",
   "menton",
+  "ojosAbiertos",
+  "labiosFruncidos",
+  "narizArrugada",
+  "labioSuperiorArriba",
+  "labiosEstirados",
   "aperturaBucal",
 ];
 
