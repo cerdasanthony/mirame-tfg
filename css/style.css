@@ -668,11 +668,25 @@ body.panel-acoplado .salida { right: min(400px, 92vw); }
   padding: clamp(1rem, 4vw, 2.5rem); overflow-y: auto;
 }
 .obs-cabecera h2 { margin: 0 0 .4rem; font-size: clamp(1.3rem, 4vw, 1.9rem); }
-.obs-botones { display: grid; gap: .7rem; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); flex: 1; }
+/* Los botones NO se estiran a toda la altura. La version anterior llevaba
+   `flex: 1` para que ocuparan la pantalla en un telefono, y en un monitor ancho
+   producia botones de ochocientos pixeles de alto. Se fija una altura comoda
+   para el pulgar y la rejilla se queda arriba. */
+.obs-botones {
+  display: grid; gap: .7rem; align-content: start;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  max-width: 60rem;
+}
 .obs-botones button {
-  font: inherit; font-size: clamp(1rem, 2.6vw, 1.35rem); font-weight: 700;
-  padding: 1.6rem 1rem; border-radius: 14px; cursor: pointer;
+  font: inherit; font-size: clamp(1rem, 2.2vw, 1.25rem); font-weight: 700;
+  min-height: 5.5rem; padding: 1rem; border-radius: 14px; cursor: pointer;
   border: 2px solid currentColor; background: transparent; color: inherit;
+}
+/* En pantalla estrecha si conviene que llenen el alto disponible, porque se
+   pulsan con el pulgar y sin mirar. */
+@media (max-width: 640px) {
+  .obs-botones { flex: 1; align-content: stretch; grid-template-columns: 1fr 1fr; }
+  .obs-botones button { min-height: 0; }
 }
 .obs-botones button:hover { background: rgba(127,127,127,.1); }
 .obs-botones button.obs-pulsado { background: #a2600a; border-color: #a2600a; color: #fff; }
