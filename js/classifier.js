@@ -18,8 +18,6 @@
 
 export const ESTADOS = ["positivo", "neutro", "negativo leve", "negativo intenso"];
 
-import { qn } from "./features.js";
-
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * DE DONDE SALEN LOS PESOS
