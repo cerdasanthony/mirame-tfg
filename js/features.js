@@ -348,11 +348,19 @@ export class LineaBase {
    * Incorpora una muestra posterior al cierre para refinar la dispersión.
    *
    * QUE PROBLEMA RESUELVE
-   * Estimar dispersión en tres segundos es débil. Los fotogramas están
-   * autocorrelacionados: medido sobre sesiones reales de este participante, la
-   * autocorrelación a 250 ms es 0,787, que extrapolada al intervalo entre
-   * fotogramas ronda 0,97 y sitúa el tiempo de decorrelación cerca de 1,1 s. Una
-   * ventana de tres segundos abarca dos o tres de esos tiempos.
+   * Estimar posición y dispersión en tres segundos es débil, porque los
+   * fotogramas no son observaciones independientes. La autocorrelación medida
+   * DIRECTAMENTE entre fotogramas consecutivos, sobre sesiones registradas de
+   * este participante, va de 0,31 a 0,75, lo que deja tamaños efectivos de
+   * entre cuatro y once observaciones frente a las quince a ochenta que
+   * registra el contador.
+   *
+   * Una estimación anterior extrapolaba desde la autocorrelación a 250 ms y
+   * daba 0,97, con tamaños efectivos de una o dos observaciones. La medición
+   * directa la corrigió: extrapolar supone una sola escala de decaimiento,
+   * mientras que la señal real superpone un ruido rápido del estimador de
+   * puntos de referencia, que se decorrelaciona de un fotograma al siguiente,
+   * sobre una deriva postural lenta.
    *
    * POR QUE ES LEGITIMO SEGUIR MIDIENDO DESPUES DEL REPOSO
    * Porque el estimador tolera la contaminación. Tanto la MAD como Qn tienen
@@ -370,10 +378,22 @@ export class LineaBase {
    * autocorrelación baja de 0,97 a 0,787 y el tamaño efectivo crece en
    * consecuencia.
    *
-   * LA POSICION NO SE RECALCULA
-   * La mediana de la sesión completa incluiría las expresiones y desplazaría el
-   * cero contra el que se mide todo. La posición se estima bien en tres
-   * segundos, porque para eso sí alcanzan; la dispersión no.
+   * LA POSICION TAMBIEN SE REFINA, Y ESO CORRIGE UN ERROR ANTERIOR
+   * La primera versión de este método refinaba solo la dispersión, con el
+   * argumento de que la mediana sí se estima bien en tres segundos. El
+   * argumento era inconsistente: si el punto de ruptura del 50 % justifica
+   * seguir midiendo dispersión sobre la sesión completa, justifica igual seguir
+   * midiendo posición, porque la mediana tiene el mismo punto de ruptura.
+   *
+   * Y los datos lo desmintieron. Sobre tres sesiones registradas, la puntuación
+   * z de la tensión ocular tenía MEDIANA de +3,21 σ, cuando en reposo debería
+   * rondar cero: la mitad de la sesión transcurría más de tres sigmas por
+   * encima de la referencia. La causa es la misma autocorrelación. Tres
+   * segundos de una señal correlacionada capturan esencialmente UNA
+   * configuración facial, y si en ese instante los ojos estaban más abiertos que
+   * de costumbre, todo el resto de la sesión se mide contra esa postura
+   * accidental. El efecto observado era que un rostro sin expresión se
+   * clasificaba como negativo.
    */
   /** Las muestras de la línea base, expresadas en puntuación z. */
   muestrasNormalizadas() {
@@ -393,7 +413,11 @@ export class LineaBase {
     };
     const juntas = [...this.muestras, ...this.refinamiento];
     const crudas = {};
-    for (const c of this.canales) crudas[c] = qn(juntas.map((m) => m[c]));
+    for (const c of this.canales) {
+      const vals = juntas.map((m) => m[c]);
+      this.media[c] = mediana(vals);
+      crudas[c] = qn(vals);
+    }
 
     const medibles = this.canales.map((c) => crudas[c]).filter((x) => x > SIGMA_MEDIBLE);
     const sustituta = medibles.length ? Math.max(mediana(medibles), SIGMA_MINIMA) : SIGMA_MINIMA;

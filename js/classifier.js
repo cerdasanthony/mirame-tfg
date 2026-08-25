@@ -81,6 +81,15 @@ function evidencia(z) {
   for (const c of Object.keys(PESOS)) out[c] = rect(c);
   // AU2 descuenta a AU1: lo que sube acompañado no cuenta como distrés.
   out.cejasInternasArriba = Math.max(0, out.cejasInternasArriba - out.cejasExternasArriba);
+  /* AU12 descuenta la tensión periorbital, por el mismo motivo y con la misma
+     forma. El tensado del orbicularis oculi acompaña a la sonrisa espontánea:
+     es el marcador de Duchenne, que distingue la sonrisa genuina de la
+     deliberada (Ekman, Davidson y Friesen, 1990). Contarlo como evidencia
+     negativa mientras las comisuras suben invierte el signo de una sonrisa.
+     Observado al probar la aplicación, y confirmado en los registros: con la
+     sonrisa por encima de dos sigmas, la tensión ocular alcanzaba +7,27 σ en su
+     percentil 90. Solo el exceso sobre la sonrisa cuenta como distrés. */
+  out.tensionOcular = Math.max(0, out.tensionOcular - out.sonrisa);
   return out;
 }
 
