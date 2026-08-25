@@ -38,6 +38,27 @@ export const estado = { disponible: false, motivo: null, evaluaciones: 0 };
 /* Ultimo recorte: si se pudo alinear y cuantos grados se corrigieron. La
    proporcion de fotogramas alineados es un dato de calidad y se reporta. */
 let ultimaAlineacion = { alineado: false, gradosCorregidos: null, interocular: null };
+
+/* Acumulado de la sesion. Antes solo existia el ultimo recorte, de modo que la
+   proporcion que el comentario de arriba dice reportar no se calculaba en
+   ninguna parte: el dato se sobrescribia en cada fotograma y no llegaba al
+   registro. Importa porque los clasificadores de expresion se entrenan sobre
+   rostros alineados, y que fraccion del material llego alineado condiciona como
+   se interpreta el acuerdo entre clasificadores. */
+const acumAlineacion = { intentos: 0, alineados: 0, grados: [] };
+
+/** Proporcion de recortes que se pudieron alinear, y correccion tipica. */
+export function alineacionSesion() {
+  const { intentos, alineados, grados } = acumAlineacion;
+  if (!intentos) return null;
+  const orden = [...grados].sort((a, b) => a - b);
+  return {
+    intentos,
+    alineados,
+    proporcion: alineados / intentos,
+    gradosMedianos: orden.length ? orden[orden.length >> 1] : null,
+  };
+}
 export const alineacion = () => ultimaAlineacion;
 
 /**
@@ -171,6 +192,9 @@ export function recortar(video, landmarks) {
       ctx.restore();
 
       ultimaAlineacion = { alineado: true, gradosCorregidos: (angulo * 180) / Math.PI, interocular };
+      acumAlineacion.intentos++;
+      acumAlineacion.alineados++;
+      acumAlineacion.grados.push(Math.abs(ultimaAlineacion.gradosCorregidos));
       return lienzo;
     }
   }
@@ -192,6 +216,7 @@ export function recortar(video, landmarks) {
 
   ctx.drawImage(video, sx, sy, sw, sh, 0, 0, LADO, LADO);
   ultimaAlineacion = { alineado: false, gradosCorregidos: null, interocular: null };
+  acumAlineacion.intentos++;
   return lienzo;
 }
 

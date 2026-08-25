@@ -103,6 +103,44 @@ Reportar el valor actual como latencia de procesamiento sería un dato incorrect
 
 ---
 
+## Auditoría del 24 de agosto de 2026
+
+Se revisó la coherencia entre lo que los documentos afirman, lo que el código
+hace y lo que los datos reales sostienen. Nueve hallazgos, todos resueltos.
+
+**La escala en sigmas no provenía del participante en la mayoría de canales.**
+Sobre once sesiones reales, 60 de 77 canales de línea base terminaban exactamente
+en el piso constante de 0,02, y la mediana de la dispersión medida era ese piso.
+En la línea base de unidades de acción la proporción llegaba al 88 %. Para esos
+canales la puntuación z dividía por una constante elegida a mano y no por la
+dispersión del participante. Corregido con el mismo criterio que ya usaba la vía
+fásica: sustitución por la mediana de los canales medibles de esa sesión. La
+proporción de canales gobernados por la constante bajó del 78 % al 18 %, y los
+que quedan son sesiones en las que ningún canal resultó medible.
+
+**Los fotogramas no son observaciones independientes.** La autocorrelación medida
+a 250 ms es 0,787, que extrapolada al intervalo entre fotogramas da cerca de 0,97
+y un tiempo de decorrelación de 1,1 s. Una línea base de tres segundos abarca dos
+o tres de esos tiempos. No se corrige, porque reunir veinte observaciones
+efectivas exigiría más de veinte segundos de rostro quieto y el participante es
+un niño en edad preescolar. Se mide y se reporta con cada sesión.
+
+**Capacidades documentadas que no se ejecutaban.** `asimetria()` estaba escrita y
+argumentada pero nadie la invocaba; ahora se registra por muestra. La proporción
+de recortes alineados decía reportarse y no se calculaba; ahora se acumula por
+sesión. La restricción con que se abrió la cámara no llegaba a las métricas.
+
+**Menores.** El backlog pedía línea base de cinco segundos y el código usaba
+tres. La atribución de ARASAAC estaba en tres copias y ninguna viajaba con los
+datos exportados; ahora la exportación la incluye. Cuatro exportaciones sin
+consumidor: dos recibieron uno, una se retiró y otra pasó a normalizar la
+evidencia negativa, que es para lo que estaba escrita.
+
+**Verificado correcto.** El kappa de Cohen, la cobertura de RF-39, la
+correspondencia una a una entre las siete características y sus unidades de
+acción, los 478 puntos de referencia, la concordancia entre citas y referencias,
+y la visibilidad de la atribución exigida por la licencia.
+
 ## Evidencias verificables
 
 | Qué | Cómo comprobarlo |

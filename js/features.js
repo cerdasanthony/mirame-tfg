@@ -49,14 +49,69 @@ export const CARACTERISTICAS = [
 ];
 
 /**
- * Piso para la desviación estándar.
+ * Piso para la desviación estándar, y ÚLTIMO recurso.
  *
- * Si una característica apenas varió durante la línea base —por ejemplo, la
- * apertura bucal en un participante que no abrió la boca—, su sigma tiende a
- * cero y la división amplifica el ruido hasta el absurdo. El piso acota esa
+ * Si una característica apenas varió durante la línea base, su dispersión tiende
+ * a cero y la división amplifica el ruido hasta el absurdo. El piso acota esa
  * amplificación. Su valor está en la escala de los blendshapes, que van de 0 a 1.
+ *
+ * POR QUÉ NO PUEDE SER EL MECANISMO PRINCIPAL
+ * Auditado sobre once sesiones reales: 60 de 77 canales de línea base —el 78 %—
+ * terminaban exactamente en este valor, y la mediana de la dispersión medida ERA
+ * el piso. En la línea base de unidades de acción la proporción llegaba al 88 %.
+ * Con eso, la puntuación z de la mayoría de los canales no dividía por la
+ * dispersión del participante sino por una constante elegida a mano, y la
+ * propiedad que justifica todo el esquema de umbrales —que la escala se
+ * recalcula sola para cada persona— dejaba de cumplirse justo donde más se
+ * invoca.
+ *
+ * La corrección es la misma que ya se aplicó en la vía fásica: cuando un canal
+ * no tiene dispersión medible se usa la mediana de los canales que sí la
+ * tuvieron en esa sesión, que es una estimación tomada de los datos. La
+ * constante queda solo para el caso en que ningún canal resulte medible.
  */
 const SIGMA_MINIMA = 0.02;
+
+/**
+ * Por debajo de esto se considera que el canal no tuvo dispersión medible.
+ *
+ * No es lo mismo que el piso. El piso dice qué valor se usa; este umbral dice
+ * cuándo el valor observado no merece crédito. Se sitúa en la mitad del piso
+ * para que un canal que apenas lo roza siga contando como medido.
+ */
+const SIGMA_MEDIBLE = SIGMA_MINIMA / 2;
+
+/**
+ * Autocorrelación de retardo 1 de una serie.
+ *
+ * POR QUÉ HACE FALTA
+ * Los fotogramas de la línea base no son observaciones independientes: son el
+ * mismo rostro observado muchas veces seguidas. Medido sobre sesiones reales, la
+ * autocorrelación a 250 ms es 0,787, lo que extrapolado al intervalo entre
+ * fotogramas da alrededor de 0,97 y un tiempo de decorrelación cercano a 1,1 s.
+ * Una línea base de tres segundos abarca dos o tres de esos tiempos, de modo que
+ * su tamaño efectivo de muestra es de unas pocas observaciones aunque el
+ * contador muestre ochenta fotogramas.
+ *
+ * La consecuencia es conceptual antes que estadística: lo que la desviación
+ * absoluta mediana mide en esa ventana es el temblor de corto plazo de la señal
+ * y no la variabilidad de reposo de la persona a lo largo de la sesión.
+ *
+ * No se corrige, porque alargar la calibración lo suficiente exigiría más de
+ * veinte segundos de rostro quieto y el participante es un niño en edad
+ * preescolar. Se MIDE y se reporta, que es lo que permite interpretar después
+ * cuánto crédito merece la escala de esa sesión.
+ */
+function autocorrelacion(xs) {
+  const n = xs.length - 1;
+  if (n < 8) return null;
+  const m = xs.reduce((a, b) => a + b, 0) / xs.length;
+  const v = xs.reduce((a, x) => a + (x - m) ** 2, 0) / xs.length;
+  if (v < 1e-12) return null;
+  let s = 0;
+  for (let i = 0; i < n; i++) s += (xs[i] - m) * (xs[i + 1] - m);
+  return s / (n * v);
+}
 
 /**
  * Acumulador de línea base (RF-10).
@@ -129,19 +184,52 @@ export class LineaBase {
     this.mediaClasica = {};
     this.sigmaClasica = {};
 
+    /* Primera pasada: dispersión cruda de cada canal, sin piso ni sustitución.
+       Hace falta conocerlas todas antes de decidir cuál sustituir, porque el
+       sustituto sale precisamente de las que resultaron medibles. */
+    const crudas = {};
+    const autocorr = [];
     for (const c of this.canales) {
       const vals = this.muestras.map((m) => m[c]);
-
       const med = mediana(vals);
-      const mad = mediana(vals.map((v) => Math.abs(v - med)));
+      crudas[c] = mediana(vals.map((v) => Math.abs(v - med))) * 1.4826;
       this.media[c] = med;
-      this.sigma[c] = Math.max(mad * 1.4826, SIGMA_MINIMA);
 
       const mu = vals.reduce((a, b) => a + b, 0) / n;
       const varianza = vals.reduce((a, v) => a + (v - mu) ** 2, 0) / (n - 1);
       this.mediaClasica[c] = mu;
       this.sigmaClasica[c] = Math.sqrt(varianza);
+
+      const r = autocorrelacion(vals);
+      if (r !== null) autocorr.push(r);
     }
+
+    const medibles = this.canales.map((c) => crudas[c]).filter((x) => x > SIGMA_MEDIBLE);
+    const sustituta = medibles.length
+      ? Math.max(mediana(medibles), SIGMA_MINIMA)
+      : SIGMA_MINIMA;
+
+    this.canalesSupuestos = [];
+    for (const c of this.canales) {
+      if (crudas[c] > SIGMA_MEDIBLE) {
+        this.sigma[c] = Math.max(crudas[c], SIGMA_MINIMA);
+      } else {
+        this.sigma[c] = sustituta;
+        this.canalesSupuestos.push(c);
+      }
+    }
+
+    /* Tamaño efectivo de muestra para un proceso autorregresivo de orden uno.
+       Es la cifra que dice cuánta información sobre la dispersión hay realmente
+       en la ventana, frente a los `n` fotogramas que el contador muestra. */
+    const r = autocorr.length ? mediana(autocorr) : null;
+    const nEfectivo = r !== null && r > -1 && r < 1
+      ? Math.max(1, n * (1 - r) / (1 + r))
+      : null;
+    this.sigmaMedida = Object.fromEntries(this.canales.map((c) => [c, crudas[c]]));
+    this.sigmaSustituta = this.canalesSupuestos.length ? sustituta : null;
+    this.autocorrelacion = r;
+    this.muestrasEfectivas = nEfectivo;
 
     return {
       media: this.media,
@@ -150,6 +238,14 @@ export class LineaBase {
       sigmaClasica: this.sigmaClasica,
       muestras: n,
       quietud: this.quietud,
+      /* Procedencia de la escala. Sin esto no se puede saber, al analizar una
+         sesión, si un umbral de «una sigma» se apoyó en dispersión medida o en
+         una estimación prestada de otros canales. */
+      sigmaMedida: Object.fromEntries(this.canales.map((c) => [c, crudas[c]])),
+      canalesSupuestos: this.canalesSupuestos,
+      sigmaSustituta: this.canalesSupuestos.length ? sustituta : null,
+      autocorrelacion: r,
+      muestrasEfectivas: nEfectivo,
     };
   }
 
@@ -199,6 +295,11 @@ export class LineaBase {
           sigmaClasica: this.sigmaClasica,
           muestras: this.muestras.length,
           quietud: this.quietud,
+          sigmaMedida: this.sigmaMedida ?? null,
+          canalesSupuestos: this.canalesSupuestos ?? null,
+          sigmaSustituta: this.sigmaSustituta ?? null,
+          autocorrelacion: this.autocorrelacion ?? null,
+          muestrasEfectivas: this.muestrasEfectivas ?? null,
         }
       : null;
   }

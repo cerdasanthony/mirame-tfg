@@ -18,7 +18,7 @@ import { Tablero, PICTOGRAMAS } from "./board.js";
 import { hablar, voces, ajustes, fijarAjustes, vozActual, alHaberVoces } from "./speech.js";
 import * as segunda from "./segunda-opinion.js";
 import { Heuristica, guardarConfig } from "./heuristica.js";
-import { extraerAU, CANALES_AU, PerfilExpresividad, evidenciaPositiva, evidenciaNegativa } from "./facs.js";
+import { extraerAU, CANALES_AU, PerfilExpresividad, evidenciaPositiva, evidenciaNegativa, asimetria, EVIDENCIA_NEGATIVA_MAXIMA } from "./facs.js";
 import { DetectorFasico } from "./microexpresiones.js";
 import { imagen } from "./pictogramas.js";
 
@@ -363,10 +363,29 @@ function bucle(tCaptura = performance.now()) {
              el compuesto. Sin las dos versiones el contraste no se puede hacer. */
           evidencia: {
             crudaPositiva: Number(evidenciaPositiva(au).duchenne.toFixed(4)),
-            crudaNegativa: Number(evidenciaNegativa(au).total.toFixed(4)),
+            /* Normalizada a [0,1] por su cota superior: los tres terminos van
+               en [0,1] por ser blendshapes, asi que la suma llega a tres. Sin
+               dividir, el valor no es comparable con la evidencia positiva,
+               que si esta acotada a la unidad. */
+            crudaNegativa: Number((evidenciaNegativa(au).total / EVIDENCIA_NEGATIVA_MAXIMA).toFixed(4)),
             zPositiva: Number(evidenciaPositiva(zAU).duchenne.toFixed(4)),
             zNegativa: Number(evidenciaNegativa(zAU).total.toFixed(4)),
           },
+          /* ASIMETRIA IZQUIERDA-DERECHA DE LAS AU QUE MEDIAPIPE LATERALIZA.
+             FACS distingue las acciones unilaterales de las bilaterales, y la
+             distincion no es cosmetica: una activacion marcadamente asimetrica
+             se asocia a expresion deliberada o social mas que a espontanea.
+             Como este trabajo intenta registrar senal espontanea en un
+             participante que expresa poco, poder separar ambas cosas importa.
+             `asimetria()` estaba escrita y documentada desde el principio pero
+             no la invocaba nadie, de modo que la distincion no existia en el
+             registro. Se guardan solo las AU con valencia declarada; las que
+             MediaPipe no lateraliza devuelven nulo y se omiten. */
+          asimetria: Object.fromEntries(
+            CANALES_AU.map((c) => [c, asimetria(r.blendshapes, c)])
+              .filter(([, v]) => v !== null)
+              .map(([c, v]) => [c, Number(v.toFixed(3))])
+          ),
           frontalidad: Number(frente.toFixed(3)),
           puntaje: Number(c.puntaje.toFixed(4)),
           estado: c.estado,
@@ -642,6 +661,12 @@ function metricasSesion() {
     /* Procedencia tecnica: condiciona todo lo demas */
     delegado: face.diagnostico.delegado,
     relojFotograma: face.diagnostico.reloj,
+    /* Con que juego de restricciones se consiguio abrir la camara. Si hubo que
+       bajar escalones, la cadencia obtenida es menor y con ella la resolucion
+       temporal de esta sesion: es procedencia tecnica, igual que el delegado. */
+    restriccionCamara: face.diagnostico.restriccion,
+    /* Fraccion de recortes que el segundo clasificador pudo alinear. */
+    alineacion: segunda.alineacionSesion(),
 
     /* Caracterizacion temporal de la via fasica */
     fasico: {

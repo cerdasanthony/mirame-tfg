@@ -5,6 +5,8 @@
  * registros de sesión. El video nunca sale del dispositivo ni queda almacenado.
  */
 
+import { ATRIBUCION } from "./pictogramas.js";
+
 const DB_NOMBRE = "mirame";
 const DB_VERSION = 3;
 let db = null;
@@ -20,6 +22,10 @@ export async function abrir() {
       }
       if (!d.objectStoreNames.contains("muestras")) {
         const m = d.createObjectStore("muestras", { keyPath: "id", autoIncrement: true });
+        /* El indice por sesion se conserva aunque ninguna funcion de este modulo
+           lo consulte hoy. El reanalisis de una sesion concreta se hace fuera del
+           navegador, sobre el JSON exportado, con los scripts de `pruebas/`. Un
+           indice cuesta poco y quitarlo obligaria a migrar el esquema. */
         m.createIndex("porSesion", "sesionId");
       }
       // Eventos fásicos: transitorios breves detectados canal por canal.
@@ -119,21 +125,9 @@ export async function guardarEvento(ev) {
   return promesa(tx("eventos", "readwrite").add({ ts: Date.now(), ...ev }));
 }
 
-export async function eventosDeSesion(sesionId) {
-  await abrir();
-  const idx = tx("eventos", "readonly").index("porSesion");
-  return promesa(idx.getAll(sesionId));
-}
-
 export async function todosLosEventos() {
   await abrir();
   return promesa(tx("eventos", "readonly").getAll());
-}
-
-export async function muestrasDeSesion(sesionId) {
-  await abrir();
-  const idx = tx("muestras", "readonly").index("porSesion");
-  return promesa(idx.getAll(sesionId));
 }
 
 export async function todasLasMuestras() {
@@ -177,8 +171,22 @@ export async function exportarJSON() {
   const selecciones = await todasLasSelecciones();
   const muestras = await todasLasMuestras();
   const eventos = await todosLosEventos();
+  /* LA ATRIBUCION VIAJA CON LOS DATOS.
+     Los pictogramas de ARASAAC estan bajo licencia CC BY-NC-SA, que obliga a
+     citar autor, origen y licencia en cualquier obra derivada. Un archivo de
+     registro que nombra pictogramas es una de ellas, y hasta ahora salia sin
+     ninguna referencia. La copia visible para las personas sigue estando en
+     index.html y en el README, escrita a mano y sin depender de JavaScript,
+     porque una obligacion legal no puede quedar sujeta a que un script cargue. */
   return JSON.stringify(
-    { exportado: new Date().toISOString(), sesiones, selecciones, muestras, eventos },
+    {
+      exportado: new Date().toISOString(),
+      atribucionPictogramas: ATRIBUCION,
+      sesiones,
+      selecciones,
+      muestras,
+      eventos,
+    },
     null,
     2
   );

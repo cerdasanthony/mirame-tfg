@@ -162,4 +162,3 @@ export function alHaberVoces(fn) {
   window.speechSynthesis.addEventListener("voiceschanged", fn, { once: true });
 }
 
-export const vozDisponible = disponible;
