@@ -198,7 +198,24 @@ export function asimetria(blendshapes, au) {
 export function evidenciaPositiva(auValores) {
   const au6 = auValores.AU6 ?? 0;
   const au12 = auValores.AU12 ?? 0;
-  return { duchenne: Math.min(au6, au12), au12, au6 };
+  return {
+    /* Configuracion de Duchenne: la concurrencia de ambas unidades. Se conserva
+       como DESCRIPCION de una configuracion facial, no como certificado de que
+       la sonrisa sea genuina. Vale cero en dispositivos que no producen AU6, y
+       eso queda reportado en `auSinRecorrido`. */
+    duchenne: Math.min(au6, au12),
+    /* INTENSIDAD DE LA SONRISA.
+       Girard et al. (2021) encontraron que la intensidad y la duracion de la
+       sonrisa predicen la emocion positiva mejor que la constriccion ocular, y
+       que al controlarlas el efecto de esta ultima deja de ser significativo.
+       Es decir, la informacion util estaba en estas dos caracteristicas y no en
+       el marcador. La intensidad es este valor; la duracion la registra la via
+       fasica, que anota cada evento de AU12 con su anchura a media altura.
+       Ambas quedan disponibles sin depender de AU6. */
+    intensidad: au12,
+    au12,
+    au6,
+  };
 }
 
 /**

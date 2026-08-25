@@ -22,7 +22,7 @@ Estado a **24 de agosto de 2026**.
 | RF-02 | ✅ | `js/board.js` | |
 | RF-03 | ✅ | `js/board.js`, `js/speech.js` | ampliación, etiqueta y voz sintetizada |
 | RF-04 | ✅ | `js/board.js` | |
-| RF-05 | 🟡 | `js/app.js` | se registra `latenciaMs`, pero mide el intervalo **entre selecciones**. La latencia de procesamiento que pide el OE 5 no se cronometra: `detectForVideo` no está instrumentado |
+| RF-05 | ✅ | `js/app.js`, `js/face.js` | `detectForVideo` cronometrado; la sesión reporta latencia media, percentil 95 y máxima, y por separado el intervalo con que la cámara entrega, para distinguir un límite de cómputo de uno de iluminación |
 
 ## Módulo A · captura y detección facial
 
@@ -96,7 +96,7 @@ el diseño de estudio descrito no puede llevarse a cabo tal como está redactado
 **RF-28** condiciona la interpretación: sin marcar cansancio, alimentación reciente
 o malestar, las diferencias entre sesiones no tienen contexto al que atribuirse.
 
-**RF-05 y el OE 5** exigen latencia de procesamiento y hoy se registra otra cosa.
+**RF-05** quedó cerrado: la latencia de inferencia se cronometra y se reporta junto a la cadencia de entrega, que son dos límites distintos y se corrigen de forma distinta.
 Reportar el valor actual como latencia de procesamiento sería un dato incorrecto.
 
 **RF-22, RF-23 y RF-24** son de comodidad y no bloquean el estudio.

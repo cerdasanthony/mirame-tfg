@@ -34,7 +34,58 @@ export const diagnostico = {
      bajar escalones, la cadencia obtenida sera menor y eso condiciona la
      resolucion temporal de toda la sesion. */
   restriccion: null,
+  /* Resolucion realmente negociada. Se pide 640x480 como preferencia, pero el
+     dispositivo entrega lo que puede y eso condiciona el tamano del rostro en
+     el fotograma, del que depende la precision de los puntos de referencia. */
+  resolucion: null,
+
+  /**
+   * LATENCIA DE INFERENCIA Y CADENCIA DE ENTREGA, POR SEPARADO (RF-05).
+   *
+   * POR QUE HACEN FALTA LAS DOS
+   * La aplicacion alcanzaba 15,6 fps en unas sesiones y 31,2 en otras, y con
+   * una sola cifra no hay forma de saber a que se debe. Son dos limites
+   * distintos y se corrigen de manera distinta:
+   *
+   *   · Si la INFERENCIA tarda mas que el intervalo entre fotogramas, el limite
+   *     es de computo. Se ataca bajando la resolucion de captura o cambiando de
+   *     delegado.
+   *   · Si la inferencia es rapida y aun asi llegan pocos fotogramas, el limite
+   *     es de la CAMARA. La causa habitual es la iluminacion: con poca luz el
+   *     sensor alarga la exposicion y suele partir la cadencia por la mitad,
+   *     que es exactamente la relacion entre 15,6 y 31,2.
+   *
+   * Sin esta separacion se corre el riesgo de bajar la resolucion, perder
+   * precision en los puntos de referencia y no ganar un solo fotograma, porque
+   * el cuello de botella estaba en la habitacion y no en el telefono.
+   *
+   * El objetivo especifico 5 pide reportar la latencia de procesamiento, y esta
+   * es esa medida: hasta ahora se registraba el intervalo entre selecciones,
+   * que es otra cosa.
+   */
+  latencia: { n: 0, suma: 0, max: 0, muestras: [] },
+  intervalo: { n: 0, suma: 0, max: 0, ultimo: null },
 };
+
+/** Resumen de latencia de inferencia y de entrega, para las metricas de sesion. */
+export function tiempos() {
+  const L = diagnostico.latencia, I = diagnostico.intervalo;
+  const p = (a, q) => {
+    if (!a.length) return null;
+    const o = [...a].sort((x, y) => x - y);
+    return Number(o[Math.min(o.length - 1, Math.floor(q * o.length))].toFixed(2));
+  };
+  return {
+    inferenciaMs: L.n ? Number((L.suma / L.n).toFixed(2)) : null,
+    inferenciaP95Ms: p(L.muestras, 0.95),
+    inferenciaMaxMs: L.n ? Number(L.max.toFixed(2)) : null,
+    entregaMs: I.n ? Number((I.suma / I.n).toFixed(2)) : null,
+    entregaMaxMs: I.n ? Number(I.max.toFixed(2)) : null,
+    /* Fraccion del intervalo entre fotogramas que consume la inferencia. Por
+       encima de 1 el computo no alcanza; muy por debajo, el limite es la camara. */
+    ocupacion: L.n && I.n ? Number(((L.suma / L.n) / (I.suma / I.n)).toFixed(3)) : null,
+  };
+}
 
 /**
  * Restricciones de camara, de la mas exigente a la mas permisiva.
@@ -221,13 +272,29 @@ export function detect(video, timestampMs) {
   lastVideoTime = video.currentTime;
 
   diagnostico.llamadas++;
+
+  /* Intervalo entre fotogramas efectivamente entregados por la camara. */
+  const I = diagnostico.intervalo;
+  if (I.ultimo !== null) {
+    const dt = timestampMs - I.ultimo;
+    if (dt > 0 && dt < 1000) { I.n++; I.suma += dt; if (dt > I.max) I.max = dt; }
+  }
+  I.ultimo = timestampMs;
+
   let res;
+  const t0 = performance.now();
   try {
     res = landmarker.detectForVideo(video, timestampMs);
   } catch (e) {
     diagnostico.ultimoError = e.message;
     return null;
   }
+  const ms = performance.now() - t0;
+  const L = diagnostico.latencia;
+  L.n++; L.suma += ms; if (ms > L.max) L.max = ms;
+  /* Se conserva una muestra acotada para el percentil: el promedio esconde los
+     picos, y un pico que supere el intervalo entre fotogramas descarta uno. */
+  if (L.muestras.length < 600) L.muestras.push(ms);
 
   if (!res.faceLandmarks?.length) return null;
   diagnostico.detecciones++;
@@ -312,5 +379,6 @@ export async function openCamera(video) {
   }
   if (!video.videoWidth) throw new Error("La cámara no entregó imagen.");
 
+  diagnostico.resolucion = `${video.videoWidth}x${video.videoHeight}`;
   return { stream, ancho: video.videoWidth, alto: video.videoHeight };
 }

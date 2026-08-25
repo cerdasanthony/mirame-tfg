@@ -327,7 +327,31 @@
   <script type="module" src="./js/app.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => { }));
+      /* LA CACHE HTTP SE SALTA TAMBIEN PARA sw.js.
+         Ya se habia corregido que la cache del navegador se interpone antes del
+         service worker para los archivos de la aplicacion, pero el registro
+         dejaba fuera al propio sw.js: por omision `updateViaCache` vale
+         "imports", con lo que el script del worker SI pasa por la cache HTTP.
+         Efecto observado: el telefono se quedo en una version durante casi un
+         dia entero pese a haberse publicado cuatro versiones posteriores. Con
+         "none" el navegador lo pide siempre a la red, que es la unica forma de
+         que llegue a enterarse de que hay una version nueva. */
+      window.addEventListener("load", async () => {
+        try {
+          const reg = await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
+          reg.update();
+          /* Cuando el worker nuevo toma el control, la pagina sigue ejecutando
+             el codigo viejo hasta que se recargue. En una aplicacion instalada
+             no hay barra de direcciones para forzarlo, asi que se recarga sola.
+             La guarda evita el bucle: solo se recarga el primer cambio. */
+          let recargando = false;
+          navigator.serviceWorker.addEventListener("controllerchange", () => {
+            if (recargando) return;
+            recargando = true;
+            location.reload();
+          });
+        } catch (e) { /* sin service worker la aplicacion funciona igual, solo que sin uso sin conexion */ }
+      });
     }
   </script>
 </body>

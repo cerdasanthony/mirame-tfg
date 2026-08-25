@@ -398,6 +398,10 @@ function bucle(tCaptura = performance.now()) {
                que si esta acotada a la unidad. */
             crudaNegativa: Number((evidenciaNegativa(au).total / EVIDENCIA_NEGATIVA_MAXIMA).toFixed(4)),
             zPositiva: Number(evidenciaPositiva(zAU).duchenne.toFixed(4)),
+            /* Lo que segun Girard et al. (2021) si predice: la intensidad.
+               `zPositiva` queda como descripcion de la configuracion, y vale
+               cero en dispositivos sin AU6. */
+            zIntensidadSonrisa: Number(evidenciaPositiva(zAU).intensidad.toFixed(4)),
             zNegativa: Number(evidenciaNegativa(zAU).total.toFixed(4)),
           },
           /* ASIMETRIA IZQUIERDA-DERECHA DE LAS AU QUE MEDIAPIPE LATERALIZA.
@@ -514,6 +518,13 @@ function tocaPintar(ahora = performance.now()) {
   return true;
 }
 
+/* Version del service worker que esta sirviendo, para el panel. */
+let versionSW = "?";
+navigator.serviceWorker?.addEventListener?.("message", (e) => {
+  if (e.data?.version) { versionSW = e.data.version; }
+});
+navigator.serviceWorker?.ready?.then((r) => r.active?.postMessage("version")).catch(() => {});
+
 function diagTexto() {
   const d = face.diagnostico;
   /* La diferencia entre el reloj de captura y performance.now(). Si no es
@@ -523,6 +534,10 @@ function diagTexto() {
     d.desfaseReloj = Math.round(estado.ultimaCaptura - performance.now());
   }
   const partes = [
+    /* La version que sirve el service worker, a la vista. Durante la depuracion
+       hubo que exportar los datos y deducir que codigo corria en el telefono
+       por los campos presentes en el JSON, porque no habia forma de verlo. */
+    `versión ${versionSW}`,
     `video ${video.videoWidth}×${video.videoHeight}`,
     `delegado ${d.delegado ?? "—"}`,
     `llamadas ${d.llamadas}`,
@@ -532,6 +547,12 @@ function diagTexto() {
     `segunda opinión ${segunda.estado.disponible ? segunda.estado.evaluaciones : 'no disponible'}`,
     `reloj ${d.reloj ?? "—"}${d.desfaseReloj !== undefined ? ` (desfase ${d.desfaseReloj} ms)` : ""}`,
     `frontalidad ${estado.frontalidadDetalle ?? "—"}`,
+    (() => {
+      const t = face.tiempos();
+      return t.inferenciaMs
+        ? `inferencia ${t.inferenciaMs} ms · entrega ${t.entregaMs} ms · ocupación ${t.ocupacion}`
+        : "inferencia —";
+    })(),
   ];
   if (d.ultimoError) partes.push(`error: ${d.ultimoError}`);
   return partes.join(" · ");
@@ -690,6 +711,10 @@ function metricasSesion() {
     /* Procedencia tecnica: condiciona todo lo demas */
     delegado: face.diagnostico.delegado,
     relojFotograma: face.diagnostico.reloj,
+    resolucionCaptura: face.diagnostico.resolucion,
+    /* RF-05 y objetivo 5: latencia de procesamiento, separada de la cadencia
+       con que la camara entrega. Ver `face.tiempos`. */
+    tiempos: face.tiempos(),
     /* Con que juego de restricciones se consiguio abrir la camara. Si hubo que
        bajar escalones, la cadencia obtenida es menor y con ella la resolucion
        temporal de esta sesion: es procedencia tecnica, igual que el delegado. */

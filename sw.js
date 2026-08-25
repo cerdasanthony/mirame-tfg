@@ -8,7 +8,7 @@
  * estando en linea y se conserva el funcionamiento sin conexion, que es lo que
  * exige el RNF-05. */
 
-const CACHE = "mirame-v35";
+const CACHE = "mirame-v37";
 const ARMAZON = [
   "./",
   "./index.html",
@@ -101,4 +101,11 @@ self.addEventListener("fetch", (e) => {
       })
       .catch(() => caches.match(e.request).then((hit) => hit || Promise.reject(new Error("sin red y sin cache"))))
   );
+});
+
+/* Permite que la pagina pregunte que version esta sirviendo. Sin esto, saber
+   que codigo corre en el telefono exigia exportar los datos y deducirlo por los
+   campos presentes, que es lo que hubo que hacer durante la depuracion. */
+self.addEventListener("message", (e) => {
+  if (e.data === "version") e.source?.postMessage({ version: CACHE });
 });
