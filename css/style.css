@@ -682,3 +682,25 @@ body.panel-acoplado .barra {
 .segmentos button.seg-activo { background: currentColor; }
 .segmentos button.seg-activo { color: #fff; background: #a2600a; border-color: #a2600a; }
 
+
+/* ── Botones de solo icono ─────────────────────────────────────────────
+   La clase se llama `btn-solo-icono` y no `btn-icono` porque esa ya existia: la
+   usa el boton «Cuidador», que lleva icono Y TEXTO visible. Reutilizar el
+   nombre le habria impuesto una caja cuadrada con la palabra dentro.
+
+   Las dos declaraciones que importan son `flex: 0 0 auto`, porque `.btn` trae
+   `flex: 1` y sin anularlo los botones se reparten todo el ancho, y el tamano
+   explicito del SVG, porque sin el ocupa el alto del contenedor. */
+.btn.btn-solo-icono {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2.4rem; height: 2.4rem; padding: 0;
+}
+.btn.btn-solo-icono svg {
+  width: 1.1rem; height: 1.1rem;
+  display: block; flex: 0 0 auto;
+}
+.btn.btn-solo-icono:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+/* Los grupos de acciones se alinean en fila en lugar de repartirse el ancho. */
+.acciones { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }

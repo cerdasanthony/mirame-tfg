@@ -8,7 +8,7 @@
  * estando en linea y se conserva el funcionamiento sin conexion, que es lo que
  * exige el RNF-05. */
 
-const CACHE = "mirame-v52";
+const CACHE = "mirame-v53";
 const ARMAZON = [
   "./",
   "./index.html",
