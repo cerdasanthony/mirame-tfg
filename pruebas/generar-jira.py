@@ -37,22 +37,50 @@ MESES = {"ene": 1, "feb": 2, "mar": 3, "abr": 4, "may": 5, "jun": 6,
 # ── Estado real, tomado de docs/trazabilidad.md ─────────────────────────────
 # Hecho: verificado en el codigo. En curso: implementado en parte, con la
 # diferencia anotada. Lo que no aparece queda en Por hacer.
-HECHO_RF = {
-    "RF-01", "RF-02", "RF-03", "RF-04", "RF-06", "RF-07", "RF-08", "RF-09",
-    "RF-10", "RF-11", "RF-12", "RF-13", "RF-14", "RF-15", "RF-16", "RF-18",
-    "RF-19", "RF-20", "RF-21", "RF-25", "RF-26", "RF-27", "RF-30", "RF-31",
-}
-EN_CURSO_RF = {
-    "RF-05": "Se registra latencia, pero mide el intervalo entre selecciones. La latencia de procesamiento que pide el OE 5 no esta cronometrada.",
-    "RF-17": "El panel presenta el compuesto en sigmas, no en la escala -1 a +1 que especifica el requerimiento.",
-    "RF-23": "Se configuran umbrales y frontalidad; falta la ventana temporal y la frecuencia de analisis.",
-    "RF-24": "Exporta JSON; falta CSV.",
-}
+# El estado de cada requerimiento NO se escribe aqui: se lee de la matriz de
+# trazabilidad, que es donde se decide. Tenerlo duplicado en este archivo ya
+# tuvo consecuencias: RF-32 a RF-39 siguieron figurando como pendientes en el
+# tablero mucho despues de estar implementados y marcados en la matriz, porque
+# nadie se acordo de venir a actualizar la lista de aqui abajo.
+MARCA_ESTADO = {u"✅": "Done", u"🟡": "In Progress", u"⬜": "To Do"}
+ESTADOS_RF = {}
 
+
+def estados_trazabilidad(ruta_md):
+    """
+    Estado y nota de cada requerimiento, segun la matriz de trazabilidad.
+
+    La matriz marca cada fila con un simbolo —hecho, parcial, sin empezar— y
+    anota al lado que es lo que falta. Leyendo de ahi hay una sola fuente: si la
+    matriz cambia, el tablero cambia con ella en la siguiente ejecucion, sin
+    that nadie tenga que acordarse de nada.
+
+    La nota solo se arrastra cuando el requerimiento esta a medias, que es el
+    unico caso en que dice algo util: en los terminados repite lo que ya se ve.
+    """
+    try:
+        s = io.open(ruta_md, encoding="utf-8").read()
+    except Exception:
+        return {}
+    fuera = {}
+    patron = r"\|\s*(RF-\d+|RNF-\d+)\s*\|\s*(\S+)\s*\|[^|]*\|\s*([^|\n]*?)\s*\|"
+    for m in re.finditer(patron, s):
+        estado = MARCA_ESTADO.get(m.group(2))
+        if estado:
+            nota = re.sub(r"[`*]", "", m.group(3)).strip()
+            fuera[m.group(1)] = (estado, nota if estado == "In Progress" else "")
+    return fuera
+
+
+# Las tareas de gestion y documentacion no tienen matriz de trazabilidad porque
+# no se implementan en codigo: su evidencia es un archivo en disco o un tramite.
+# Se comprueban a mano y por eso si van escritas aqui.
 HECHO_TEXTO = [
     "montar el tablero de jira",
+    "cargar el backlog priorizado",
     "tabla comparativa de trabajos",
     "brecha identificada",
+    "fuente metodol",
     "crear el proyecto web y el repositorio",
     "integrar @mediapipe/tasks-vision",
     "revisar y ajustar el documento de especificaci",
@@ -67,6 +95,7 @@ EN_CURSO_TEXTO = {
     "diagrama de componentes": "El README tiene el diagrama de arquitectura y flujo; falta formalizarlo como diagrama de componentes.",
     "diagrama de flujo de datos": "Cubierto en parte por el diagrama del README.",
     "grabar sesiones de calibraci": "Hay sesiones registradas y analizadas, pero los umbrales siguen sin calibrar contra ellas.",
+    "asesora en terapia del lenguaje": "Solicitada. De ella depende la ultima cita pendiente del Capitulo II.",
 }
 
 PRIORIDAD_POR_MODULO = {
@@ -122,10 +151,8 @@ def estado_de(texto):
     t = texto.lower()
     rf = re.match(r"(RF-\d+|RNF-\d+)", texto)
     clave = rf.group(1) if rf else None
-    if clave in HECHO_RF:
-        return "Done", ""
-    if clave in EN_CURSO_RF:
-        return "In Progress", EN_CURSO_RF[clave]
+    if clave and clave in ESTADOS_RF:
+        return ESTADOS_RF[clave]
     for frag, nota in EN_CURSO_TEXTO.items():
         if frag in t:
             return "In Progress", nota
@@ -219,6 +246,9 @@ def leer(origen):
     aqui = os.path.dirname(os.path.abspath(__file__))
     textos = texto_requerimientos(os.path.join(base, "documento-requerimientos.docx"))
     donde = implementaciones(os.path.join(aqui, "..", "docs", "trazabilidad.md"))
+    ESTADOS_RF.clear()
+    ESTADOS_RF.update(
+        estados_trazabilidad(os.path.join(aqui, "..", "docs", "trazabilidad.md")))
 
     s = io.open(origen, encoding="utf-8").read()
     etapas = etapas_dsr(s)

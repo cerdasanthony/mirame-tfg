@@ -16,3 +16,7 @@ Thumbs.db
 # sesion, y la regla general de arriba lo excluia.
 !assets/pictogramas/fuente.json
 sesiones/
+
+# Cache de Python
+__pycache__/
+*.pyc
