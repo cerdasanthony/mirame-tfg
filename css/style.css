@@ -657,3 +657,27 @@ body.panel-acoplado .salida { right: min(400px, 92vw); }
 .segmentos button:hover { background: rgba(127,127,127,.12); }
 .segmentos button.seg-activo { background: currentColor; }
 .segmentos button.seg-activo { color: #fff; background: #a2600a; border-color: #a2600a; }
+
+/* ── Observación independiente (RF-29) ────────────────────────────────
+   Ocupa la pantalla entera a propósito: mientras se codifica no debe verse
+   nada de lo que el sistema está midiendo. */
+.observacion {
+  position: fixed; inset: 0; z-index: 60;
+  background: var(--fondo, #fdfbf7); color: var(--tinta, #22201d);
+  display: flex; flex-direction: column; gap: 1.2rem;
+  padding: clamp(1rem, 4vw, 2.5rem); overflow-y: auto;
+}
+.obs-cabecera h2 { margin: 0 0 .4rem; font-size: clamp(1.3rem, 4vw, 1.9rem); }
+.obs-botones { display: grid; gap: .7rem; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); flex: 1; }
+.obs-botones button {
+  font: inherit; font-size: clamp(1rem, 2.6vw, 1.35rem); font-weight: 700;
+  padding: 1.6rem 1rem; border-radius: 14px; cursor: pointer;
+  border: 2px solid currentColor; background: transparent; color: inherit;
+}
+.obs-botones button:hover { background: rgba(127,127,127,.1); }
+.obs-botones button.obs-pulsado { background: #a2600a; border-color: #a2600a; color: #fff; }
+.obs-salir {
+  align-self: flex-start; font: inherit; padding: .7rem 1.2rem; border-radius: 10px;
+  border: 1px solid currentColor; background: transparent; color: inherit; cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) { .obs-botones button { transition: none; } }

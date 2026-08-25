@@ -269,7 +269,7 @@ function bucle(tCaptura = performance.now()) {
          marca, las sesiones anteriores y las nuevas se mezclarian en el analisis
          como si fueran comparables, y no lo son. */
       store.crearSesion({ ...base, au: baseAU }, {
-        versionReglas: 8,
+        versionReglas: 9,
         /* Solo el centro: con cada lado promediado no queda escala que elegir. */
         norma: { centro: NORMA.centro },
       }).then((id) => (estado.sesionId = id));
@@ -819,7 +819,7 @@ const tablero = new Tablero(el("tablero"), async (picto, _cat, eraSugerido) => {
     ? ""
     : d.suficiente
       ? resumenVentana(d)
-      : "datos faciales insuficientes en la ventana previa";
+      : "No se reunieron datos faciales suficientes en los segundos previos.";
   el("mensaje-salida").hidden = false;
   hablar(picto.frase);
 
@@ -895,16 +895,33 @@ const tablero = new Tablero(el("tablero"), async (picto, _cat, eraSugerido) => {
  * suelto no dice nada a quien no conoce la escala.
  */
 function resumenVentana(d) {
-  const pct = (v) => Math.round(v * 100);
+  const pct = Math.round(d.proporciones[d.predominante] * 100);
   const p = d.puntajePromedio ?? 0;
-  const tendencia =
+
+  /* La inclinacion se dice con palabras y el numero va detras, entre parentesis.
+     Quien cuida al participante necesita entender la frase sin conocer la
+     escala; quien analiza despues necesita el valor. Caben las dos cosas. */
+  const inclinacion =
     Math.abs(p) < 0.15
-      ? "sin inclinación"
-      : `tiende a ${p < 0 ? "negativo" : "positivo"} (${p.toFixed(2)})`;
+      ? "sin inclinarse hacia ningún lado"
+      : `con una inclinación hacia el lado ${p < 0 ? "negativo" : "positivo"} (${p.toFixed(2)})`;
+
+  /* Cuando hubo expresion sostenida se nombra primero, porque es lo que la
+     persona cuidadora esta buscando saber. */
   if (d.expresivo && d.proporcionExpresiva >= 0.25) {
-    return `${d.expresivo} ${pct(d.proporcionExpresiva)} % · neutro ${pct(d.proporciones.neutro)} % · ${tendencia}`;
+    const pe = Math.round(d.proporcionExpresiva * 100);
+    return `En los segundos previos predominó el estado ${d.expresivo}, ` +
+           `durante el ${pe} % del tiempo, ${inclinacion}.`;
   }
-  return `${d.predominante} ${pct(d.proporciones[d.predominante])} % · ${tendencia}`;
+
+  if (d.predominante === "neutro") {
+    return pct >= 95
+      ? `El rostro se mantuvo en reposo durante los segundos previos, ${inclinacion}.`
+      : `El rostro estuvo en reposo el ${pct} % de los segundos previos, ${inclinacion}.`;
+  }
+
+  return `En los segundos previos predominó el estado ${d.predominante}, ` +
+         `durante el ${pct} % del tiempo, ${inclinacion}.`;
 }
 
 el("mensaje-salida").addEventListener("click", () => {
@@ -1018,6 +1035,49 @@ async function refrescarAsociacion() {
  * gesticuló durante la calibración y a partir de ahí todo se clasifica como
  * neutro. Sin este botón la única opción era recargar la página.
  */
+/* ══════════════════════ Observación independiente (RF-29) ══════════════════════
+   La codificación de una profesional externa mientras observa la sesión. Es la
+   respuesta al conflicto que plantea el Capítulo II: la persona investigadora es
+   también la responsable legal del participante, de modo que su lectura de las
+   sesiones no puede ser la única.
+
+   La pantalla se abre por la ruta #observacion y NO muestra lo que el sistema
+   clasifica. Esa omisión es el requisito: si la observadora viera la lectura de
+   la máquina, el acuerdo que se calcule después no mediría independencia sino
+   contagio. */
+let observaciones = 0;
+
+function mostrarObservacion(activa) {
+  el("observacion").hidden = !activa;
+  if (activa) {
+    observaciones = 0;
+    el("obs-cuenta").textContent = "Sin marcas todavía";
+  }
+}
+
+for (const b of document.querySelectorAll("#observacion [data-obs]")) {
+  b.addEventListener("click", async () => {
+    await store.guardarObservacion({
+      sesionId: estado.sesionId,
+      ts: Date.now(),
+      estado: b.dataset.obs,
+    });
+    observaciones++;
+    el("obs-cuenta").textContent =
+      observaciones === 1 ? "1 marca registrada" : `${observaciones} marcas registradas`;
+    b.classList.add("obs-pulsado");
+    setTimeout(() => b.classList.remove("obs-pulsado"), 220);
+  });
+}
+
+el("obs-salir").addEventListener("click", () => {
+  location.hash = "";
+  mostrarObservacion(false);
+});
+
+addEventListener("hashchange", () => mostrarObservacion(location.hash === "#observacion"));
+if (location.hash === "#observacion") mostrarObservacion(true);
+
 /* Marcado de segmentos (RF-28). Lo que la persona observadora ve, junto a lo
    que el sistema mide, para poder contrastarlos despues. */
 for (const b of document.querySelectorAll("#segmentos button")) {

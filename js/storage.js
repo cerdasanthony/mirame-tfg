@@ -8,7 +8,7 @@
 import { ATRIBUCION } from "./pictogramas.js";
 
 const DB_NOMBRE = "mirame";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 let db = null;
 
 export async function abrir() {
@@ -40,6 +40,18 @@ export async function abrir() {
         const s = d.createObjectStore("selecciones", { keyPath: "id", autoIncrement: true });
         s.createIndex("porSesion", "sesionId");
         s.createIndex("porPictograma", "pictograma");
+
+      if (!d.objectStoreNames.contains("observaciones")) {
+        /* RF-29. La codificacion que hace una profesional externa mientras
+           observa la sesion, sin ver lo que el sistema clasifica. Es lo que
+           permite calcular el acuerdo entre la maquina y una observadora
+           entrenada, y sin ese dato el diseno de estudio descrito en el
+           Capitulo II no puede ejecutarse: la persona investigadora es tambien
+           la responsable legal del participante, y la codificacion independiente
+           es la respuesta a ese conflicto. */
+        const o = d.createObjectStore("observaciones", { keyPath: "id", autoIncrement: true });
+        o.createIndex("porSesion", "sesionId");
+      }
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -192,6 +204,25 @@ export async function guardarMuestra(m) {
  * 150 ms es justamente lo que el sistema intenta captar, y descartarlo por
  * frecuencia sería descartar el dato. Son pocos por sesión y ocupan poco.
  */
+/**
+ * Registra una observacion independiente (RF-29).
+ *
+ * La marca lleva el instante y el estado que la observadora atribuye, y NO la
+ * clasificacion del sistema: mezclarlas en el mismo registro invitaria a
+ * compararlas despues de haberse influido. El contraste se hace al analizar,
+ * emparejando cada marca con el estado que el sistema sostenia en ese instante.
+ */
+export async function guardarObservacion(o) {
+  await abrir();
+  return promesa(tx("observaciones", "readwrite").add(o));
+}
+
+/** Observaciones independientes de todas las sesiones. */
+export async function todasLasObservaciones() {
+  await abrir();
+  return promesa(tx("observaciones", "readonly").getAll());
+}
+
 export async function guardarEvento(ev) {
   await abrir();
   return promesa(tx("eventos", "readwrite").add({ ts: Date.now(), ...ev }));
@@ -243,6 +274,7 @@ export async function exportarJSON() {
   const selecciones = await todasLasSelecciones();
   const muestras = await todasLasMuestras();
   const eventos = await todosLosEventos();
+  const observaciones = await todasLasObservaciones();
   /* LA ATRIBUCION VIAJA CON LOS DATOS.
      Los pictogramas de ARASAAC estan bajo licencia CC BY-NC-SA, que obliga a
      citar autor, origen y licencia en cualquier obra derivada. Un archivo de
@@ -258,6 +290,7 @@ export async function exportarJSON() {
       selecciones,
       muestras,
       eventos,
+      observaciones,
     },
     null,
     2
@@ -271,4 +304,5 @@ export async function borrarTodo() {
   await promesa(tx("selecciones", "readwrite").clear());
   await promesa(tx("muestras", "readwrite").clear());
   await promesa(tx("eventos", "readwrite").clear());
+  await promesa(tx("observaciones", "readwrite").clear());
 }

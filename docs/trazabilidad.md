@@ -81,13 +81,13 @@ Estado a **24 de agosto de 2026**.
 | RF-24 | 🟡 | `js/storage.js` | exporta JSON; falta CSV |
 | RF-25 | ✅ | `js/storage.js` | |
 | RF-28 | 🟡 | `js/storage.js`, `index.html` | marcado de segmentos observados (reposo, sonrisa, puchero, malestar) que viaja con cada muestra; falta el marcado de condiciones contextuales como cansancio o alimentación reciente |
-| RF-29 | ⬜ | — | **registro de la observación independiente** |
+| RF-29 | ✅ | `js/storage.js`, `index.html`, `js/app.js` | pantalla propia en la ruta #observacion que registra la codificación de una profesional externa y **no muestra la clasificación del sistema**, para que la observación sea independiente |
 
 ---
 
 ## Lo que falta, por consecuencia
 
-**RF-29 es el que más pesa.** El Capítulo II resuelve el problema de independencia
+**RF-29 quedó implementado.** El Capítulo II resuelve el problema de independencia
 de la observación, dado que la persona investigadora es también la responsable
 legal del participante, mediante la codificación independiente de una profesional en terapia
 del lenguaje. RF-29 es el requerimiento que hace ejecutable esa solución. Sin él,
