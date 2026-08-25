@@ -1035,49 +1035,6 @@ async function refrescarAsociacion() {
  * gesticuló durante la calibración y a partir de ahí todo se clasifica como
  * neutro. Sin este botón la única opción era recargar la página.
  */
-/* ══════════════════════ Observación independiente (RF-29) ══════════════════════
-   La codificación de una profesional externa mientras observa la sesión. Es la
-   respuesta al conflicto que plantea el Capítulo II: la persona investigadora es
-   también la responsable legal del participante, de modo que su lectura de las
-   sesiones no puede ser la única.
-
-   La pantalla se abre por la ruta #observacion y NO muestra lo que el sistema
-   clasifica. Esa omisión es el requisito: si la observadora viera la lectura de
-   la máquina, el acuerdo que se calcule después no mediría independencia sino
-   contagio. */
-let observaciones = 0;
-
-function mostrarObservacion(activa) {
-  el("observacion").hidden = !activa;
-  if (activa) {
-    observaciones = 0;
-    el("obs-cuenta").textContent = "Sin marcas todavía";
-  }
-}
-
-for (const b of document.querySelectorAll("#observacion [data-obs]")) {
-  b.addEventListener("click", async () => {
-    await store.guardarObservacion({
-      sesionId: estado.sesionId,
-      ts: Date.now(),
-      estado: b.dataset.obs,
-    });
-    observaciones++;
-    el("obs-cuenta").textContent =
-      observaciones === 1 ? "1 marca registrada" : `${observaciones} marcas registradas`;
-    b.classList.add("obs-pulsado");
-    setTimeout(() => b.classList.remove("obs-pulsado"), 220);
-  });
-}
-
-el("obs-salir").addEventListener("click", () => {
-  location.hash = "";
-  mostrarObservacion(false);
-});
-
-addEventListener("hashchange", () => mostrarObservacion(location.hash === "#observacion"));
-if (location.hash === "#observacion") mostrarObservacion(true);
-
 /* Marcado de segmentos (RF-28). Lo que la persona observadora ve, junto a lo
    que el sistema mide, para poder contrastarlos despues. */
 for (const b of document.querySelectorAll("#segmentos button")) {

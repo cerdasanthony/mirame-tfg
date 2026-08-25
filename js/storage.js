@@ -207,6 +207,16 @@ export async function guardarMuestra(m) {
 /**
  * Registra una observacion independiente (RF-29).
  *
+ * LA INTERFAZ ESTA RETIRADA, EL ALMACEN NO
+ * La pantalla de codificacion se quito porque la fase de evaluacion no ha
+ * comenzado y no tenia sentido tenerla a la vista. El almacen y esta funcion se
+ * conservan por dos motivos. El primero es tecnico: IndexedDB no admite bajar de
+ * version, de modo que revertir el esquema dejaria sin abrir la base a cualquier
+ * navegador que ya hubiera cargado la version 4. El segundo es que la
+ * exportacion y el borrado definitivo ya los contemplan, y quitarlos ahora
+ * obligaria a rehacerlos cuando llegue la fase de evaluacion.
+ *
+ *
  * La marca lleva el instante y el estado que la observadora atribuye, y NO la
  * clasificacion del sistema: mezclarlas en el mismo registro invitaria a
  * compararlas despues de haberse influido. El contraste se hace al analizar,
