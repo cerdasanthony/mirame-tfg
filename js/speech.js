@@ -99,7 +99,7 @@ export function voces() {
 /* 1,10 y no 1,12: el deslizador del panel avanza de 0,05 en 0,05, y un valor
    fuera de esa rejilla hacia que el control mostrara una posicion y la cifra de
    al lado otra. */
-const POR_DEFECTO = { voz: null, tono: 1.1, velocidad: 0.95 };
+const POR_DEFECTO = { voz: null, tono: 1, velocidad: 1 };
 
 export function ajustes() {
   try {

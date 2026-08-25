@@ -628,3 +628,21 @@ body.panel-acoplado .salida { right: min(400px, 92vw); }
   /* El aviso de calibracion se sube por encima de la franja. */
   body.panel-acoplado .aviso { bottom: calc(var(--franja) + .6rem); }
 }
+
+/* ── Agrupacion del panel ──────────────────────────────────────────────
+   El panel llego a tener doce bloques abiertos a la vez. La mayoria son
+   instrumentos de investigacion —puntuaciones z, blendshapes, via fasica— que
+   no se consultan durante una sesion y que empujaban hacia abajo lo unico que
+   si se mira: el estado observable. Se repliegan sin quitarlos, porque siguen
+   haciendo falta para el analisis. */
+.grupo { border-top: 1px solid var(--linea, rgba(0,0,0,.12)); margin-top: .35rem; }
+.grupo > summary {
+  cursor: pointer; padding: .85rem 1.15rem; font-weight: 700; font-size: .92rem;
+  display: flex; align-items: baseline; gap: .55rem; list-style: none;
+}
+.grupo > summary::-webkit-details-marker { display: none; }
+.grupo > summary::before { content: "▸"; font-size: .8em; opacity: .55; transition: transform .15s; }
+.grupo[open] > summary::before { transform: rotate(90deg); }
+.grupo-nota { font-weight: 400; font-size: .78rem; opacity: .6; }
+.grupo > summary:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
+@media (prefers-reduced-motion: reduce) { .grupo > summary::before { transition: none; } }

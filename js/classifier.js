@@ -77,8 +77,41 @@ import { qn } from "./features.js";
 /** Unidades de accion que aportan evidencia de valencia positiva. */
 const POSITIVAS = ["sonrisa"];
 
-/** Unidades de accion que aportan evidencia de valencia negativa. */
-const NEGATIVAS = ["comisurasAbajo", "cejasAbajo", "cejasInternasArriba", "tensionOcular", "tensionLabial"];
+/**
+ * Evidencia negativa, agrupada POR REGION MUSCULAR.
+ *
+ * POR QUE NO UNA LISTA PLANA
+ * Promediando los canales negativos uno a uno, una expresion concentrada en una
+ * sola region se diluye entre todos los demas, que estan en reposo. Un puchero
+ * es practicamente AU17 sola: promediado entre seis canales aporta una sexta
+ * parte de su intensidad y no llega a cruzar ningun corte. Se observo al probar
+ * la aplicacion, y la queja era exacta: la expresion tenia que estar muy marcada
+ * para que el sistema la registrara.
+ *
+ * Agrupando por region, cada zona del rostro aporta su evidencia mas fuerte y
+ * las regiones se promedian entre si. Un puchero aporta entonces un tercio de su
+ * intensidad en lugar de un sexto, y una expresion que compromete todo el rostro
+ * sigue aportando el maximo.
+ *
+ * FUNDAMENTO
+ * Es la construccion del indice de Prkachin y Solomon (2008), que este trabajo
+ * ya emplea: dentro de cada grupo muscular toma el MAXIMO —max(AU6, AU7) y
+ * max(AU9, AU10)— y despues combina los grupos. El maximo dentro del grupo evita
+ * contar dos veces el mismo musculo o dos formas de la misma accion; la
+ * combinacion entre grupos es la que suma evidencia de zonas distintas.
+ *
+ * Las regiones siguen la agrupacion anatomica de FACS:
+ *   ceja  frontalis medialis y corrugator, que actuan sobre la misma zona
+ *   ojo   orbicularis oculi en su porcion palpebral
+ *   boca  depressor anguli oris, mentalis y orbicularis oris
+ */
+const REGIONES_NEGATIVAS = {
+  ceja: ["cejasInternasArriba", "cejasAbajo"],
+  ojo: ["tensionOcular"],
+  boca: ["comisurasAbajo", "menton", "tensionLabial"],
+};
+
+const NEGATIVAS = Object.values(REGIONES_NEGATIVAS).flat();
 
 /**
  * Canales que se registran pero no aportan a ninguna valencia.
@@ -149,6 +182,18 @@ const promedio = (e, canales) =>
   canales.length ? canales.reduce((s, c) => s + (e[c] ?? 0), 0) / canales.length : 0;
 
 /**
+ * Evidencia negativa: maximo dentro de cada region, media entre regiones.
+ * El maximo evita contar dos veces la misma zona; la media entre regiones deja
+ * el resultado en la misma unidad que el lado positivo, con independencia de
+ * cuantas regiones o canales haya.
+ */
+function evidenciaNegativaRegional(e) {
+  const regiones = Object.values(REGIONES_NEGATIVAS);
+  const porRegion = regiones.map((cs) => Math.max(...cs.map((c) => e[c] ?? 0)));
+  return porRegion.reduce((s, v) => s + v, 0) / regiones.length;
+}
+
+/**
  * Centro y escala del compuesto, medidos sobre la línea base.
  *
  * POR QUE NO SE DIVIDE ENTRE LA SUMA DE PESOS ABSOLUTOS
@@ -189,7 +234,7 @@ export function calibrarNorma(muestrasZ) {
   if (!muestrasZ?.length) return NORMA;
   const brutos = muestrasZ.map((z) => {
     const e = evidencia(z);
-    return promedio(e, POSITIVAS) - promedio(e, NEGATIVAS);
+    return promedio(e, POSITIVAS) - evidenciaNegativaRegional(e);
   });
   const orden = [...brutos].sort((a, b) => a - b);
   NORMA.centro = orden[orden.length >> 1];
@@ -246,7 +291,7 @@ export function puntaje(z) {
      necesidad de ningun divisor. El centro se resta porque la rectificacion
      desplaza el reposo: al truncar en cero, la media de cada lado en reposo no
      vale cero sino el valor esperado de la parte positiva del ruido. */
-  return promedio(e, POSITIVAS) - promedio(e, NEGATIVAS) - NORMA.centro;
+  return promedio(e, POSITIVAS) - evidenciaNegativaRegional(e) - NORMA.centro;
 }
 
 /** Estado que corresponde a un puntaje, sin considerar el estado previo. */

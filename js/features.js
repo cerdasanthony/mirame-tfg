@@ -44,6 +44,15 @@ export function extract(blendshapes) {
     cejasExternasArriba: avg(blendshapes, ["browOuterUpLeft", "browOuterUpRight"]),
     tensionOcular: avg(blendshapes, ["eyeSquintLeft", "eyeSquintRight"]),
     tensionLabial: avg(blendshapes, ["mouthPressLeft", "mouthPressRight"]),
+    /* AU17, Chin Raiser, mentalis. Es el musculo del puchero: empuja el labio
+       inferior hacia arriba y hacia afuera, y es la accion central del gesto
+       previo al llanto en la infancia.
+
+       Faltaba, y se noto probando. Sobre una sesion en que se hicieron pucheros
+       deliberados, AU17 alcanzo 0,384 mientras AU15 —el descenso de comisuras,
+       que si estaba— no paso de 0,011. El gesto era AU17 practicamente puro, de
+       modo que el compuesto no tenia por donde verlo. */
+    menton: blendshapes.mouthShrugLower ?? 0,
     aperturaBucal: blendshapes.jawOpen ?? 0,
   };
 }
@@ -56,6 +65,7 @@ export const CARACTERISTICAS = [
   "cejasExternasArriba",
   "tensionOcular",
   "tensionLabial",
+  "menton",
   "aperturaBucal",
 ];
 

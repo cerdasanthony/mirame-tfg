@@ -99,7 +99,129 @@
       </dl>
     </section>
 
-    <section class="bloque" id="bloque-fasico">
+    <section class="bloque">
+      <h3>Registros</h3>
+      <div class="acciones-admin" style="margin-bottom:.5rem">
+        <button id="btn-recalibrar" class="btn" type="button">Recalibrar línea base</button>
+      </div>
+      <div class="acciones-admin">
+        <button id="btn-exportar" class="btn btn-secundario" type="button">Exportar</button>
+        <button id="btn-borrar" class="btn btn-peligro" type="button">Borrar todo</button>
+      </div>
+      <div class="acciones-admin" style="margin-top:.5rem">
+        <button id="btn-actualizar" class="btn btn-secundario" type="button">Forzar actualización</button>
+      </div>
+      <p class="nota">
+        Descarta la copia guardada de la aplicación y la vuelve a bajar. Útil cuando
+        se instaló una versión y la pantalla sigue mostrando la anterior. No borra
+        los registros de sesión.
+      </p>
+    </section>
+
+    
+    <details class="grupo">
+      <summary>Ajustes<span class="grupo-nota">voz, umbrales y reordenamiento</span></summary>
+<section class="bloque">
+      <h3>Calibración de umbrales</h3>
+      <p class="nota" style="margin-top:0">
+        Cortes del compuesto, en desviaciones estándar respecto del reposo de esta
+        sesión. Ampliar la banda neutra reduce el ruido y clasifica más como neutro;
+        estrecharla aumenta la sensibilidad y también la oscilación.
+      </p>
+      <label class="campo"><span>Positivo desde</span>
+        <input type="number" id="u-positivo" step="0.05"><span class="campo-unidad">σ</span></label>
+      <label class="campo"><span>Neutro desde</span>
+        <input type="number" id="u-neutro" step="0.05"><span class="campo-unidad">σ</span></label>
+      <label class="campo"><span>Negativo leve desde</span>
+        <input type="number" id="u-neglev" step="0.05"><span class="campo-unidad">σ</span></label>
+      <p class="dato">Banda neutra: <strong id="ancho-neutro">—</strong></p>
+      <label class="campo"><span>Frontalidad mínima</span>
+        <input type="number" id="u-frontalidad" min="0" max="1" step="0.05"><span class="campo-unidad"></span></label>
+      <p class="nota">
+        Por debajo de este valor el rostro se considera demasiado girado y el
+        fotograma se descarta. Medido: una nariz apenas descentrada da 0.52 y un
+        perfil real 0.25. Bajarlo admite más fotogramas y también más ruido.
+      </p>
+    </section>
+
+    <section class="bloque">
+      <h3>Módulo C · reordenamiento</h3>
+
+      <label class="interruptor">
+        <input type="checkbox" id="heuristica-activa">
+        <span>Activar reordenamiento heurístico</span>
+      </label>
+      <p class="nota">
+        Desactivado corresponde a la fase de línea base del estudio. El estado de
+        este interruptor se guarda con cada selección.
+      </p>
+
+      <dl class="metricas">
+        <div><dt>Estado sostenido</dt><dd id="estado-sostenido">—</dd></div>
+        <div><dt>Sugerencia</dt><dd id="sugerencia-actual">ninguna</dd></div>
+      </dl>
+      <div class="escala escala-progreso"><i id="barra-heuristica"></i></div>
+
+      <label class="campo">
+        <span>Umbral sostenido</span>
+        <input type="number" id="umbral-heuristica" min="1000" max="10000" step="500">
+        <span class="campo-unidad">ms</span>
+      </label>
+
+      <h3 style="margin-top:1.4rem">Pictograma por estado</h3>
+      <div id="mapa-heuristica" class="mapa"></div>
+      <p class="nota">
+        El sistema no decide qué significa un estado facial. Esta correspondencia
+        la define quien acompaña, y por eso queda registrada como decisión suya.
+        El valor inicial para los estados negativos es «ayuda» y no «dolor»:
+        pedir ayuda es una lectura general y reversible, afirmar dolor es un
+        diagnóstico que este sistema no puede sostener.
+      </p>
+    </section>
+
+    <section class="bloque">
+      <h3>Voz</h3>
+      <div class="campo">
+        <span>Voz</span>
+        <select id="voz-lista" style="width:auto;flex:1;max-width:200px"></select>
+      </div>
+      <div class="campo">
+        <span>Tono</span>
+        <input type="range" id="voz-tono" min="0.8" max="2" step="0.05" style="width:110px">
+        <output id="voz-tono-valor" style="width:34px;text-align:right"></output>
+      </div>
+      <div class="campo">
+        <span>Velocidad</span>
+        <input type="range" id="voz-velocidad" min="0.6" max="1.4" step="0.05" style="width:110px">
+        <output id="voz-velocidad-valor" style="width:34px;text-align:right"></output>
+      </div>
+      <div class="acciones-admin" style="margin-top:.7rem">
+        <button id="btn-probar-voz" class="btn btn-secundario" type="button">Probar voz</button>
+      </div>
+      <div class="acciones-admin" style="margin-top:.5rem">
+        <button id="btn-voz-defecto" class="btn btn-secundario" type="button">Volver a los valores por defecto</button>
+      </div>
+      <p class="nota">
+        La voz dice lo que el niño está diciendo, no lo que hace la aplicación.
+        Lo que la saca de sonar genérica es <strong>elegir bien la voz</strong>:
+        femenina y de acento americano, cercano al del participante, en vez de la
+        que el navegador traiga por defecto.
+      </p>
+      <p class="nota">
+        Subir mucho el tono <strong>no produce una voz infantil</strong>. Lo que
+        distingue a la de un niño no es solo la frecuencia fundamental sino los
+        formantes, que dependen de un tracto vocal más corto, y este parámetro no
+        los toca: mueve la fundamental y deja los formantes quietos, con lo que se
+        oye la misma voz adulta desplazada. Por encima de 1,3 el artefacto ya se
+        nota.
+      </p>
+    </section>
+
+        </details>
+
+    <details class="grupo">
+      <summary>Diagnóstico técnico<span class="grupo-nota">para el análisis, no para la sesión</span></summary>
+<section class="bloque" id="bloque-fasico">
       <h3>Vía fásica · expresiones breves</h3>
       <div class="estado-fila">
         <span id="fasico-estado" class="estado-badge">calibrando</span>
@@ -190,122 +312,13 @@
       </p>
     </section>
 
-    <section class="bloque">
-      <h3>Calibración de umbrales</h3>
-      <p class="nota" style="margin-top:0">
-        Cortes del compuesto, en desviaciones estándar respecto del reposo de esta
-        sesión. Ampliar la banda neutra reduce el ruido y clasifica más como neutro;
-        estrecharla aumenta la sensibilidad y también la oscilación.
-      </p>
-      <label class="campo"><span>Positivo desde</span>
-        <input type="number" id="u-positivo" step="0.05"><span class="campo-unidad">σ</span></label>
-      <label class="campo"><span>Neutro desde</span>
-        <input type="number" id="u-neutro" step="0.05"><span class="campo-unidad">σ</span></label>
-      <label class="campo"><span>Negativo leve desde</span>
-        <input type="number" id="u-neglev" step="0.05"><span class="campo-unidad">σ</span></label>
-      <p class="dato">Banda neutra: <strong id="ancho-neutro">—</strong></p>
-      <label class="campo"><span>Frontalidad mínima</span>
-        <input type="number" id="u-frontalidad" min="0" max="1" step="0.05"><span class="campo-unidad"></span></label>
-      <p class="nota">
-        Por debajo de este valor el rostro se considera demasiado girado y el
-        fotograma se descarta. Medido: una nariz apenas descentrada da 0.52 y un
-        perfil real 0.25. Bajarlo admite más fotogramas y también más ruido.
-      </p>
-    </section>
-
-    <section class="bloque">
-      <h3>Módulo C · reordenamiento</h3>
-
-      <label class="interruptor">
-        <input type="checkbox" id="heuristica-activa">
-        <span>Activar reordenamiento heurístico</span>
-      </label>
-      <p class="nota">
-        Desactivado corresponde a la fase de línea base del estudio. El estado de
-        este interruptor se guarda con cada selección.
-      </p>
-
-      <dl class="metricas">
-        <div><dt>Estado sostenido</dt><dd id="estado-sostenido">—</dd></div>
-        <div><dt>Sugerencia</dt><dd id="sugerencia-actual">ninguna</dd></div>
-      </dl>
-      <div class="escala escala-progreso"><i id="barra-heuristica"></i></div>
-
-      <label class="campo">
-        <span>Umbral sostenido</span>
-        <input type="number" id="umbral-heuristica" min="1000" max="10000" step="500">
-        <span class="campo-unidad">ms</span>
-      </label>
-
-      <h3 style="margin-top:1.4rem">Pictograma por estado</h3>
-      <div id="mapa-heuristica" class="mapa"></div>
-      <p class="nota">
-        El sistema no decide qué significa un estado facial. Esta correspondencia
-        la define quien acompaña, y por eso queda registrada como decisión suya.
-        El valor inicial para los estados negativos es «ayuda» y no «dolor»:
-        pedir ayuda es una lectura general y reversible, afirmar dolor es un
-        diagnóstico que este sistema no puede sostener.
-      </p>
-    </section>
-
-    <section class="bloque">
-      <h3>Registros</h3>
-      <div class="acciones-admin" style="margin-bottom:.5rem">
-        <button id="btn-recalibrar" class="btn" type="button">Recalibrar línea base</button>
-      </div>
-      <div class="acciones-admin">
-        <button id="btn-exportar" class="btn btn-secundario" type="button">Exportar</button>
-        <button id="btn-borrar" class="btn btn-peligro" type="button">Borrar todo</button>
-      </div>
-      <div class="acciones-admin" style="margin-top:.5rem">
-        <button id="btn-actualizar" class="btn btn-secundario" type="button">Forzar actualización</button>
-      </div>
-      <p class="nota">
-        Descarta la copia guardada de la aplicación y la vuelve a bajar. Útil cuando
-        se instaló una versión y la pantalla sigue mostrando la anterior. No borra
-        los registros de sesión.
-      </p>
-    </section>
-
-    <section class="bloque">
-      <h3>Voz</h3>
-      <div class="campo">
-        <span>Voz</span>
-        <select id="voz-lista" style="width:auto;flex:1;max-width:200px"></select>
-      </div>
-      <div class="campo">
-        <span>Tono</span>
-        <input type="range" id="voz-tono" min="0.8" max="2" step="0.05" style="width:110px">
-        <output id="voz-tono-valor" style="width:34px;text-align:right"></output>
-      </div>
-      <div class="campo">
-        <span>Velocidad</span>
-        <input type="range" id="voz-velocidad" min="0.6" max="1.4" step="0.05" style="width:110px">
-        <output id="voz-velocidad-valor" style="width:34px;text-align:right"></output>
-      </div>
-      <div class="acciones-admin" style="margin-top:.7rem">
-        <button id="btn-probar-voz" class="btn btn-secundario" type="button">Probar voz</button>
-      </div>
-      <div class="acciones-admin" style="margin-top:.5rem">
-        <button id="btn-voz-defecto" class="btn btn-secundario" type="button">Volver a los valores por defecto</button>
-      </div>
-      <p class="nota">
-        La voz dice lo que el niño está diciendo, no lo que hace la aplicación.
-        Lo que la saca de sonar genérica es <strong>elegir bien la voz</strong>:
-        femenina y de acento americano, cercano al del participante, en vez de la
-        que el navegador traiga por defecto.
-      </p>
-      <p class="nota">
-        Subir mucho el tono <strong>no produce una voz infantil</strong>. Lo que
-        distingue a la de un niño no es solo la frecuencia fundamental sino los
-        formantes, que dependen de un tracto vocal más corto, y este parámetro no
-        los toca: mueve la fundamental y deja los formantes quietos, con lo que se
-        oye la misma voz adulta desplazada. Por encima de 1,3 el artefacto ya se
-        nota.
-      </p>
-    </section>
-
-    <section class="bloque">
+          <section class="bloque">
+        <h3>Procedencia técnica</h3>
+        <p id="diag" class="diag"></p>
+        <p id="entorno" class="diag"></p>
+      </section>
+    </details>
+<section class="bloque">
       <h3>Créditos</h3>
       <p class="nota" id="atribucion-pictogramas">
         Pictogramas: Sergio Palao. Origen: <a href="https://arasaac.org" target="_blank"
@@ -314,11 +327,6 @@
       </p>
     </section>
 
-    <details class="bloque diagnostico">
-      <summary>Diagnóstico técnico</summary>
-      <p id="diag" class="diag"></p>
-      <p id="entorno" class="diag"></p>
-    </details>
   </aside>
 
   <div id="velo" class="velo" hidden></div>
