@@ -410,7 +410,17 @@ export class LineaBase {
    */
   /** Las muestras de la línea base, expresadas en puntuación z. */
   muestrasNormalizadas() {
-    return this.media ? this.muestras.map((m) => this.normalizar(m)) : [];
+    if (!this.media) return [];
+    /* Incluye las muestras de refinamiento, no solo las de calibracion.
+       La version anterior devolvia unicamente `this.muestras`, con lo que el
+       centro del compuesto se seguia midiendo sobre la quietud de la
+       calibracion aunque la dispersion ya se hubiera refinado con la sesion.
+       Efecto observado: la mediana del puntaje se quedaba en -0,56 en lugar de
+       cero, porque durante la sesion los cinco canales negativos fluctuan y su
+       media rectificada es positiva, mientras el unico canal positivo, la
+       sonrisa, permanecia inactivo. Ese desplazamiento es justo lo que el
+       centro debe absorber, y para absorberlo tiene que verlo. */
+    return [...this.muestras, ...(this.refinamiento ?? [])].map((m) => this.normalizar(m));
   }
 
   refinar(caracteristicas) {

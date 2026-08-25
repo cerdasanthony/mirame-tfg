@@ -269,7 +269,7 @@ function bucle(tCaptura = performance.now()) {
          marca, las sesiones anteriores y las nuevas se mezclarian en el analisis
          como si fueran comparables, y no lo son. */
       store.crearSesion({ ...base, au: baseAU }, {
-        versionReglas: 4,
+        versionReglas: 5,
         /* Solo el centro: con cada lado promediado no queda escala que elegir. */
         norma: { centro: NORMA.centro },
       }).then((id) => (estado.sesionId = id));
@@ -722,6 +722,11 @@ function metricasSesion() {
     restriccionCamara: face.diagnostico.restriccion,
     /* Fraccion de recortes que el segundo clasificador pudo alinear. */
     alineacion: segunda.alineacionSesion(),
+    /* Linea base REFINADA. La que guarda `crearSesion` es una instantanea del
+       momento del cierre, anterior a cualquier refinamiento, de modo que al
+       analizar una sesion no se veia con que escala habia trabajado de verdad. */
+    lineaBaseFinal: estado.lineaBase.instantanea(),
+    norma: { centro: NORMA.centro },
     /* Unidades de accion que este dispositivo no llego a producir. Sin esto, un
        blendshape que devuelve cero se lee sin error y contamina en silencio toda
        formula que lo use: el indice de Duchenne quedo identicamente nulo durante
@@ -861,12 +866,32 @@ const tablero = new Tablero(el("tablero"), async (picto, _cat, eraSugerido) => {
  * parte sustancial de la ventana haya sido expresiva. Cuando lo expresivo pesa
  * lo suficiente, se nombra explícitamente con su proporción.
  */
+/**
+ * Resumen de la ventana previa a una selección.
+ *
+ * POR QUE ACOMPANA LA TENDENCIA ESCALAR
+ * Las proporciones cuentan ETIQUETAS, y una etiqueta descarta la posición del
+ * compuesto dentro de su banda. Una ventana sostenida en −0,70, al borde mismo
+ * del corte, y otra en 0,00, en el centro exacto del reposo, se reportaban las
+ * dos como «neutro 100 %». La información estaba —`puntajePromedio` se calcula
+ * y se devuelve— pero no llegaba a la pantalla.
+ *
+ * Ese resumen escalar es lo que pide RF-17, y es también lo que permite a la
+ * persona cuidadora distinguir un neutro franco de uno que se inclina. Se
+ * presenta con signo y con el nombre del lado al que tiende, porque un número
+ * suelto no dice nada a quien no conoce la escala.
+ */
 function resumenVentana(d) {
   const pct = (v) => Math.round(v * 100);
+  const p = d.puntajePromedio ?? 0;
+  const tendencia =
+    Math.abs(p) < 0.15
+      ? "sin inclinación"
+      : `tiende a ${p < 0 ? "negativo" : "positivo"} (${p.toFixed(2)})`;
   if (d.expresivo && d.proporcionExpresiva >= 0.25) {
-    return `${d.expresivo} ${pct(d.proporcionExpresiva)} % · neutro ${pct(d.proporciones.neutro)} %`;
+    return `${d.expresivo} ${pct(d.proporcionExpresiva)} % · neutro ${pct(d.proporciones.neutro)} % · ${tendencia}`;
   }
-  return `estado facial previo · ${d.predominante} ${pct(d.proporciones[d.predominante])} %`;
+  return `${d.predominante} ${pct(d.proporciones[d.predominante])} % · ${tendencia}`;
 }
 
 el("mensaje-salida").addEventListener("click", () => {
