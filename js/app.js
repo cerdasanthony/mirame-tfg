@@ -268,10 +268,8 @@ function bucle(tCaptura = performance.now()) {
          de supuesta— cambian el estado que se asigna al mismo rostro. Sin esta
          marca, las sesiones anteriores y las nuevas se mezclarian en el analisis
          como si fueran comparables, y no lo son. */
-      store.crearSesion({
-        ...base,
-        au: baseAU,
-        versionReglas: 2,
+      store.crearSesion({ ...base, au: baseAU }, {
+        versionReglas: 3,
         norma: { centro: NORMA.centro, escala: NORMA.escala, medida: NORMA.medida },
       }).then((id) => (estado.sesionId = id));
       el("sigma-base").textContent = base.muestras + " muestras";
@@ -362,7 +360,9 @@ function bucle(tCaptura = performance.now()) {
            Si la estimacion cambia, la escala del compuesto se recalibra con
            ella para que ambas sigan describiendo la misma distribucion. */
         if (estado.lineaBase.refinar(crudas)) {
-          calibrarNorma(estado.lineaBase.muestrasNormalizadas());
+          /* Estas muestras SI recorren la sesion, de modo que la escala medida
+             sobre ellas es aceptable. La de la calibracion no lo era. */
+          calibrarNorma(estado.lineaBase.muestrasNormalizadas(), true);
         }
         estado.baseAU.refinar(au);
         store.guardarMuestra({

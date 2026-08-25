@@ -92,7 +92,7 @@ export function equipo() {
   }
 }
 
-export async function crearSesion(lineaBase) {
+export async function crearSesion(lineaBase, extra = {}) {
   await abrir();
   return promesa(
     tx("sesiones", "readwrite").add({
@@ -100,6 +100,11 @@ export async function crearSesion(lineaBase) {
       fin: null,
       lineaBase,
       equipo: equipo(),
+      /* Al nivel de la SESION y no dentro de la linea base. La version anterior
+         los pasaba en el mismo objeto que la linea base, con lo que
+         `versionReglas` y `norma` acababan anidados dentro de ella y no se
+         encontraban donde cualquier analisis los busca. */
+      ...extra,
     })
   );
 }

@@ -115,7 +115,7 @@ function evidencia(z) {
  */
 export const NORMA = { centro: 0, escala: null };
 
-export function calibrarNorma(muestrasZ) {
+export function calibrarNorma(muestrasZ, medidaSobreSesion = false) {
   if (!muestrasZ?.length) return NORMA;
   const brutos = muestrasZ.map((z) => {
     const e = evidencia(z);
@@ -125,12 +125,33 @@ export function calibrarNorma(muestrasZ) {
   });
   const orden = [...brutos].sort((a, b) => a - b);
   NORMA.centro = orden[orden.length >> 1];
+
+  /**
+   * LA ESCALA NO PUEDE SALIR DE LA QUIETUD DE LA CALIBRACION.
+   *
+   * La primera versión medía la dispersión del compuesto sobre las muestras de
+   * la línea base y la usaba como divisor. El razonamiento parecía sólido —medir
+   * en vez de suponer— pero contenía una contradicción: a la persona se le pide
+   * que se quede quieta durante la calibración, de modo que lo que se estaba
+   * midiendo era el temblor residual de un rostro inmóvil. Cuanto mejor
+   * colaboraba, más pequeño salía el divisor y más se amplificaba todo lo
+   * demás.
+   *
+   * Observado en una sesión real: la escala medida así resultó 0,127, lo que
+   * multiplicaba el compuesto por ocho, y el puntaje alcanzó valores de
+   * trescientos. Un rostro sin expresión se clasificaba como negativo intenso.
+   *
+   * La escala solo se acepta cuando procede de muestras tomadas A LO LARGO DE LA
+   * SESION, que sí recorren el rango de configuraciones que el rostro adopta.
+   * Mientras tanto se usa la norma euclídea del vector de pesos, que es el valor
+   * teórico de la desviación típica de una suma ponderada de variables
+   * tipificadas independientes, y no depende de ninguna ventana.
+   */
   const esc = qn(brutos);
-  /* Si la línea base salió tan quieta que el compuesto no varía, no hay escala
-     que medir y se cae a la norma euclídea, que es el valor teórico bajo
-     independencia. Queda anotado que fue supuesta y no medida. */
-  NORMA.escala = esc > 1e-3 ? esc : Math.hypot(...Object.values(PESOS));
-  NORMA.medida = esc > 1e-3;
+  const teorica = Math.hypot(...Object.values(PESOS));
+  const aceptable = medidaSobreSesion && esc > 0.3 * teorica;
+  NORMA.escala = aceptable ? esc : teorica;
+  NORMA.medida = aceptable;
   return NORMA;
 }
 

@@ -80,8 +80,21 @@ export const CARACTERISTICAS = [
  * no tiene dispersión medible se usa la mediana de los canales que sí la
  * tuvieron en esa sesión, que es una estimación tomada de los datos. La
  * constante queda solo para el caso en que ningún canal resulte medible.
+ *
+ * POR QUE 0,05 Y NO 0,02
+ * El valor anterior daba por buena una dispersión del dos por ciento del rango
+ * del blendshape, que va de cero a uno. Medido sobre una sesión real, los
+ * recorridos efectivos de los canales entre sus percentiles 5 y 95 llegaban a
+ * 0,32 en la tensión ocular y a 0,29 en la ceja externa. Dividir un recorrido de
+ * 0,32 entre una dispersión de 0,02 produce puntuaciones de dieciséis
+ * desviaciones típicas, y el compuesto llegó a valores de trescientos.
+ *
+ * Cinco por ciento del rango es el cambio más pequeño que tiene sentido llamar
+ * cambio en un coeficiente estimado por un modelo de malla, y deja los
+ * recorridos observados en torno a seis desviaciones típicas, que es un
+ * intervalo interpretable.
  */
-const SIGMA_MINIMA = 0.02;
+const SIGMA_MINIMA = 0.05;
 
 /**
  * Por debajo de esto se considera que el canal no tuvo dispersión medible.
@@ -404,7 +417,12 @@ export class LineaBase {
     if (!this.media) return false;
     this.refinamiento ??= [];
     this.refinamiento.push(caracteristicas);
-    if (this.refinamiento.length < 40) return false;
+    /* Doce muestras espaciadas son unos tres segundos de sesión. Antes se
+       exigían cuarenta, que son diez segundos, y en sesiones cortas el
+       refinamiento no llegaba a ejecutarse nunca: la escala se quedaba en la
+       medida durante la quietud de la calibración, que es justo la que no
+       sirve. Se recalcula además en cada muestra posterior, no una sola vez. */
+    if (this.refinamiento.length < 12) return false;
 
     const mediana = (xs) => {
       const o = [...xs].sort((a, b) => a - b);
