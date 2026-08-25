@@ -63,6 +63,34 @@ export const AU = {
 export const CANALES_AU = Object.keys(AU);
 
 /**
+ * Detecta las unidades de accion que el dispositivo no entrega.
+ *
+ * POR QUE HACE FALTA COMPROBARLO Y NO DARLO POR HECHO
+ * Sobre 3950 muestras registradas en el telefono de pruebas, dos blendshapes
+ * devolvian valores despreciables: `cheekSquint`, que sostiene AU6, con un
+ * maximo de 2,3e-5, y `noseSneer`, que sostiene AU9, con 2,9e-4. Ambos existen
+ * como claves y se leen sin error, de modo que nada avisaba: simplemente
+ * aportaban cero a cada formula que los usara.
+ *
+ * El efecto sobre la evidencia negativa es nulo, y eso es merito de la regla de
+ * maximo de Prkachin y Solomon: max(AU6, AU7) devuelve AU7 y max(AU9, AU10)
+ * devuelve AU10, asi que la combinacion sigue midiendo lo mismo con los canales
+ * que si funcionan.
+ *
+ * Sobre la evidencia positiva el efecto es total. min(AU6, AU12) vale cero
+ * siempre que AU6 valga cero, con independencia de cuanto suba AU12: el indice
+ * de Duchenne quedaba identicamente nulo en las 1051 muestras analizadas. Un
+ * indice que siempre vale cero no es un indice debil, es un indice ausente, y
+ * sin esta comprobacion se habria reportado como si midiera algo.
+ */
+export function canalesSinRecorrido(muestrasAU, umbral = 1e-3) {
+  if (!muestrasAU?.length) return [];
+  return CANALES_AU.filter(
+    (c) => Math.max(...muestrasAU.map((m) => m[c] ?? 0)) < umbral
+  );
+}
+
+/**
  * AU cuya activación se confunde con el parpadeo.
  *
  * Un parpadeo dura entre 100 y 400 ms, exactamente la banda temporal de una
@@ -135,10 +163,28 @@ export function asimetria(blendshapes, au) {
  *     positivo = min(AU6, AU12)
  *
  * AU12 sola —zygomaticus major, comisuras hacia arriba— aparece tanto en la
- * sonrisa espontánea como en la deliberada. Lo que distingue a la primera es la
- * participación de AU6, el orbicularis oculi, que es difícil de activar
- * voluntariamente. La distinción es de Ekman, Davidson y Friesen (1990) y es uno
- * de los resultados mejor establecidos del área.
+ * sonrisa espontánea como en la deliberada. Ekman, Davidson y Friesen (1990)
+ * propusieron que lo que distingue a la primera es la participación de AU6, el
+ * orbicularis oculi, difícil de activar voluntariamente.
+ *
+ * ESA PROPUESTA YA NO SE SOSTIENE COMO CRITERIO DE AUTENTICIDAD
+ * Girard, Cohn, Yin y Morency (2021) la pusieron a prueba sobre 751 sonrisas de
+ * 136 participantes en tareas que inducían diversión, vergüenza, miedo y dolor
+ * físico. La constricción ocular apareció en el 69 % de las sonrisas durante la
+ * tarea de dolor y en el 80 % de las sonrisas en que no se reportó emoción
+ * positiva. Al controlar por intensidad y duración de la sonrisa, el efecto de
+ * la constricción ocular dejó de ser significativo: la información que aporta ya
+ * estaba contenida en esas dos características. Su conclusión es que la mayoría
+ * de las hipótesis sobre la sonrisa de Duchenne quedaron contradichas o apenas
+ * respaldadas por los datos.
+ *
+ * CONSECUENCIA PARA ESTE TRABAJO
+ * El índice se conserva porque describe una CONFIGURACION facial concreta y
+ * reproducible, la concurrencia de dos unidades de acción, que es lo que este
+ * sistema registra. Lo que NO puede hacerse con él es certificar que una sonrisa
+ * sea genuina, ni distinguir una sonrisa nerviosa de una espontánea. Esa lectura
+ * queda expresamente fuera, y no por prudencia sino porque la evidencia
+ * disponible no la respalda.
  *
  * Se usa el MÍNIMO y no la suma porque la afirmación es conjuntiva: hace falta
  * que ambas estén presentes. Con una suma, una AU12 grande sola alcanzaría el

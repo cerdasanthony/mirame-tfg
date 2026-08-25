@@ -18,7 +18,7 @@ import { Tablero, PICTOGRAMAS } from "./board.js";
 import { hablar, voces, ajustes, fijarAjustes, vozActual, alHaberVoces } from "./speech.js";
 import * as segunda from "./segunda-opinion.js";
 import { Heuristica, guardarConfig } from "./heuristica.js";
-import { extraerAU, CANALES_AU, PerfilExpresividad, evidenciaPositiva, evidenciaNegativa, asimetria, EVIDENCIA_NEGATIVA_MAXIMA } from "./facs.js";
+import { extraerAU, CANALES_AU, PerfilExpresividad, evidenciaPositiva, evidenciaNegativa, asimetria, EVIDENCIA_NEGATIVA_MAXIMA, canalesSinRecorrido } from "./facs.js";
 import { DetectorFasico } from "./microexpresiones.js";
 import { imagen } from "./pictogramas.js";
 
@@ -331,6 +331,13 @@ function bucle(tCaptura = performance.now()) {
          es precisamente lo que borra los transitorios que este camino busca. */
       const au = extraerAU(r.blendshapes);
       estado.perfil.agregar(au);
+      /* Maximo alcanzado por cada unidad de accion en la sesion. Es lo unico que
+         hace falta para saber si un canal esta muerto, y cuesta una comparacion
+         por fotograma en lugar de guardar la serie entera. */
+      estado.topeAU ??= {};
+      for (const c of CANALES_AU) {
+        if ((au[c] ?? 0) > (estado.topeAU[c] ?? 0)) estado.topeAU[c] = au[c];
+      }
       const zAU = estado.baseAU.normalizar(au);
       for (const ev of estado.detector.agregar(zAU, ahora)) {
         /* Los no resolubles se guardan igual, marcados. La tasa de eventos que
@@ -689,6 +696,12 @@ function metricasSesion() {
     restriccionCamara: face.diagnostico.restriccion,
     /* Fraccion de recortes que el segundo clasificador pudo alinear. */
     alineacion: segunda.alineacionSesion(),
+    /* Unidades de accion que este dispositivo no llego a producir. Sin esto, un
+       blendshape que devuelve cero se lee sin error y contamina en silencio toda
+       formula que lo use: el indice de Duchenne quedo identicamente nulo durante
+       sesiones enteras sin que nada lo advirtiera. */
+    auSinRecorrido: canalesSinRecorrido(estado.topeAU ? [estado.topeAU] : []),
+    topeAU: estado.topeAU ?? null,
 
     /* Caracterizacion temporal de la via fasica */
     fasico: {
