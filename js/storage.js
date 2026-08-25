@@ -58,10 +58,49 @@ const promesa = (req) =>
     req.onerror = () => rej(req.error);
   });
 
+/**
+ * Identificacion del equipo en que corre la sesion.
+ *
+ * POR QUE HACE FALTA
+ * Las metricas de instrumento —cadencia, resolucion temporal, tasa de deteccion,
+ * que unidades de accion tienen recorrido— describen a un EQUIPO concreto, no al
+ * sistema en abstracto. Sin registrar cual, las sesiones de la maquina de
+ * desarrollo y las de la tablet del estudio quedan indistinguibles en el mismo
+ * archivo y cualquier promedio las mezcla.
+ *
+ * Ocurrio: se analizaron treinta y cuatro sesiones como si caracterizaran el
+ * dispositivo objetivo cuando procedian de una computadora de escritorio, y las
+ * conclusiones sobre cadencia y sobre canales sin recorrido se atribuyeron al
+ * equipo equivocado.
+ *
+ * QUE SE GUARDA Y QUE NO
+ * Cadena de agente de usuario, tamano de pantalla y puntos tactiles: bastan para
+ * separar equipos y para reconocer de que familia es cada uno. No se guarda nada
+ * que identifique a una persona, y todo permanece en el dispositivo, sujeto al
+ * borrado definitivo que ya contempla RF-25.
+ */
+export function equipo() {
+  try {
+    return {
+      agente: navigator.userAgent,
+      pantalla: `${screen.width}x${screen.height}@${window.devicePixelRatio ?? 1}`,
+      tactil: navigator.maxTouchPoints ?? 0,
+      idioma: navigator.language,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function crearSesion(lineaBase) {
   await abrir();
   return promesa(
-    tx("sesiones", "readwrite").add({ inicio: Date.now(), fin: null, lineaBase })
+    tx("sesiones", "readwrite").add({
+      inicio: Date.now(),
+      fin: null,
+      lineaBase,
+      equipo: equipo(),
+    })
   );
 }
 

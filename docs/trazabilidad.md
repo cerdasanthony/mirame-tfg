@@ -141,6 +141,18 @@ correspondencia una a una entre las siete características y sus unidades de
 acción, los 478 puntos de referencia, la concordancia entre citas y referencias,
 y la visibilidad de la atribución exigida por la licencia.
 
+## Advertencia sobre la procedencia de las metricas
+
+Las sesiones registradas hasta el 25 de agosto de 2026 proceden en su mayoria de
+la **computadora de desarrollo**, no de la tablet prevista para el estudio. Las
+cifras de cadencia, resolucion temporal, tasa de deteccion y canales sin
+recorrido describen ese equipo y ese rostro adulto, y no deben leerse como
+caracterizacion del dispositivo objetivo.
+
+Las sesiones anteriores no identifican el equipo, de modo que ya no es posible
+separarlas con certeza. A partir de la version v38 cada sesion registra en que
+equipo corrio, y desde ahi las metricas quedan atribuibles.
+
 ## Evidencias verificables
 
 | Qué | Cómo comprobarlo |

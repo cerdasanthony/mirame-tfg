@@ -66,8 +66,8 @@ export const CANALES_AU = Object.keys(AU);
  * Detecta las unidades de accion que el dispositivo no entrega.
  *
  * POR QUE HACE FALTA COMPROBARLO Y NO DARLO POR HECHO
- * Sobre 3950 muestras registradas en el telefono de pruebas, dos blendshapes
- * devolvian valores despreciables: `cheekSquint`, que sostiene AU6, con un
+ * Sobre 3950 muestras registradas EN LA COMPUTADORA DE DESARROLLO, con su camara
+ * web y un rostro adulto, dos blendshapes devolvian valores despreciables: `cheekSquint`, que sostiene AU6, con un
  * maximo de 2,3e-5, y `noseSneer`, que sostiene AU9, con 2,9e-4. Ambos existen
  * como claves y se leen sin error, de modo que nada avisaba: simplemente
  * aportaban cero a cada formula que los usara.
@@ -82,6 +82,14 @@ export const CANALES_AU = Object.keys(AU);
  * de Duchenne quedaba identicamente nulo en las 1051 muestras analizadas. Un
  * indice que siempre vale cero no es un indice debil, es un indice ausente, y
  * sin esta comprobacion se habria reportado como si midiera algo.
+ *
+ * SOBRE EL ALCANCE DE ESTE HALLAZGO
+ * Se observo en un equipo. Que ocurra tambien en la tablet del estudio esta sin
+ * comprobar, y por eso la comprobacion se ejecuta en cada sesion en lugar de
+ * dejar la lista escrita: el recorrido de cada canal es una propiedad del equipo
+ * y de las condiciones, no del sistema. La causa probable es el tamano del
+ * rostro en el fotograma, del que depende cuanto detalle recibe el modelo de
+ * malla, pero mientras no se mida en ambos equipos es una conjetura.
  */
 export function canalesSinRecorrido(muestrasAU, umbral = 1e-3) {
   if (!muestrasAU?.length) return [];
