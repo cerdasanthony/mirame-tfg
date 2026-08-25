@@ -982,8 +982,17 @@ addEventListener("hashchange", aplicarRuta);
 /* El boton escribe la ruta y deja que `hashchange` haga el resto, para que el
    estado del panel y la URL no se puedan desincronizar. */
 el("btn-panel").addEventListener("click", () => {
-  if (el("panel").hidden) location.hash = HASH_DE[prefiereFijo() ? "acoplado" : "flotante"];
-  else cerrarPanel();
+  if (!el("panel").hidden) return cerrarPanel();
+  const destino = HASH_DE[prefiereFijo() ? "acoplado" : "flotante"];
+  /* SI EL HASH YA ES EL DESTINO, ASIGNARLO NO DISPARA `hashchange`.
+     Esa era la causa de que el boton no abriera «a veces». Bastaba con que algo
+     hubiera ocultado el panel sin limpiar la ruta —lo hacia `reiniciarCalibracion`—
+     para que el hash quedara en «#panel» con el panel cerrado. A partir de ahi,
+     pulsar el boton reescribia el mismo valor, el navegador no emitia el evento
+     y no ocurria nada. Se aplica la ruta a mano en ese caso, igual que hace el
+     interruptor de fijado. */
+  if (location.hash === destino) aplicarRuta();
+  else location.hash = destino;
 });
 
 /* Fijar o soltar el panel sin cerrarlo: se reescribe la ruta y `hashchange`
@@ -1072,7 +1081,9 @@ function reiniciarCalibracion() {
   el("estado-base").textContent = "0/" + MUESTRAS_MINIMAS_BASE;
   el("preview-base").hidden = false;
   avisoCalibracion(true);
-  abrirPanel(false);
+  /* Se cierra por la ruta y no ocultando el panel a mano: dejar el hash apuntando
+     a un panel cerrado desincroniza el estado y el boton deja de responder. */
+  cerrarPanel();
   face.programarFotograma(video, bucle);
 }
 
