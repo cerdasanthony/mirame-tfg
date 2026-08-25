@@ -12,7 +12,7 @@
 
 import * as face from "./face.js";
 import { extract, LineaBase, frontalidad, frontalidadGeometrica } from "./features.js";
-import { clasificar, Ventana, Suavizador, Estabilizador, UMBRALES, fijarUmbrales } from "./classifier.js";
+import { clasificar, Ventana, Suavizador, Estabilizador, UMBRALES, fijarUmbrales, calibrarNorma, NORMA } from "./classifier.js";
 import * as store from "./storage.js";
 import { Tablero, PICTOGRAMAS } from "./board.js";
 import { hablar, voces, ajustes, fijarAjustes, vozActual, alHaberVoces } from "./speech.js";
@@ -257,10 +257,23 @@ function bucle(tCaptura = performance.now()) {
       }
       const base = estado.lineaBase.cerrar();
       const baseAU = estado.baseAU.cerrar();
+      /* La escala del compuesto se mide sobre las mismas muestras de reposo, en
+         lugar de suponerla a partir de los pesos. Ver `calibrarNorma`. */
+      calibrarNorma(estado.lineaBase.muestrasNormalizadas());
       estado.detector.reiniciar();
       estado.estabilizador.reiniciar();
       store.cerrarSesion(estado.sesionId, null);
-      store.crearSesion({ ...base, au: baseAU }).then((id) => (estado.sesionId = id));
+      /* VERSION DE REGLAS. Los tres arreglos de esta version —rectificacion de
+         la evidencia, separacion de sorpresa y distres, y escala medida en vez
+         de supuesta— cambian el estado que se asigna al mismo rostro. Sin esta
+         marca, las sesiones anteriores y las nuevas se mezclarian en el analisis
+         como si fueran comparables, y no lo son. */
+      store.crearSesion({
+        ...base,
+        au: baseAU,
+        versionReglas: 2,
+        norma: { centro: NORMA.centro, escala: NORMA.escala, medida: NORMA.medida },
+      }).then((id) => (estado.sesionId = id));
       el("sigma-base").textContent = base.muestras + " muestras";
       el("preview-base").hidden = true;
       avisoCalibracion(false);
@@ -336,6 +349,15 @@ function bucle(tCaptura = performance.now()) {
       // Vector crudo para reanálisis posterior (RF-31).
       if (ahora - estado.ultimaMuestra >= MS_MUESTRA) {
         estado.ultimaMuestra = ahora;
+        /* Se refina la dispersion con esta misma cadencia espaciada, y no con
+           cada fotograma, porque fotogramas consecutivos aportan copias
+           correlacionadas del mismo instante en lugar de informacion nueva.
+           Si la estimacion cambia, la escala del compuesto se recalibra con
+           ella para que ambas sigan describiendo la misma distribucion. */
+        if (estado.lineaBase.refinar(crudas)) {
+          calibrarNorma(estado.lineaBase.muestrasNormalizadas());
+        }
+        estado.baseAU.refinar(au);
         store.guardarMuestra({
           sesionId: estado.sesionId,
           ts: Date.now(),

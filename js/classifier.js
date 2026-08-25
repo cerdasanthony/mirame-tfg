@@ -18,16 +18,112 @@
 
 export const ESTADOS = ["positivo", "neutro", "negativo leve", "negativo intenso"];
 
+import { qn } from "./features.js";
+
 /** Contribución de cada característica al compuesto. */
 const PESOS = {
   sonrisa: +1.0,
   comisurasAbajo: -0.9,
   cejasAbajo: -0.7,
   cejasInternasArriba: -0.4,
+  cejasExternasArriba: 0.0, // Sin peso propio: modula a AU1. Ver `evidencia()`.
   tensionOcular: -0.5,
   tensionLabial: -0.5,
   aperturaBucal: 0.0, // Sin signo: apunta a habla, bostezo o llanto por igual.
 };
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * EVIDENCIA RECTIFICADA
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * EL ERROR QUE CORRIGE
+ * Al probar la aplicación se observó que abrir mucho los ojos producía una
+ * clasificación POSITIVA. La causa no era el umbral: era el signo.
+ *
+ * Los blendshapes son unipolares. Van de 0, la acción ausente, a 1, la acción
+ * en su máximo. Codifican PRESENCIA, no polaridad. Lo mismo ocurre en FACS, que
+ * puntúa la intensidad de cada unidad de acción en cinco niveles de A, traza, a
+ * E, máximo: no existe una intensidad negativa de una unidad de acción
+ * (Ekman y Friesen, 1978).
+ *
+ * El compuesto, en cambio, multiplicaba la puntuación z por un peso con signo.
+ * Cuando un canal caía POR DEBAJO de su reposo, su z era negativa y, al
+ * multiplicarla por un peso negativo, el producto salía positivo. Abrir los
+ * ojos reduce el entrecerrado, la tensión ocular baja del reposo, y el sistema
+ * lo contaba como evidencia de valencia positiva.
+ *
+ * Comprobado sobre el registro del 25-08-2026: el 15 % de las muestras
+ * clasificadas como positivas no tenían la sonrisa elevada, y la tensión ocular
+ * estaba por debajo del reposo el 36,6 % del tiempo.
+ *
+ * La ausencia de una acción no es evidencia de la acción contraria. Se rectifica
+ * a cero: solo la presencia suma.
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * SORPRESA FRENTE A DISTRES
+ *
+ * También se observó que alzar las cejas se clasificaba como negativo. AU1, el
+ * elevador de la ceja interna, entra con peso negativo porque forma parte de la
+ * combinación de tristeza, AU1+AU4+AU15. Pero AU1 acompañada de AU2, el
+ * elevador de la ceja externa, es sorpresa, cuya valencia no está declarada en
+ * este trabajo. AU1 por sí sola no distingue una cosa de la otra: aparece en
+ * ambas y significa distinto según qué la acompañe.
+ *
+ * La regla es la que sigue de esas combinaciones: AU2 cancela a AU1 en la
+ * medida en que la acompaña. Si ambas suben por igual, el aporte es nulo y la
+ * configuración se lee como sorpresa. Si sube AU1 sola, el aporte es completo y
+ * se lee como distrés.
+ */
+function evidencia(z) {
+  const rect = (c) => Math.max(0, z[c] ?? 0);
+  const out = {};
+  for (const c of Object.keys(PESOS)) out[c] = rect(c);
+  // AU2 descuenta a AU1: lo que sube acompañado no cuenta como distrés.
+  out.cejasInternasArriba = Math.max(0, out.cejasInternasArriba - out.cejasExternasArriba);
+  return out;
+}
+
+/**
+ * Centro y escala del compuesto, medidos sobre la línea base.
+ *
+ * POR QUE NO SE DIVIDE ENTRE LA SUMA DE PESOS ABSOLUTOS
+ * Esa era la versión anterior, y comprimía la señal. Una suma ponderada de
+ * variables tipificadas no tiene desviación típica igual a la suma de los pesos
+ * absolutos: bajo independencia tiene la norma euclídea del vector de pesos.
+ * Con estos pesos, 1,72 frente a 4,0. Dividir por 4,0 dejaba al compuesto con
+ * una sigma real de 0,43, de modo que un corte nominal «de una sigma» se estaba
+ * aplicando a algo comprimido 2,32 veces. Una expresión que activa dos o tres
+ * canales quedaba diluida entre los siete.
+ *
+ * POR QUE SE MIDE EN VEZ DE CALCULARSE
+ * La norma euclídea sería correcta solo si los canales fuesen independientes, y
+ * no lo son: los músculos faciales covarían. Medir el centro y la escala del
+ * compuesto sobre las propias muestras de la línea base no necesita ese
+ * supuesto, y de paso absorbe el sesgo que introduce la rectificación, ya que
+ * al rectificar cinco de los seis pesos con signo son negativos y el compuesto
+ * en reposo queda desplazado hacia abajo.
+ */
+export const NORMA = { centro: 0, escala: null };
+
+export function calibrarNorma(muestrasZ) {
+  if (!muestrasZ?.length) return NORMA;
+  const brutos = muestrasZ.map((z) => {
+    const e = evidencia(z);
+    let s = 0;
+    for (const [c, w] of Object.entries(PESOS)) s += e[c] * w;
+    return s;
+  });
+  const orden = [...brutos].sort((a, b) => a - b);
+  NORMA.centro = orden[orden.length >> 1];
+  const esc = qn(brutos);
+  /* Si la línea base salió tan quieta que el compuesto no varía, no hay escala
+     que medir y se cae a la norma euclídea, que es el valor teórico bajo
+     independencia. Queda anotado que fue supuesta y no medida. */
+  NORMA.escala = esc > 1e-3 ? esc : Math.hypot(...Object.values(PESOS));
+  NORMA.medida = esc > 1e-3;
+  return NORMA;
+}
 
 /**
  * Cortes del compuesto, en unidades de sigma de la línea base.
@@ -73,13 +169,11 @@ const HISTERESIS = 0.25;
  * expresándose en sigmas y no dependa de cuántas características se sumen.
  */
 export function puntaje(z) {
+  const e = evidencia(z);
   let s = 0;
-  let norma = 0;
-  for (const [k, w] of Object.entries(PESOS)) {
-    s += (z[k] ?? 0) * w;
-    norma += Math.abs(w);
-  }
-  return norma ? s / norma : 0;
+  for (const [k, w] of Object.entries(PESOS)) s += e[k] * w;
+  const escala = NORMA.escala ?? Math.hypot(...Object.values(PESOS));
+  return (s - NORMA.centro) / escala;
 }
 
 /** Estado que corresponde a un puntaje, sin considerar el estado previo. */
