@@ -30,7 +30,85 @@ export const diagnostico = {
   /* Qué fuente de marca de tiempo se consiguió. Condiciona la exactitud de toda
      medida de duración, así que se reporta en el panel y en el informe. */
   reloj: null,
+  /* Con que juego de restricciones se consiguio abrir la camara. Si hubo que
+     bajar escalones, la cadencia obtenida sera menor y eso condiciona la
+     resolucion temporal de toda la sesion. */
+  restriccion: null,
 };
+
+/**
+ * Restricciones de camara, de la mas exigente a la mas permisiva.
+ *
+ * POR QUE UNA CADENA Y NO UNA SOLA PETICION
+ * `min` es una restriccion DURA, tan estricta como `exact`: si el dispositivo no
+ * puede garantizarla, `getUserMedia` rechaza con OverconstrainedError y la
+ * aplicacion se queda sin camara. La version anterior pedia
+ * `frameRate: { ideal: 60, min: 24 }` con la intencion de negociar, pero el
+ * `min` convertia la peticion en un requisito. Observado en dispositivos
+ * reales: un Galaxy S23 lo aceptaba y un S25 no, con lo que en el segundo la
+ * camara no abria nunca.
+ *
+ * Aqui no queda ninguna restriccion dura. Se pide lo deseable y, si el
+ * dispositivo no lo entrega, se baja un escalon. La cadencia se mide despues
+ * sobre los fotogramas que realmente llegan, que es como debe determinarse.
+ */
+const RESTRICCIONES = [
+  { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 60 } },
+  { facingMode: "user", frameRate: { ideal: 60 } },
+  { facingMode: "user" },
+  true,
+];
+
+/* Aflojar restricciones no arregla un permiso denegado ni una camara ausente. */
+const SIN_REINTENTO = new Set(["NotAllowedError", "SecurityError", "NotFoundError"]);
+
+const MENSAJE = {
+  NotAllowedError: "Se denegó el permiso de cámara. Habilitarlo en los ajustes del sitio y recargar.",
+  NotFoundError: "El dispositivo no reporta ninguna cámara frontal.",
+  NotReadableError: "Otra aplicación está usando la cámara. Cerrarla y volver a intentar.",
+  OverconstrainedError: "Ninguna configuración de cámara resultó admisible en este dispositivo.",
+  SecurityError: "La cámara exige una conexión segura (HTTPS o localhost).",
+};
+
+async function pedirCamara() {
+  let ultimo = null;
+  for (const video of RESTRICCIONES) {
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+      diagnostico.restriccion = video === true ? "sin restricciones" : JSON.stringify(video);
+      return s;
+    } catch (e) {
+      ultimo = e;
+      diagnostico.ultimoError = e.name;
+      if (SIN_REINTENTO.has(e.name)) break;
+    }
+  }
+  const e = new Error(
+    MENSAJE[ultimo?.name] ?? `No se pudo abrir la cámara (${ultimo?.name ?? "error desconocido"}).`
+  );
+  e.cause = ultimo;
+  throw e;
+}
+
+/** Hay al menos una pista de video viva. */
+export function camaraViva(video) {
+  const s = video.srcObject;
+  return !!s && s.getVideoTracks().some((t) => t.readyState === "live");
+}
+
+/**
+ * Suelta la camara.
+ *
+ * Android la reclama cuando la aplicacion pasa a segundo plano, y las pistas
+ * quedan en `ended` sin que nadie lo anuncie. Antes de volver a pedirla hay que
+ * devolver la anterior o el sistema puede negarla por estar todavia tomada.
+ */
+export function cerrarCamara(video) {
+  const s = video.srcObject;
+  if (!s) return;
+  for (const t of s.getTracks()) t.stop();
+  video.srcObject = null;
+}
 
 /**
  * Inicializa el detector.
@@ -208,15 +286,7 @@ export async function openCamera(video) {
    * cadencia real y reporta la resolucion que efectivamente consiguio, en lugar
    * de suponer la que se pidio. La resolucion no se declara: se mide.
    */
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: {
-      facingMode: "user",
-      width: { ideal: 640 },
-      height: { ideal: 480 },
-      frameRate: { ideal: 60, min: 24 },
-    },
-    audio: false,
-  });
+  const stream = await pedirCamara();
   video.srcObject = stream;
 
   if (video.readyState < 1) {

@@ -20,6 +20,7 @@ import * as segunda from "./segunda-opinion.js";
 import { Heuristica, guardarConfig } from "./heuristica.js";
 import { extraerAU, CANALES_AU, PerfilExpresividad, evidenciaPositiva, evidenciaNegativa } from "./facs.js";
 import { DetectorFasico } from "./microexpresiones.js";
+import { imagen } from "./pictogramas.js";
 
 /* Duracion minima de la linea base.
    Baja de 5 s a 3 s. El numero de muestras, no el tiempo, es lo que sostiene la
@@ -317,7 +318,8 @@ function bucle(tCaptura = performance.now()) {
          es precisamente lo que borra los transitorios que este camino busca. */
       const au = extraerAU(r.blendshapes);
       estado.perfil.agregar(au);
-      for (const ev of estado.detector.agregar(estado.baseAU.normalizar(au), ahora)) {
+      const zAU = estado.baseAU.normalizar(au);
+      for (const ev of estado.detector.agregar(zAU, ahora)) {
         /* Los no resolubles se guardan igual, marcados. La tasa de eventos que
            el muestreo no alcanza a describir es una medida de calidad del
            instrumento y desaparecería si se filtraran en silencio. */
@@ -343,6 +345,28 @@ function bucle(tCaptura = performance.now()) {
              solo las siete caracteristicas tonicas dejaba fuera los dieciseis
              canales sobre los que trabaja el detector de transitorios. */
           au,
+          /* EVIDENCIA FACS PUBLICADA, EN PARALELO Y NO COMO CLASIFICADOR.
+             El estado operativo sale del compuesto ponderado de las siete AU
+             tonicas. Estas dos combinaciones son las que la literatura define
+             —Duchenne para el positivo, Prkachin y Solomon para el negativo— y
+             se registran para poder contrastarlas despues contra el compuesto.
+
+             No sustituyen al clasificador, y la razon esta medida: sobre las
+             muestras ya registradas, la correlacion de rangos entre ambos
+             compuestos es 0,047. Ordenan los fotogramas de forma distinta, de
+             modo que cambiar de uno a otro no seria un ajuste sino otro
+             sistema. Cual describe mejor a este participante es una pregunta
+             empirica, y para responderla hay que haber guardado los dos.
+
+             Se guardan sobre las AU crudas, que es como las definen sus
+             fuentes, y sobre la puntuacion z, que es lo unico comparable con
+             el compuesto. Sin las dos versiones el contraste no se puede hacer. */
+          evidencia: {
+            crudaPositiva: Number(evidenciaPositiva(au).duchenne.toFixed(4)),
+            crudaNegativa: Number(evidenciaNegativa(au).total.toFixed(4)),
+            zPositiva: Number(evidenciaPositiva(zAU).duchenne.toFixed(4)),
+            zNegativa: Number(evidenciaNegativa(zAU).total.toFixed(4)),
+          },
           frontalidad: Number(frente.toFixed(3)),
           puntaje: Number(c.puntaje.toFixed(4)),
           estado: c.estado,
@@ -675,7 +699,17 @@ const tablero = new Tablero(el("tablero"), async (picto, _cat, eraSugerido) => {
   const latencia = performance.now() - estado.ultimaSeleccion;
   estado.ultimaSeleccion = performance.now();
 
-  el("salida-icono").textContent = picto.icono;
+  /* LA CONFIRMACION MUESTRA EL MISMO DIBUJO QUE LA TECLA.
+     Antes ponia el emoji de respaldo, de modo que el nino tocaba un pictograma
+     de ARASAAC y la ampliacion le devolvia otra imagen distinta. Para quien
+     esta aprendiendo el tablero eso no es una inconsistencia de estilo: la
+     ampliacion existe para confirmar que se selecciono, y confirmar con un
+     dibujo que no es el que se toco no confirma nada. Se sigue la misma regla
+     que el tablero, con el emoji solo cuando no hay imagen. */
+  const dibujo = imagen(picto.clave);
+  el("salida-icono").innerHTML = dibujo
+    ? `<img src="${dibujo}" alt="" draggable="false" decoding="async">`
+    : picto.icono;
   el("salida-frase").textContent = picto.frase;
   el("salida-estado").textContent = !estado.analisisActivo
     ? ""
@@ -862,6 +896,13 @@ async function refrescarAsociacion() {
  */
 el("btn-recalibrar").addEventListener("click", () => {
   if (!video.srcObject) return;
+  reiniciarCalibracion();
+});
+
+/**
+ * Vuelve a tomar la linea base desde cero y reanuda el bucle de fotogramas.
+ */
+function reiniciarCalibracion() {
   estado.lineaBase = new LineaBase();
   estado.suavizador.reiniciar();
   estado.estabilizador.reiniciar();
@@ -880,6 +921,43 @@ el("btn-recalibrar").addEventListener("click", () => {
   avisoCalibracion(true);
   abrirPanel(false);
   face.programarFotograma(video, bucle);
+}
+
+/**
+ * Recupera la camara al volver de segundo plano.
+ *
+ * EL FALLO QUE CORRIGE
+ * Android le quita la camara a la aplicacion cuando pasa a segundo plano. Al
+ * volver, `video.srcObject` sigue apuntando al mismo objeto, pero sus pistas
+ * quedaron en `ended`: no llegan mas fotogramas, `requestVideoFrameCallback` no
+ * se vuelve a disparar y el bucle muere en silencio. La pantalla se queda
+ * congelada en la cuenta de calibracion que llevaba —«Calibrando 6/15»— sin
+ * ningun error visible, y la unica salida era cerrar y volver a abrir.
+ *
+ * POR QUE SE REINICIA LA LINEA BASE Y NO SE CONTINUA
+ * No es solo prudencia. Entre la interrupcion y el regreso la persona pudo
+ * moverse, cambiar de postura o de distancia a la camara, de modo que su reposo
+ * ya no es el mismo. Mezclar en una sola linea base fotogramas de antes y de
+ * despues produciria una referencia que no describe ninguno de los dos
+ * momentos, y todas las puntuaciones z de la sesion se calcularian contra ella.
+ * Reiniciar cuesta tres segundos; arrastrar una referencia contaminada
+ * invalidaria la sesion entera sin avisar.
+ */
+async function reconectarCamara() {
+  if (!estado.analisisActivo || face.camaraViva(video)) return;
+  chip("Recuperando la cámara…", "chip-espera");
+  try {
+    face.cerrarCamara(video);
+    const cam = await face.openCamera(video);
+    chip(`Calibrando · ${cam.ancho}×${cam.alto}`, "chip-espera");
+    reiniciarCalibracion();
+  } catch (e) {
+    chip(e.message, "chip-error");
+  }
+}
+
+addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") reconectarCamara();
 });
 
 /**

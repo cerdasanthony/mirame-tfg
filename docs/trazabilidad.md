@@ -88,8 +88,8 @@ Estado a **24 de agosto de 2026**.
 ## Lo que falta, por consecuencia
 
 **RF-29 es el que más pesa.** El Capítulo II resuelve el problema de independencia
-de la observación —la persona investigadora es también la responsable legal del
-participante— mediante la codificación independiente de una profesional en terapia
+de la observación, dado que la persona investigadora es también la responsable
+legal del participante, mediante la codificación independiente de una profesional en terapia
 del lenguaje. RF-29 es el requerimiento que hace ejecutable esa solución. Sin él,
 el diseño de estudio descrito no puede llevarse a cabo tal como está redactado.
 
