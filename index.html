@@ -102,15 +102,11 @@
 
     <section class="bloque">
       <h3>Registros</h3>
-      <div class="acciones-admin" style="margin-bottom:.5rem">
-        <button id="btn-recalibrar" class="btn btn-solo-icono" type="button" title="Recalibrar línea base" aria-label="Recalibrar línea base"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><circle cx="12" cy="12" r="3"/></svg></button>
-      </div>
-      <div class="acciones-admin">
-        <button id="btn-exportar" class="btn btn-secundario btn-solo-icono" type="button" title="Exportar los registros" aria-label="Exportar los registros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></svg></button>
-        <button id="btn-borrar" class="btn btn-peligro btn-solo-icono" type="button" title="Borrar todos los registros" aria-label="Borrar todos los registros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
-      </div>
-      <div class="acciones-admin" style="margin-top:.5rem">
-        <button id="btn-actualizar" class="btn btn-secundario btn-solo-icono" type="button" title="Forzar actualización de la aplicación" aria-label="Forzar actualización de la aplicación"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg></button>
+      <div class="acciones-registros">
+        <button id="btn-recalibrar" class="btn btn-registro" type="button" title="Recalibrar línea base"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><circle cx="12" cy="12" r="3"/></svg><span>Recalibrar</span></button>
+        <button id="btn-exportar" class="btn btn-secundario btn-registro" type="button" title="Exportar los registros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></svg><span>Exportar</span></button>
+        <button id="btn-borrar" class="btn btn-peligro btn-registro" type="button" title="Borrar todos los registros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/><path d="M10 11v6"/><path d="M14 11v6"/></svg><span>Borrar</span></button>
+        <button id="btn-actualizar" class="btn btn-secundario btn-registro" type="button" title="Forzar actualización de la aplicación"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg><span>Actualizar</span></button>
       </div>
       <p id="acciones-estado" class="nota nota-aviso" role="status" aria-live="polite"></p>
       <p class="nota">

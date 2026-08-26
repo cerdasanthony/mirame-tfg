@@ -478,6 +478,27 @@ body.calibrando .tablero { padding-bottom: 62px; }
 .asoc-n { grid-column: 1 / -1; font-size: .67rem; color: var(--tinta-3); }
 
 .acciones-admin { display: flex; gap: .5rem; }
+.acciones-registros {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .5rem;
+}
+.btn.btn-registro {
+  min-width: 0;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: .5rem;
+  padding: .65rem .7rem;
+}
+.btn.btn-registro svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  display: block;
+  flex: 0 0 auto;
+}
+.btn.btn-registro span { min-width: 0; }
 .btn {
   flex: 1; border-radius: 11px; padding: .7rem;
   font-size: .84rem; font-weight: 650;
@@ -581,7 +602,7 @@ body:has(.panel:not([hidden])):not(.panel-acoplado) .preview {
 @media (prefers-reduced-motion: reduce) {
   body:has(.panel:not([hidden])):not(.panel-acoplado) .preview { transition: none; }
 }
-@media (max-width: 900px) {
+@media (max-width: 900px), (pointer: coarse) {
   /* En pantalla estrecha el panel fijado es una franja inferior y no estorba. */
   body:has(.panel:not([hidden])):not(.panel-acoplado) .preview { transform: none; }
 }
@@ -644,7 +665,7 @@ body.panel-acoplado .barra {
    arriba, que es donde el nino mira y toca, y la instrumentacion ocupa la cuarta
    parte de abajo, que alcanza para leer las cifras sin quitarle sitio al
    comunicador. */
-@media (max-width: 900px) {
+@media (max-width: 900px), (pointer: coarse) {
   /* Alto de la franja inferior. En un solo sitio, porque de el dependen tambien
      el alto que le queda al tablero y la altura a la que se sube el aviso de
      calibracion: si se cambia aqui, los tres se mueven juntos. */
@@ -654,6 +675,11 @@ body.panel-acoplado .barra {
     padding-right: clamp(.7rem, 2vw, 1.4rem);
     height: calc(100% - var(--franja) - var(--barra-alto));
   }
+  /* El modo lateral reserva hasta 400 px a la derecha de TODA la barra. Al
+     mover el panel abajo hay que retirar tambien esa reserva; de lo contrario
+     la vista de camara se desplaza a la izquierda aunque ya no haya nada que
+     pueda cubrirla. */
+  body.panel-acoplado .barra { padding-right: .7rem; }
   body.panel-acoplado .panel {
     top: auto; left: 0; right: 0; bottom: 0;
     width: 100%; height: var(--franja);
@@ -664,6 +690,10 @@ body.panel-acoplado .barra {
   body.panel-acoplado .salida { right: 0; }
   /* El aviso de calibracion se sube por encima de la franja. */
   body.panel-acoplado .aviso { bottom: calc(var(--franja) + .6rem); }
+}
+
+@media (max-width: 640px) {
+  body.panel-acoplado .barra { padding-right: .55rem; }
 }
 
 /* ── Agrupacion del panel ──────────────────────────────────────────────
