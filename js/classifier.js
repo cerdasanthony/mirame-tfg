@@ -249,7 +249,8 @@ function evidenciaNegativaRegional(e) {
  */
 export const NORMA = { centro: 0 };
 
-export function calibrarNorma(muestrasZ) {
+/** Centro robusto del compuesto para una colección concreta de muestras. */
+export function centroNorma(muestrasZ) {
   /**
    * Solo queda por medir el CENTRO, y ya no hay escala que elegir.
    *
@@ -265,13 +266,17 @@ export function calibrarNorma(muestrasZ) {
    * desplazamiento SI se mide, porque es una constante aditiva y no un factor
    * que amplifique.
    */
-  if (!muestrasZ?.length) return NORMA;
+  if (!muestrasZ?.length) return 0;
   const brutos = muestrasZ.map((z) => {
     const e = evidencia(z);
     return promedio(e, POSITIVAS) - evidenciaNegativaRegional(e);
   });
   const orden = [...brutos].sort((a, b) => a - b);
-  NORMA.centro = orden[orden.length >> 1];
+  return orden[orden.length >> 1];
+}
+
+export function calibrarNorma(muestrasZ) {
+  NORMA.centro = centroNorma(muestrasZ);
   return NORMA;
 }
 
@@ -318,14 +323,14 @@ const HISTERESIS = 0.25;
  * Se divide entre la suma de pesos absolutos para que el resultado siga
  * expresándose en sigmas y no dependa de cuántas características se sumen.
  */
-export function puntaje(z) {
+export function puntaje(z, centro = NORMA.centro) {
   const e = evidencia(z);
   /* Diferencia entre dos cantidades ya comparables: cada lado es una media de
      puntuaciones z, de modo que el resultado esta en unidades de sigma sin
      necesidad de ningun divisor. El centro se resta porque la rectificacion
      desplaza el reposo: al truncar en cero, la media de cada lado en reposo no
      vale cero sino el valor esperado de la parte positiva del ruido. */
-  return promedio(e, POSITIVAS) - evidenciaNegativaRegional(e) - NORMA.centro;
+  return promedio(e, POSITIVAS) - evidenciaNegativaRegional(e) - centro;
 }
 
 /** Estado que corresponde a un puntaje, sin considerar el estado previo. */

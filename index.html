@@ -94,6 +94,7 @@
         <div><dt>Rostro detectado</dt><dd id="tasa-deteccion">—</dd></div>
         <div><dt>Línea base</dt><dd id="estado-base">pendiente</dd></div>
         <div><dt>Muestras basales</dt><dd id="sigma-base">—</dd></div>
+        <div><dt>Canales con ruido medido</dt><dd id="canales-medidos">—</dd></div>
         <div><dt>Quietud en calibración</dt><dd id="quietud">—</dd></div>
         <div><dt>Frontalidad</dt><dd id="frontalidad">—</dd></div>
       </dl>
@@ -252,7 +253,7 @@
         registra marcado y no se cuenta: por debajo de ahí no hay medición.
       </p>
       <p class="nota">
-        Ante un gesto débil la sensibilidad ronda el 48 %, así que una ventana sin
+        Ante un gesto débil la sensibilidad ronda el 45 %, así que una ventana sin
         eventos no demuestra que no hubo expresión: solo dice que no se detectó.
       </p>
     </section>
@@ -326,6 +327,18 @@
           <button type="button" data-seg="">Sin marcar</button>
         </div>
         <p id="segmento-activo" class="nota"></p>
+        <h4>Condiciones de contexto</h4>
+        <p class="nota">Pueden coexistir. Solo describen lo observado o
+          informado; no se usan para cambiar la clasificación.</p>
+        <div id="contextos" class="segmentos">
+          <button type="button" data-ctx="vocalizacion">Vocalización</button>
+          <button type="button" data-ctx="movimiento mandibular">Movimiento mandibular</button>
+          <button type="button" data-ctx="parpadeo frecuente">Parpadeo frecuente</button>
+          <button type="button" data-ctx="cansancio informado">Cansancio informado</button>
+          <button type="button" data-ctx="alimentacion reciente">Alimentación reciente</button>
+        </div>
+        <p id="contextos-activos" class="nota">Sin condiciones marcadas.</p>
+        <p><a class="btn btn-secundario" href="#observacion">Abrir observación independiente</a></p>
       </section>
       <section class="bloque">
         <h3>Procedencia técnica</h3>
@@ -343,6 +356,42 @@
     </section>
 
   </aside>
+
+  <!-- Observación independiente (RF-29).
+       Esta vista cubre la aplicación completa y omite deliberadamente cualquier
+       salida del clasificador. Las marcas se comparan después por tiempo. -->
+  <div id="observacion" class="observacion" hidden>
+    <header class="obs-cabecera">
+      <h2>Observación independiente</h2>
+      <p class="nota">Registre únicamente lo que observa. La clasificación del
+        sistema permanece oculta para evitar que influya en la codificación.</p>
+    </header>
+
+    <section>
+      <h3>Perfil observable vigente</h3>
+      <div class="obs-botones" id="obs-perfiles">
+        <button type="button" data-obs-tipo="perfil" data-obs="positivo">Positivo</button>
+        <button type="button" data-obs-tipo="perfil" data-obs="neutro">Neutro</button>
+        <button type="button" data-obs-tipo="perfil" data-obs="negativo leve">Negativo leve</button>
+        <button type="button" data-obs-tipo="perfil" data-obs="negativo intenso">Negativo intenso</button>
+        <button type="button" data-obs-tipo="perfil" data-obs="sin dato">No se ve el rostro</button>
+      </div>
+    </section>
+
+    <section>
+      <h3>Movimiento o condición observable</h3>
+      <p class="nota">Pulse una vez al comenzar y otra al terminar.</p>
+      <div class="obs-botones obs-botones-condicion">
+        <button type="button" data-obs-tipo="condicion" data-obs="vocalizacion">Vocalización</button>
+        <button type="button" data-obs-tipo="condicion" data-obs="movimiento mandibular">Movimiento mandibular</button>
+        <button type="button" data-obs-tipo="condicion" data-obs="cierre ocular">Cierre ocular</button>
+        <button type="button" data-obs-tipo="condicion" data-obs="movimiento general">Movimiento general</button>
+      </div>
+    </section>
+
+    <p id="obs-cuenta" class="nota" aria-live="polite"></p>
+    <button type="button" id="obs-salir" class="obs-salir">Salir de la observación</button>
+  </div>
 
   <div id="velo" class="velo" hidden></div>
 

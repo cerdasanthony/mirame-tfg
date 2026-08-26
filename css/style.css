@@ -695,6 +695,42 @@ body.panel-acoplado .barra {
 .segmentos button.seg-activo { background: currentColor; }
 .segmentos button.seg-activo { color: #fff; background: #a2600a; border-color: #a2600a; }
 
+/* Observación independiente (RF-29). Cubre por completo el panel del sistema:
+   ocultar su salida es parte del control contra sesgo, no una decisión visual. */
+.observacion {
+  position: fixed; inset: 0; z-index: 60;
+  background: var(--fondo, #fdfbf7); color: var(--tinta, #22201d);
+  display: flex; flex-direction: column; gap: 1.2rem;
+  padding: clamp(1rem, 4vw, 2.5rem); overflow-y: auto;
+}
+.observacion[hidden] { display: none; }
+.obs-cabecera h2 { margin: 0 0 .4rem; font-size: clamp(1.3rem, 4vw, 1.9rem); }
+.obs-botones {
+  display: grid; gap: .7rem; align-content: start;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  max-width: 66rem;
+}
+.obs-botones button {
+  font: inherit; font-size: clamp(1rem, 2.2vw, 1.25rem); font-weight: 700;
+  min-height: 5rem; padding: 1rem; border-radius: 14px; cursor: pointer;
+  border: 2px solid currentColor; background: transparent; color: inherit;
+}
+.obs-botones-condicion button { min-height: 4rem; font-size: 1rem; }
+.obs-botones button:hover { background: rgba(127,127,127,.1); }
+.obs-botones button.obs-pulsado,
+.obs-botones button.obs-activo {
+  background: #a2600a; border-color: #a2600a; color: #fff;
+}
+.obs-salir {
+  align-self: flex-start; font: inherit; padding: .7rem 1.2rem; border-radius: 10px;
+  border: 1px solid currentColor; background: transparent; color: inherit; cursor: pointer;
+}
+@media (max-width: 640px) {
+  .obs-botones { grid-template-columns: 1fr 1fr; }
+  .obs-botones button { min-height: 4.5rem; }
+}
+@media (prefers-reduced-motion: reduce) { .obs-botones button { transition: none; } }
+
 
 /* ── Botones de solo icono ─────────────────────────────────────────────
    La clase se llama `btn-solo-icono` y no `btn-icono` porque esa ya existia: la

@@ -714,7 +714,7 @@ export class DetectorFasico {
    *
    * Tampoco se afirma que la ausencia de eventos signifique ausencia de gesto.
    * Con el umbral calibrado al criterio del proyecto, la sensibilidad ante un
-   * gesto débil de 1,2 σ es del 48 %: cerca de la mitad se pierden. Una ventana
+   * gesto débil de 1,2 σ es del 45 %: más de la mitad se pierden. Una ventana
    * sin eventos es compatible con que no hubiera nada y con que lo hubiera y no
    * se viera, y el informe tiene que decirlo con ese número al lado.
    *

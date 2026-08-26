@@ -441,7 +441,7 @@ export class LineaBase {
    * clasificaba como negativo.
    */
   /** Las muestras de la línea base, expresadas en puntuación z. */
-  muestrasNormalizadas() {
+  muestrasNormalizadas({ excluirSupuestos = false } = {}) {
     if (!this.media) return [];
     /* Incluye las muestras de refinamiento, no solo las de calibracion.
        La version anterior devolvia unicamente `this.muestras`, con lo que el
@@ -452,7 +452,8 @@ export class LineaBase {
        media rectificada es positiva, mientras el unico canal positivo, la
        sonrisa, permanecia inactivo. Ese desplazamiento es justo lo que el
        centro debe absorber, y para absorberlo tiene que verlo. */
-    return [...this.muestras, ...(this.refinamiento ?? [])].map((m) => this.normalizar(m));
+    return [...this.muestras, ...(this.refinamiento ?? [])]
+      .map((m) => this.normalizar(m, { excluirSupuestos }));
   }
 
   refinar(caracteristicas) {
@@ -517,6 +518,7 @@ export class LineaBase {
       else { this.sigma[c] = sustituta; this.canalesSupuestos.push(c); }
     }
     this.sigmaMedida = crudas;
+    this.sigmaSustituta = this.canalesSupuestos.length ? sustituta : null;
     this.muestrasRefinamiento = juntas.length;
     return true;
   }
@@ -528,16 +530,46 @@ export class LineaBase {
    * nada contra qué normalizar, y devolver los valores crudos los haría pasar
    * por puntuaciones z, que es peor que no devolver nada.
    */
-  normalizar(caracteristicas) {
+  normalizar(caracteristicas, { excluirSupuestos = false } = {}) {
     const out = {};
     if (!this.media) {
       for (const c of this.canales) out[c] = 0;
       return out;
     }
+    const supuestos = excluirSupuestos ? new Set(this.canalesSupuestos ?? []) : null;
     for (const c of this.canales) {
-      out[c] = (caracteristicas[c] - this.media[c]) / this.sigma[c];
+      /* Análisis de sensibilidad, no reemplazo silencioso del clasificador.
+
+         Cuando la calibración no pudo medir el ruido de un canal, la vía
+         operativa usa la dispersión sustituta estimada a partir de los demás
+         canales de esa misma sesión. Eso permite observar acciones unipolares
+         que permanecen exactamente en cero durante el reposo. Pero el resultado
+         depende de una suposición y debe poder cuantificarse.
+
+         Con `excluirSupuestos`, esos canales aportan evidencia cero. El sistema
+         ejecuta ambas versiones en paralelo y registra cuánto discrepan. No se
+         presenta la versión restringida como verdad de referencia: es un
+         análisis de sensibilidad sobre una decisión de calibración. */
+      out[c] = supuestos?.has(c)
+        ? 0
+        : (caracteristicas[c] - this.media[c]) / this.sigma[c];
     }
     return out;
+  }
+
+  /** Procedencia cuantitativa de la escala usada por esta línea base. */
+  get calidadCalibracion() {
+    if (!this.media) return null;
+    const supuestos = [...(this.canalesSupuestos ?? [])];
+    const medidos = this.canales.filter((c) => !supuestos.includes(c));
+    return {
+      canalesTotales: this.canales.length,
+      canalesMedidos: medidos.length,
+      canalesSupuestos: supuestos.length,
+      proporcionMedida: this.canales.length ? medidos.length / this.canales.length : null,
+      listaMedidos: medidos,
+      listaSupuestos: supuestos,
+    };
   }
 
   /** Estado serializable, para guardarlo con la sesión y poder reanalizarla. */
@@ -556,6 +588,7 @@ export class LineaBase {
           autocorrelacion: this.autocorrelacion ?? null,
           muestrasEfectivas: this.muestrasEfectivas ?? null,
           muestrasRefinamiento: this.muestrasRefinamiento ?? null,
+          calidadCalibracion: this.calidadCalibracion,
           /* Cuanto se desplazo la referencia respecto de la calibracion, en
              desviaciones tipicas. Un valor cercano al tope indica que la sesion
              estuvo dominada por una configuracion sostenida, y eso cambia como

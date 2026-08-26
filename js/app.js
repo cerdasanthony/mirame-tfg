@@ -12,7 +12,10 @@
 
 import * as face from "./face.js";
 import { extract, LineaBase, frontalidad, frontalidadGeometrica } from "./features.js";
-import { clasificar, Ventana, Suavizador, Estabilizador, UMBRALES, fijarUmbrales, calibrarNorma, NORMA } from "./classifier.js";
+import {
+  clasificar, Ventana, Suavizador, Estabilizador, UMBRALES, fijarUmbrales,
+  calibrarNorma, centroNorma, NORMA,
+} from "./classifier.js";
 import * as store from "./storage.js";
 import { Tablero, PICTOGRAMAS } from "./board.js";
 import { hablar, voces, ajustes, fijarAjustes, vozActual, alHaberVoces } from "./speech.js";
@@ -98,8 +101,18 @@ const estado = {
   detector: new DetectorFasico({ canales: CANALES_AU }),
   perfil: new PerfilExpresividad(),
   ventana: new Ventana(5, 0.4, 1500),
+  ventanaSoloMedidos: new Ventana(5, 0.4, 1500),
   suavizador: new Suavizador(),
   estabilizador: new Estabilizador({ dwellMs: 500, factorRetroceso: 0.5 }),
+  /* Clasificador paralelo que ignora los canales cuyo ruido basal no se pudo
+     medir. No controla la interfaz: cuantifica la sensibilidad del resultado a
+     la sustitución de dispersión y se guarda como procedencia científica. */
+  suavizadorSoloMedidos: new Suavizador(),
+  estabilizadorSoloMedidos: new Estabilizador({ dwellMs: 500, factorRetroceso: 0.5 }),
+  centroSoloMedidos: 0,
+  estadoSoloMedidos: null,
+  comparacionesCalibracion: 0,
+  discrepanciasCalibracion: 0,
   ultimoFotograma: 0,
   ultimaCaptura: 0,
   frontalidadDetalle: null,
@@ -266,18 +279,22 @@ function bucle(tCaptura = performance.now()) {
       /* La escala del compuesto se mide sobre las mismas muestras de reposo, en
          lugar de suponerla a partir de los pesos. Ver `calibrarNorma`. */
       calibrarNorma(estado.lineaBase.muestrasNormalizadas());
+      estado.centroSoloMedidos = centroNorma(
+        estado.lineaBase.muestrasNormalizadas({ excluirSupuestos: true })
+      );
       estado.detector.reiniciar();
       estado.estabilizador.reiniciar();
+      estado.estabilizadorSoloMedidos.reiniciar();
+      estado.suavizadorSoloMedidos.reiniciar();
       store.cerrarSesion(estado.sesionId, null);
-      /* VERSION DE REGLAS. Los tres arreglos de esta version —rectificacion de
-         la evidencia, separacion de sorpresa y distres, y escala medida en vez
-         de supuesta— cambian el estado que se asigna al mismo rostro. Sin esta
-         marca, las sesiones anteriores y las nuevas se mezclarian en el analisis
-         como si fueran comparables, y no lo son. */
+      /* VERSION DE REGLAS. La versión 10 añade el clasificador paralelo que
+         excluye canales con dispersión supuesta. La vía operativa conserva la
+         versión 9; la marca impide analizar registros nuevos como si carecieran
+         de esa comprobación de sensibilidad. */
       store.crearSesion({ ...base, au: baseAU }, {
-        versionReglas: 9,
+        versionReglas: 10,
         /* Solo el centro: con cada lado promediado no queda escala que elegir. */
-        norma: { centro: NORMA.centro },
+        norma: { centro: NORMA.centro, centroSoloMedidos: estado.centroSoloMedidos },
       }).then((id) => (estado.sesionId = id));
       el("sigma-base").textContent = base.muestras + " muestras";
       el("preview-base").hidden = true;
@@ -303,6 +320,9 @@ function bucle(tCaptura = performance.now()) {
       estado.conRostro = 0;
       estado.descartadosPorPose = 0;
       estado.suavizador.reiniciar();
+      estado.suavizadorSoloMedidos.reiniciar();
+      estado.comparacionesCalibracion = 0;
+      estado.discrepanciasCalibracion = 0;
     }
     return face.programarFotograma(video, bucle);
   }
@@ -310,7 +330,9 @@ function bucle(tCaptura = performance.now()) {
   estado.fotogramas++;
   if (!r) {
     estado.ventana.agregarSinRostro();
+    estado.ventanaSoloMedidos.agregarSinRostro();
     estado.suavizador.reiniciar();
+    estado.suavizadorSoloMedidos.reiniciar();
     estado.ultimoFotograma = 0;
     aplicarHeuristica(null);
     if (tocaPintar(tCaptura)) pintarPanel(null, null, null, null);
@@ -320,6 +342,10 @@ function bucle(tCaptura = performance.now()) {
       // Rostro presente pero girado: se descarta antes de clasificar.
       estado.descartadosPorPose++;
       estado.ventana.agregarDescartado();
+      estado.ventanaSoloMedidos.agregarDescartado();
+      estado.suavizador.reiniciar();
+      estado.suavizadorSoloMedidos.reiniciar();
+      estado.ultimoFotograma = 0;
       aplicarHeuristica(null);
       if (tocaPintar(tCaptura)) pintarPanel(null, null, r.blendshapes, frente);
     } else {
@@ -330,6 +356,7 @@ function bucle(tCaptura = performance.now()) {
 
       const crudas = extract(r.blendshapes);
       const norm = estado.lineaBase.normalizar(crudas);
+      const normSoloMedidos = estado.lineaBase.normalizar(crudas, { excluirSupuestos: true });
 
       /* VÍA FÁSICA — corre en paralelo y NO comparte nada con la tónica salvo
          el fotograma. Se le entrega la puntuación z SIN suavizar: el suavizado
@@ -366,7 +393,16 @@ function bucle(tCaptura = performance.now()) {
         estabilizador: estado.estabilizador,
         dtMs,
       });
+      const cSoloMedidos = clasificar(normSoloMedidos, {
+        suavizador: estado.suavizadorSoloMedidos,
+        estabilizador: estado.estabilizadorSoloMedidos,
+        dtMs,
+      });
+      estado.estadoSoloMedidos = cSoloMedidos.estado;
+      estado.comparacionesCalibracion++;
+      if (cSoloMedidos.estado !== c.estado) estado.discrepanciasCalibracion++;
       estado.ventana.agregar(c.estado, c.puntaje, ahora);
+      estado.ventanaSoloMedidos.agregar(cSoloMedidos.estado, cSoloMedidos.puntaje, ahora);
 
       // Vector crudo para reanálisis posterior (RF-31).
       if (ahora - estado.ultimaMuestra >= MS_MUESTRA) {
@@ -380,6 +416,9 @@ function bucle(tCaptura = performance.now()) {
           /* Estas muestras SI recorren la sesion, de modo que la escala medida
              sobre ellas es aceptable. La de la calibracion no lo era. */
           calibrarNorma(estado.lineaBase.muestrasNormalizadas());
+          estado.centroSoloMedidos = centroNorma(
+            estado.lineaBase.muestrasNormalizadas({ excluirSupuestos: true })
+          );
         }
         estado.baseAU.refinar(au);
         store.guardarMuestra({
@@ -439,6 +478,12 @@ function bucle(tCaptura = performance.now()) {
           frontalidad: Number(frente.toFixed(3)),
           puntaje: Number(c.puntaje.toFixed(4)),
           estado: c.estado,
+          sensibilidadCalibracion: {
+            estadoSoloMedidos: cSoloMedidos.estado,
+            puntajeSoloMedidos: Number(cSoloMedidos.puntaje.toFixed(4)),
+            discrepa: cSoloMedidos.estado !== c.estado,
+            calidad: estado.lineaBase.calidadCalibracion,
+          },
         });
       }
 
@@ -587,6 +632,14 @@ const COLOR = {
 
 function pintarPanel(e, puntaje, blendshapes, frente, incierto = false) {
   const badge = el("estado-actual");
+  const calidad = estado.lineaBase.calidadCalibracion;
+  if (calidad) {
+    el("canales-medidos").textContent =
+      `${calidad.canalesMedidos}/${calidad.canalesTotales}`;
+    el("canales-medidos").title = calidad.listaSupuestos.length
+      ? `Dispersión sustituida: ${calidad.listaSupuestos.join(", ")}`
+      : "Todos los canales tienen dispersión medida.";
+  }
   if (frente !== null && frente !== undefined) {
     el("frontalidad").textContent = Math.round(frente * 100) + " %";
   }
@@ -727,6 +780,7 @@ function metricasSesion() {
 
     /* Procedencia tecnica: condiciona todo lo demas */
     delegado: face.diagnostico.delegado,
+    versionAplicacion: versionSW,
     relojFotograma: face.diagnostico.reloj,
     resolucionCaptura: face.diagnostico.resolucion,
     /* RF-05 y objetivo 5: latencia de procesamiento, separada de la cadencia
@@ -736,13 +790,23 @@ function metricasSesion() {
        bajar escalones, la cadencia obtenida es menor y con ella la resolucion
        temporal de esta sesion: es procedencia tecnica, igual que el delegado. */
     restriccionCamara: face.diagnostico.restriccion,
+    contextos: store.contextosActuales(),
     /* Fraccion de recortes que el segundo clasificador pudo alinear. */
     alineacion: segunda.alineacionSesion(),
     /* Linea base REFINADA. La que guarda `crearSesion` es una instantanea del
        momento del cierre, anterior a cualquier refinamiento, de modo que al
        analizar una sesion no se veia con que escala habia trabajado de verdad. */
     lineaBaseFinal: estado.lineaBase.instantanea(),
-    norma: { centro: NORMA.centro },
+    norma: { centro: NORMA.centro, centroSoloMedidos: estado.centroSoloMedidos },
+    sensibilidadCalibracion: {
+      comparaciones: estado.comparacionesCalibracion,
+      discrepancias: estado.discrepanciasCalibracion,
+      proporcionDiscrepancia: estado.comparacionesCalibracion
+        ? estado.discrepanciasCalibracion / estado.comparacionesCalibracion
+        : null,
+      estadoSoloMedidos: estado.estadoSoloMedidos,
+      calidad: estado.lineaBase.calidadCalibracion,
+    },
     /* Unidades de accion que este dispositivo no llego a producir. Sin esto, un
        blendshape que devuelve cero se lee sin error y contamina en silencio toda
        formula que lo use: el indice de Duchenne quedo identicamente nulo durante
@@ -806,6 +870,7 @@ addEventListener("pagehide", () => {
 
 const tablero = new Tablero(el("tablero"), async (picto, _cat, eraSugerido) => {
   const d = estado.ventana.distribucion();
+  const dSoloMedidos = estado.ventanaSoloMedidos.distribucion();
   const latencia = performance.now() - estado.ultimaSeleccion;
   estado.ultimaSeleccion = performance.now();
 
@@ -848,6 +913,23 @@ const tablero = new Tablero(el("tablero"), async (picto, _cat, eraSugerido) => {
     tasaValidez: d.tasaValidez,
     fotogramasValidos: d.fotogramasValidos,
     fotogramasTotales: d.fotogramasTotales,
+    /* Sensibilidad a la única sustitución estadística de la vía tónica. La
+       categoría paralela no se muestra al participante ni reordena el tablero. */
+    sensibilidadCalibracion: {
+      estadoSoloMedidos: estado.estadoSoloMedidos,
+      predominanteSoloMedidos: dSoloMedidos.suficiente ? dSoloMedidos.predominante : null,
+      puntajePromedioSoloMedidos: dSoloMedidos.suficiente ? dSoloMedidos.puntajePromedio : null,
+      discrepaPredominante: d.suficiente && dSoloMedidos.suficiente
+        ? d.predominante !== dSoloMedidos.predominante
+        : null,
+      comparaciones: estado.comparacionesCalibracion,
+      discrepancias: estado.discrepanciasCalibracion,
+      proporcionDiscrepancia: estado.comparacionesCalibracion
+        ? estado.discrepanciasCalibracion / estado.comparacionesCalibracion
+        : null,
+      calidad: estado.lineaBase.calidadCalibracion,
+    },
+    contextos: store.contextosActuales(),
     // Acuerdo entre el clasificador geométrico y el modelo preentrenado, como
     // medida de fiabilidad sin verdad de referencia disponible.
     // El porcentaje crudo sobreestima la concordancia; kappa la corrige por azar.
@@ -952,6 +1034,8 @@ el("mensaje-salida").addEventListener("click", () => {
  * Acoplado no lleva velo: el tablero sigue siendo utilizable mientras se mira
  * la instrumentacion, que es justamente para lo que sirve.
  */
+let observaciones = 0;
+const condicionesObservacion = new Set();
 const RUTAS = { "#panel": "acoplado", "#panel-flotante": "flotante" };
 const HASH_DE = { acoplado: "#panel", flotante: "#panel-flotante" };
 
@@ -978,6 +1062,7 @@ function abrirPanel(abierto, modo = null) {
 function aplicarRuta() {
   const m = modoPanel();
   abrirPanel(Boolean(m), m);
+  mostrarObservacion(location.hash === "#observacion");
   /* El interruptor refleja el estado real, venga de donde venga: del propio
      interruptor, de la URL escrita a mano o de una recarga. */
   const casilla = el("panel-fijo");
@@ -1050,6 +1135,78 @@ async function refrescarAsociacion() {
  * gesticuló durante la calibración y a partir de ahí todo se clasifica como
  * neutro. Sin este botón la única opción era recargar la página.
  */
+/* ══════════════════════ Observación independiente (RF-29) ══════════════════════
+   La vista cubre por completo la salida del sistema. Las transiciones de perfil
+   y los eventos observables se guardan con reloj civil y monotónico para poder
+   alinearlos después sin enseñar a la observadora qué clasificó la máquina. */
+function mostrarObservacion(activa) {
+  const vista = el("observacion");
+  if (!vista) return;
+  vista.hidden = !activa;
+  if (activa) {
+    observaciones = 0;
+    el("obs-cuenta").textContent = "Sin marcas todavía.";
+  }
+}
+
+for (const b of document.querySelectorAll("#observacion [data-obs]")) {
+  b.addEventListener("click", async () => {
+    if (!estado.sesionId) {
+      el("obs-cuenta").textContent = "La sesión todavía no está disponible.";
+      return;
+    }
+    const tipo = b.dataset.obsTipo;
+    const activo = tipo === "condicion"
+      ? !condicionesObservacion.has(b.dataset.obs)
+      : null;
+    if (tipo === "condicion") {
+      if (activo) condicionesObservacion.add(b.dataset.obs);
+      else condicionesObservacion.delete(b.dataset.obs);
+    }
+    await store.guardarObservacion({
+      sesionId: estado.sesionId,
+      tMonotonicMs: Number(performance.now().toFixed(1)),
+      tipo,
+      valor: b.dataset.obs,
+      ...(tipo === "condicion" ? { activo } : {}),
+      contextos: store.contextosActuales(),
+    });
+    observaciones++;
+    el("obs-cuenta").textContent =
+      observaciones === 1 ? "1 marca registrada." : `${observaciones} marcas registradas.`;
+
+    if (tipo === "perfil") {
+      for (const o of document.querySelectorAll("#obs-perfiles [data-obs]")) {
+        o.classList.toggle("obs-activo", o === b);
+      }
+    } else {
+      b.classList.toggle("obs-activo", activo);
+    }
+  });
+}
+
+el("obs-salir").addEventListener("click", async () => {
+  /* Cierra los intervalos que hayan quedado activos para que el análisis no
+     tenga que adivinar si la condición continuó hasta el final de la sesión. */
+  for (const valor of condicionesObservacion) {
+    await store.guardarObservacion({
+      sesionId: estado.sesionId,
+      tMonotonicMs: Number(performance.now().toFixed(1)),
+      tipo: "condicion",
+      valor,
+      activo: false,
+      cierreAutomatico: true,
+      contextos: store.contextosActuales(),
+    });
+  }
+  condicionesObservacion.clear();
+  for (const b of document.querySelectorAll("#observacion [data-obs-tipo='condicion']")) {
+    b.classList.remove("obs-activo");
+  }
+  location.hash = "";
+  mostrarObservacion(false);
+});
+
 /* Marcado de segmentos (RF-28). Lo que la persona observadora ve, junto a lo
    que el sistema mide, para poder contrastarlos despues. */
 for (const b of document.querySelectorAll("#segmentos button")) {
@@ -1059,6 +1216,20 @@ for (const b of document.querySelectorAll("#segmentos button")) {
       o.classList.toggle("seg-activo", o.dataset.seg === (etq ?? ""));
     }
     el("segmento-activo").textContent = etq ? `Marcando: ${etq}` : "Sin marcar";
+  });
+}
+
+/* Condiciones contextuales concurrentes (RF-28). Se adjuntan a las muestras y
+   selecciones, pero nunca alteran el clasificador. */
+for (const b of document.querySelectorAll("#contextos button")) {
+  b.addEventListener("click", () => {
+    const activos = store.marcarContexto(b.dataset.ctx);
+    for (const o of document.querySelectorAll("#contextos button")) {
+      o.classList.toggle("seg-activo", activos.includes(o.dataset.ctx));
+    }
+    el("contextos-activos").textContent = activos.length
+      ? `Contexto: ${activos.join(", ")}.`
+      : "Sin condiciones marcadas.";
   });
 }
 
@@ -1096,7 +1267,14 @@ function reiniciarCalibracion() {
   estado.lineaBase = new LineaBase();
   estado.suavizador.reiniciar();
   estado.estabilizador.reiniciar();
+  estado.suavizadorSoloMedidos.reiniciar();
+  estado.estabilizadorSoloMedidos.reiniciar();
+  estado.centroSoloMedidos = 0;
+  estado.estadoSoloMedidos = null;
+  estado.comparacionesCalibracion = 0;
+  estado.discrepanciasCalibracion = 0;
   estado.ventana = new Ventana(5, 0.4, 1500);
+  estado.ventanaSoloMedidos = new Ventana(5, 0.4, 1500);
   estado.baseAU = new LineaBase(CANALES_AU);
   estado.detector.reiniciar();
   estado.perfil = new PerfilExpresividad();
@@ -1106,6 +1284,7 @@ function reiniciarCalibracion() {
   estado.conRostro = 0;
   estado.descartadosPorPose = 0;
   el("quietud").textContent = "—";
+  el("canales-medidos").textContent = "—";
   el("estado-base").textContent = "0/" + MUESTRAS_MINIMAS_BASE;
   el("preview-base").hidden = false;
   avisoCalibracion(true);
@@ -1241,6 +1420,11 @@ el("btn-exportar").addEventListener("click", async () => {
 el("btn-borrar").addEventListener("click", async () => {
   if (!confirm("¿Borrar de forma definitiva todos los registros del dispositivo?")) return;
   await store.borrarTodo();
+  for (const b of document.querySelectorAll("#segmentos button, #contextos button")) {
+    b.classList.remove("seg-activo");
+  }
+  el("segmento-activo").textContent = "Sin marcar";
+  el("contextos-activos").textContent = "Sin condiciones marcadas.";
   refrescarAsociacion();
   avisarAccion("Todos los registros fueron borrados.");
 });

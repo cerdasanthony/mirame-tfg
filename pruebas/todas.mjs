@@ -25,6 +25,7 @@ const BATERIAS = [
   ["expresiones.mjs", "Cada expresión, del coeficiente al estado"],
   ["linea-base.mjs", "La referencia contra la que se mide todo"],
   ["deteccion-fasica.mjs", "Detección de eventos breves"],
+  ["acuerdo-observador.mjs", "Contraste con observación independiente"],
 ];
 
 let fallidas = 0;

@@ -4,7 +4,7 @@ Cruce entre los requerimientos especificados y lo que el prototipo implementa ho
 Se mantiene en el repositorio, junto al código, para que la coherencia entre
 objetivos, requerimientos y avances sea verificable y no declarativa.
 
-Estado a **24 de agosto de 2026**.
+Estado a **25 de agosto de 2026**.
 
 | Estado | Significado |
 |---|---|
@@ -80,26 +80,47 @@ Estado a **24 de agosto de 2026**.
 | RF-23 | 🟡 | `js/app.js` | se configuran umbrales y frontalidad; no la ventana temporal ni la frecuencia de análisis |
 | RF-24 | 🟡 | `js/storage.js` | exporta JSON; falta CSV |
 | RF-25 | ✅ | `js/storage.js` | |
-| RF-28 | 🟡 | `js/storage.js`, `index.html` | marcado de segmentos observados (reposo, sonrisa, puchero, malestar) que viaja con cada muestra; falta el marcado de condiciones contextuales como cansancio o alimentación reciente |
-| RF-29 | ⬜ | `js/storage.js` (parcial) | el almacén y la función de registro existen y la exportación ya los contempla, pero **la interfaz de codificación se retiró**: la fase de evaluación no ha comenzado. Sin pantalla no hay forma de introducir observaciones, de modo que el requerimiento no está cumplido |
+| RF-28 | ✅ | `js/storage.js`, `index.html`, `js/app.js` | segmentos observados y condiciones concurrentes de contexto —vocalización, movimiento mandibular, parpadeo, cansancio informado y alimentación reciente— viajan con muestras y selecciones sin alterar el clasificador |
+| RF-29 | ✅ | `index.html`, `js/app.js`, `js/storage.js`, `pruebas/analisis-observaciones.mjs` | pantalla completa sin salida de la máquina; registra transiciones de perfil y condiciones puntuales con dos relojes; análisis posterior por alineación temporal |
 
 ---
 
 ## Lo que falta, por consecuencia
 
-**RF-29 sigue pendiente.** El Capítulo II resuelve el problema de independencia
-de la observación, dado que la persona investigadora es también la responsable
-legal del participante, mediante la codificación independiente de una profesional en terapia
-del lenguaje. RF-29 es el requerimiento que hace ejecutable esa solución. Sin él,
-el diseño de estudio descrito no puede llevarse a cabo tal como está redactado.
+**La evaluación independiente ya es ejecutable, pero todavía no está realizada.**
+RF-29 permite recoger la codificación sin mostrar la salida del sistema y el
+script de análisis calcula acuerdo observado, matriz de confusión, kappa y AC1.
+Estas métricas no constituyen evidencia hasta que existan sesiones codificadas
+por la profesional prevista en el protocolo.
 
-**RF-28** condiciona la interpretación: sin marcar cansancio, alimentación reciente
-o malestar, las diferencias entre sesiones no tienen contexto al que atribuirse.
+**RF-28 quedó cerrado como capacidad de registro, no como explicación causal.**
+Las condiciones de contexto se adjuntan a los datos para estratificar el análisis;
+el clasificador no las consume ni atribuye a ellas los cambios observados.
 
 **RF-05** quedó cerrado: la latencia de inferencia se cronometra y se reporta junto a la cadencia de entrega, que son dos límites distintos y se corrigen de forma distinta.
 Reportar el valor actual como latencia de procesamiento sería un dato incorrecto.
 
 **RF-22, RF-23 y RF-24** son de comodidad y no bloquean el estudio.
+
+## Auditoría del 25 de agosto de 2026
+
+**Sensibilidad a la dispersión sustituida.** La vía tónica conserva el criterio
+operativo anterior para no volver invisibles acciones unipolares que permanecen
+en cero durante el reposo. En paralelo ejecuta la misma cadena excluyendo los
+canales cuya dispersión no pudo medirse. Cada muestra, selección y sesión informa
+la proporción de categorías que cambia entre ambas variantes. Es un análisis de
+sensibilidad: no presenta ninguna de las dos como verdad de referencia.
+
+**Observación independiente.** Se restauró RF-29 como una vista que cubre por
+completo el panel del sistema. Las marcas de perfil se interpretan como
+transiciones vigentes y las condiciones como eventos puntuales. El análisis toma
+como máximo una muestra por segundo por defecto para no tratar el muestreo de
+250 ms como observaciones independientes.
+
+**Migración de datos.** IndexedDB pasa a versión 5. La versión 4 solo creaba el
+almacén de observaciones si también debía crear el de selecciones; una base que
+ya tuviera selecciones podía actualizarse sin recibir RF-29. La migración queda
+ahora independiente e idempotente.
 
 ---
 
@@ -157,12 +178,13 @@ equipo corrio, y desde ahi las metricas quedan atribuibles.
 
 | Qué | Cómo comprobarlo |
 |---|---|
-| **Toda la batería de una vez** | `node pruebas/todas.mjs` — 91 comprobaciones en cuatro baterías |
+| **Toda la batería de una vez** | `node pruebas/todas.mjs` — 105 comprobaciones en cinco baterías |
 | Regla de clasificación sobre puntuaciones z | `node pruebas/clasificacion.mjs` — 19 comprobaciones |
 | Cada expresión, del coeficiente al estado | `node pruebas/expresiones.mjs` — 38 comprobaciones |
-| La referencia contra la que se mide todo | `node pruebas/linea-base.mjs` — 21 comprobaciones |
+| La referencia contra la que se mide todo | `node pruebas/linea-base.mjs` — 24 comprobaciones |
 | Caracterización del algoritmo sobre señal sintética | `node pruebas/deteccion-fasica.mjs` — 13 comprobaciones |
 | Caracterización del instrumento sobre registros reales | `node pruebas/analisis-sesion.mjs <export.json>` |
+| Acuerdo con codificación independiente | `node pruebas/analisis-observaciones.mjs <export.json>`; su batería tiene 11 comprobaciones e incluye eventos por condición observada |
 | Generación del juego de iconos | `python pruebas/generar-iconos.py <origen>` |
 | Historial de decisiones | mensajes de commit, que documentan qué se probó y qué salió peor |
 

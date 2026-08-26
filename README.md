@@ -116,6 +116,17 @@ Caracteriza el **instrumento** sobre un registro real exportado desde la
 aplicación. No puede saber si un evento ocurrió de veras; sí puede establecer si
 el registro tiene la calidad necesaria para que la pregunta tenga sentido.
 
+```bash
+node pruebas/analisis-observaciones.mjs <export.json>
+```
+
+Contrasta las muestras del sistema con la codificación independiente registrada
+en `#observacion`. Reporta matriz de confusión, acuerdo observado, kappa y AC1;
+por defecto toma una muestra por segundo para reducir la pseudorreplicación de
+vectores registrados cada 250 ms. También reconstruye los intervalos marcados
+como vocalización, movimiento mandibular, cierre ocular o movimiento general y
+calcula qué eventos y canales ocurrieron dentro de cada condición.
+
 ## Estado de la calibración y de la medición
 
 ⚠️ **Los pesos y umbrales de `js/classifier.js` siguen siendo valores iniciales
@@ -131,14 +142,14 @@ Con transitorios de duración y amplitud conocidas, sobre 40 realizaciones:
 | Ruido puro, 26 s | ningún evento espurio |
 | 130 ms · 3 σ · 60 fps | 100 % de detección, error de duración 23 ms |
 | 130 ms · 3 σ · 30 fps | **0 % de detección** |
-| 130 ms · 1,2 σ · 60 fps | 48 % de detección |
+| 130 ms · 1,2 σ · 60 fps | 45 % de detección |
 | Expresión sostenida de 3 s | correctamente ignorada por la vía fásica |
 
 A 30 fps el evento no se mide peor: la anchura medida no alcanza el mínimo
 resoluble y se rechaza entero, sin dejar rastro. Para la banda estricta de Ekman,
 60 fps no es una mejora deseable sino la condición para que exista la medición.
 
-La sensibilidad del 48 % ante un gesto débil es el precio del criterio de
+La sensibilidad del 45 % ante un gesto débil es el precio del criterio de
 umbral, y hay que declararlo: **una ventana sin eventos no demuestra que no hubo
 expresión.** Solo dice que no se detectó.
 
@@ -183,16 +194,22 @@ lo que permitió encontrar y ordenar todo lo anterior.
 
 ### Lo que falta, en orden
 
-1. **Excluir habla y parpadeo.** Es el bloqueante. Sin separar el movimiento
-   articulatorio y el fisiológico del expresivo, los recuentos no son recuentos
-   de expresiones. El marcado de parpadeo ya existe, pero solo cubre los canales
-   periorbitales y no se aplica a la mandíbula.
-2. **Medir el ruido de los canales que hoy se supone.** Doce de dieciséis toman
-   una referencia sustituta porque quedaron inmóviles en la calibración. Una
-   calibración más larga, o una que provoque movimiento deliberado, los mediría.
-3. **Llegar a 60 fps.** A 31 fps queda fuera el 36 % de la banda de Ekman. La
-   segunda opinión ya no compite; el siguiente candidato es mover la inferencia
-   a un Web Worker.
+1. **Cuantificar habla, mandíbula y parpadeo contra observación independiente.**
+   La aplicación ya permite registrar estos eventos sin mostrar la salida de la
+   máquina. Solo después de medir su coincidencia se podrá decidir qué canales o
+   ventanas excluir; hacerlo antes convertiría una sospecha en regla.
+2. **Caracterizar la tablet objetivo.** Las cifras actuales describen sobre todo
+   la computadora de desarrollo y un rostro adulto. Cadencia, resolución,
+   detección y recorrido de canales deben repetirse en la tablet y el
+   participante previstos antes de usarse como resultados del estudio.
+3. **Medir la dependencia de la dispersión sustituida.** La versión 10 ejecuta
+   un clasificador paralelo que excluye los canales cuyo ruido basal no se pudo
+   medir y guarda la proporción de discrepancia. Si ambas variantes divergen de
+   forma material, los resultados deben estratificarse o declararse no robustos.
+4. **Aumentar la cadencia solo si el cuello de botella es el cómputo.** A 31 fps
+   queda fuera el 36 % de la banda temporal de referencia. Antes de mover la
+   inferencia a un Web Worker se comparan latencia de inferencia e intervalo de
+   entrega: si la cámara es el límite, cambiar de hilo no recuperará fotogramas.
 
 ## Privacidad
 

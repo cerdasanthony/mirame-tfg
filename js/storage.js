@@ -8,7 +8,10 @@
 import { ATRIBUCION } from "./pictogramas.js";
 
 const DB_NOMBRE = "mirame";
-const DB_VERSION = 4;
+/* v5 corrige la migracion de RF-29: en v4 el almacén `observaciones` quedó
+   accidentalmente anidado dentro de la creación de `selecciones`. Un navegador
+   que ya tenía `selecciones` no recibía el almacén nuevo al actualizar. */
+const DB_VERSION = 5;
 let db = null;
 
 export async function abrir() {
@@ -40,7 +43,7 @@ export async function abrir() {
         const s = d.createObjectStore("selecciones", { keyPath: "id", autoIncrement: true });
         s.createIndex("porSesion", "sesionId");
         s.createIndex("porPictograma", "pictograma");
-
+      }
       if (!d.objectStoreNames.contains("observaciones")) {
         /* RF-29. La codificacion que hace una profesional externa mientras
            observa la sesion, sin ver lo que el sistema clasifica. Es lo que
@@ -51,7 +54,6 @@ export async function abrir() {
            es la respuesta a ese conflicto. */
         const o = d.createObjectStore("observaciones", { keyPath: "id", autoIncrement: true });
         o.createIndex("porSesion", "sesionId");
-      }
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -181,6 +183,7 @@ export async function guardarSeleccion(registro) {
  * dice a que tramo pertenece cada fotograma.
  */
 let etiquetaActiva = null;
+const contextosActivos = new Set();
 
 export function marcarSegmento(etiqueta) {
   etiquetaActiva = etiqueta || null;
@@ -191,9 +194,29 @@ export function segmentoActual() {
   return etiquetaActiva;
 }
 
+/**
+ * Condiciones concurrentes de contexto (RF-28).
+ *
+ * A diferencia del segmento principal, pueden coexistir: una vocalización puede
+ * ocurrir durante cansancio y después de alimentación reciente. Se registran
+ * como observaciones de contexto, no como causas ni diagnósticos.
+ */
+export function marcarContexto(etiqueta, activo = null) {
+  if (!etiqueta) return contextosActuales();
+  const encender = activo === null ? !contextosActivos.has(etiqueta) : Boolean(activo);
+  if (encender) contextosActivos.add(etiqueta);
+  else contextosActivos.delete(etiqueta);
+  return contextosActuales();
+}
+
+export function contextosActuales() {
+  return [...contextosActivos].sort();
+}
+
 export async function guardarMuestra(m) {
   await abrir();
   if (etiquetaActiva) m = { ...m, segmento: etiquetaActiva };
+  if (contextosActivos.size) m = { ...m, contextos: contextosActuales() };
   return promesa(tx("muestras", "readwrite").add(m));
 }
 
@@ -207,16 +230,6 @@ export async function guardarMuestra(m) {
 /**
  * Registra una observacion independiente (RF-29).
  *
- * LA INTERFAZ ESTA RETIRADA, EL ALMACEN NO
- * La pantalla de codificacion se quito porque la fase de evaluacion no ha
- * comenzado y no tenia sentido tenerla a la vista. El almacen y esta funcion se
- * conservan por dos motivos. El primero es tecnico: IndexedDB no admite bajar de
- * version, de modo que revertir el esquema dejaria sin abrir la base a cualquier
- * navegador que ya hubiera cargado la version 4. El segundo es que la
- * exportacion y el borrado definitivo ya los contemplan, y quitarlos ahora
- * obligaria a rehacerlos cuando llegue la fase de evaluacion.
- *
- *
  * La marca lleva el instante y el estado que la observadora atribuye, y NO la
  * clasificacion del sistema: mezclarlas en el mismo registro invitaria a
  * compararlas despues de haberse influido. El contraste se hace al analizar,
@@ -224,7 +237,7 @@ export async function guardarMuestra(m) {
  */
 export async function guardarObservacion(o) {
   await abrir();
-  return promesa(tx("observaciones", "readwrite").add(o));
+  return promesa(tx("observaciones", "readwrite").add({ ts: Date.now(), ...o }));
 }
 
 /** Observaciones independientes de todas las sesiones. */
@@ -315,4 +328,6 @@ export async function borrarTodo() {
   await promesa(tx("muestras", "readwrite").clear());
   await promesa(tx("eventos", "readwrite").clear());
   await promesa(tx("observaciones", "readwrite").clear());
+  etiquetaActiva = null;
+  contextosActivos.clear();
 }

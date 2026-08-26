@@ -180,6 +180,15 @@ m.seccion("5. Canales sin recorrido");
   m.afirmar("La sustituta sale de los canales que sí se midieron",
     r.sigmaSustituta === null || r.sigmaSustituta >= 0.05,
     r.sigmaSustituta === null ? "—" : r.sigmaSustituta.toFixed(4));
+  const normal = b.normalizar(extract(rostro({ AU9: 0.8 })));
+  const restringida = b.normalizar(extract(rostro({ AU9: 0.8 })), { excluirSupuestos: true });
+  m.afirmar("El análisis operativo conserva el canal con dispersión prestada",
+    Math.abs(normal.narizArrugada) > 0, normal.narizArrugada.toFixed(2));
+  m.afirmar("El análisis de sensibilidad puede excluirlo sin borrar el dato crudo",
+    restringida.narizArrugada === 0, "0");
+  m.afirmar("La calidad enumera canales medidos y supuestos",
+    b.calidadCalibracion.canalesMedidos + b.calidadCalibracion.canalesSupuestos === CARACTERISTICAS.length,
+    `${b.calidadCalibracion.canalesMedidos}+${b.calidadCalibracion.canalesSupuestos}`);
 }
 
 m.cerrar();
