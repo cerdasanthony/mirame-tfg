@@ -13,6 +13,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Mírame">
   <meta name="theme-color" content="#0B4A66">
+  <!-- Restaura la preferencia antes de cargar la hoja de estilo para evitar
+       un destello claro al abrir la aplicación en modo oscuro. -->
+  <script>
+    try {
+      const tema = localStorage.getItem("mirame.tema");
+      if (tema === "claro" || tema === "oscuro") document.documentElement.dataset.tema = tema;
+    } catch {}
+  </script>
   <link rel="stylesheet" href="./css/style.css">
 </head>
 
@@ -118,7 +126,18 @@
 
     
     <details class="grupo">
-      <summary>Ajustes<span class="grupo-nota">voz, umbrales y reordenamiento</span></summary>
+      <summary>Ajustes<span class="grupo-nota">apariencia, voz y calibración</span></summary>
+    <section class="bloque">
+      <h3>Apariencia</h3>
+      <label class="campo campo-tema"><span>Tema visual</span>
+        <select id="tema-visual">
+          <option value="sistema">Automático</option>
+          <option value="claro">Claro</option>
+          <option value="oscuro">Oscuro</option>
+        </select>
+      </label>
+      <p class="nota">Automático sigue el tema claro u oscuro configurado en el dispositivo.</p>
+    </section>
 <section class="bloque">
       <h3>Calibración de umbrales</h3>
       <p class="nota" style="margin-top:0">

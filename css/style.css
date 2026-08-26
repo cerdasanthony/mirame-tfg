@@ -22,21 +22,31 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
+  color-scheme: light;
   /* Papel cálido en vez del gris neutro habitual: baja el contraste con los
      colores de categoría y cansa menos en sesiones largas. */
   --papel: #fdf6ec;
   --papel-hondo: #f2e5d2;
   --superficie: #ffffff;
+  --fondo: #fdfbf7;
 
   --tinta: #2b2118;
   --tinta-2: #6b5a4a;
   --tinta-3: #a3907c;
   --linea: #e8dccb;
+  --linea-peligro: #f0cfd7;
 
   --barra: #2b2118;
   --acento: #c2701a;
+  --acento-fuerte: #a2600a;
   --verde: #3f8f3a;
   --rojo: #b03a55;
+  --estado-neutro: #57534e;
+  --estado-positivo: #15803d;
+  --estado-negativo: #be123c;
+  --aviso-fondo: rgba(255, 255, 255, .94);
+  --velo-panel: rgba(43, 33, 24, .38);
+  --velo-salida: rgba(43, 33, 24, .55);
 
   --barra-alto: 58px;
   --radio: 26px;
@@ -44,6 +54,58 @@
 
   --sombra-alta: 0 18px 48px rgba(43, 33, 24, .22);
   --curva: 200ms cubic-bezier(.34, 1.36, .64, 1);
+}
+
+/* El modo oscuro reduce luminancia en sesiones nocturnas sin recolorear los
+   pictogramas: sus tonos de categoría son parte de la señal de comunicación. */
+:root[data-tema="oscuro"] {
+  color-scheme: dark;
+  --papel: #141210;
+  --papel-hondo: #2b251f;
+  --superficie: #211c18;
+  --fondo: #141210;
+  --tinta: #f6ebdf;
+  --tinta-2: #d6c4b2;
+  --tinta-3: #aa9581;
+  --linea: #463a30;
+  --linea-peligro: #71404b;
+  --acento: #e59a48;
+  --acento-fuerte: #c47a2a;
+  --verde: #78c174;
+  --rojo: #e47f96;
+  --estado-neutro: #d7c8b9;
+  --estado-positivo: #79c985;
+  --estado-negativo: #f08099;
+  --aviso-fondo: rgba(33, 28, 24, .96);
+  --velo-panel: rgba(0, 0, 0, .58);
+  --velo-salida: rgba(0, 0, 0, .72);
+  --sombra-alta: 0 18px 48px rgba(0, 0, 0, .48);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema]) {
+    color-scheme: dark;
+    --papel: #141210;
+    --papel-hondo: #2b251f;
+    --superficie: #211c18;
+    --fondo: #141210;
+    --tinta: #f6ebdf;
+    --tinta-2: #d6c4b2;
+    --tinta-3: #aa9581;
+    --linea: #463a30;
+    --linea-peligro: #71404b;
+    --acento: #e59a48;
+    --acento-fuerte: #c47a2a;
+    --verde: #78c174;
+    --rojo: #e47f96;
+    --estado-neutro: #d7c8b9;
+    --estado-positivo: #79c985;
+    --estado-negativo: #f08099;
+    --aviso-fondo: rgba(33, 28, 24, .96);
+    --velo-panel: rgba(0, 0, 0, .58);
+    --velo-salida: rgba(0, 0, 0, .72);
+    --sombra-alta: 0 18px 48px rgba(0, 0, 0, .48);
+  }
 }
 
 * { box-sizing: border-box; }
@@ -273,7 +335,7 @@ button { font: inherit; cursor: pointer; }
 .salida {
   position: fixed; inset: 0; z-index: 60;
   display: grid; place-items: center;
-  background: rgba(43, 33, 24, .55);
+  background: var(--velo-salida);
   backdrop-filter: blur(4px);
   animation: aparecer 140ms ease-out;
 }
@@ -358,7 +420,7 @@ button { font: inherit; cursor: pointer; }
 body.calibrando .tablero { padding-bottom: 62px; }
 .aviso-caja {
   display: flex; align-items: center; gap: .8rem;
-  background: rgba(255, 255, 255, .94);
+  background: var(--aviso-fondo);
   backdrop-filter: blur(6px);
   border: 1px solid var(--linea);
   border-radius: 99px;
@@ -395,7 +457,7 @@ body.calibrando .tablero { padding-bottom: 62px; }
 
 .velo {
   position: fixed; inset: 0; z-index: 40;
-  background: rgba(43, 33, 24, .38);
+  background: var(--velo-panel);
   animation: aparecer 140ms ease-out;
 }
 .velo[hidden] { display: none; }
@@ -506,7 +568,7 @@ body.calibrando .tablero { padding-bottom: 62px; }
   background: var(--superficie); color: var(--tinta-2);
 }
 .btn:active { transform: scale(.98); }
-.btn-peligro { color: var(--rojo); border-color: #f0cfd7; }
+.btn-peligro { color: var(--rojo); border-color: var(--linea-peligro); }
 
 .nota { font-size: .73rem; color: var(--tinta-3); line-height: 1.6; margin: .85rem 0 0; }
 .vacio { font-size: .79rem; color: var(--tinta-3); margin: 0; }
@@ -517,11 +579,14 @@ body.calibrando .tablero { padding-bottom: 62px; }
 
 .campo { display: flex; align-items: center; gap: .5rem; margin-top: .8rem; font-size: .76rem; color: var(--tinta-3); }
 .campo span:first-child { flex: 1; }
-.campo input {
+.campo input,
+.campo select {
   width: 84px; padding: .42rem .55rem; font: inherit; font-size: .84rem;
   border: 1px solid var(--linea); border-radius: 9px; color: var(--tinta);
   background: var(--superficie);
 }
+.campo select { width: auto; max-width: 11rem; }
+.campo-tema { margin-top: 0; }
 .campo-unidad { font-size: .72rem; width: 14px; }
 
 .mapa { display: flex; flex-direction: column; gap: .45rem; }
@@ -723,13 +788,13 @@ body.panel-acoplado .barra {
 }
 .segmentos button:hover { background: rgba(127,127,127,.12); }
 .segmentos button.seg-activo { background: currentColor; }
-.segmentos button.seg-activo { color: #fff; background: #a2600a; border-color: #a2600a; }
+.segmentos button.seg-activo { color: #fff; background: var(--acento-fuerte); border-color: var(--acento-fuerte); }
 
 /* Observación independiente (RF-29). Cubre por completo el panel del sistema:
    ocultar su salida es parte del control contra sesgo, no una decisión visual. */
 .observacion {
   position: fixed; inset: 0; z-index: 60;
-  background: var(--fondo, #fdfbf7); color: var(--tinta, #22201d);
+  background: var(--fondo); color: var(--tinta);
   display: flex; flex-direction: column; gap: 1.2rem;
   padding: clamp(1rem, 4vw, 2.5rem); overflow-y: auto;
 }
@@ -749,7 +814,7 @@ body.panel-acoplado .barra {
 .obs-botones button:hover { background: rgba(127,127,127,.1); }
 .obs-botones button.obs-pulsado,
 .obs-botones button.obs-activo {
-  background: #a2600a; border-color: #a2600a; color: #fff;
+  background: var(--acento-fuerte); border-color: var(--acento-fuerte); color: #fff;
 }
 .obs-salir {
   align-self: flex-start; font: inherit; padding: .7rem 1.2rem; border-radius: 10px;

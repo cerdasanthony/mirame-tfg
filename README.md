@@ -230,6 +230,10 @@ está en [`docs/trazabilidad.md`](docs/trazabilidad.md), con lo que falta y por 
 importa. Se mantiene junto al código para que la coherencia sea verificable y no
 declarativa.
 
+El dictamen consolidado sobre avance académico, estado técnico, evidencia
+empírica, fundamento científico, amenazas a la validez y trabajo pendiente está
+en [`docs/estado-actual-licenciatura.md`](docs/estado-actual-licenciatura.md).
+
 ## Contexto académico
 
 Trabajo Final de Graduación · Licenciatura en Informática con Énfasis en Desarrollo Web

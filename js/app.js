@@ -623,11 +623,11 @@ function diagTexto() {
 /* ══════════════════════ Panel en vivo ══════════════════════ */
 
 const COLOR = {
-  negativo: "#be123c",
-  positivo: "#15803d",
-  neutro: "#57534e",
-  "negativo leve": "#b45309",
-  "negativo intenso": "#be123c",
+  negativo: "var(--estado-negativo)",
+  positivo: "var(--estado-positivo)",
+  neutro: "var(--estado-neutro)",
+  "negativo leve": "var(--acento)",
+  "negativo intenso": "var(--estado-negativo)",
 };
 
 function pintarPanel(e, puntaje, blendshapes, frente, incierto = false) {
@@ -657,7 +657,7 @@ function pintarPanel(e, puntaje, blendshapes, frente, incierto = false) {
   const barra = el("barra-puntaje");
   barra.style.width = Math.abs(puntaje) * 50 + "%";
   barra.style.left = puntaje < 0 ? 50 - Math.abs(puntaje) * 50 + "%" : "50%";
-  barra.style.background = puntaje < 0 ? "#e11d48" : "#16a34a";
+  barra.style.background = puntaje < 0 ? "var(--estado-negativo)" : "var(--estado-positivo)";
 
   if (blendshapes) pintarBlendshapes(blendshapes);
 }
@@ -1018,6 +1018,31 @@ el("mensaje-salida").addEventListener("click", () => {
 });
 
 /* ══════════════════════ Panel del cuidador ══════════════════════ */
+
+const CLAVE_TEMA = "mirame.tema";
+const TEMAS_VALIDOS = new Set(["sistema", "claro", "oscuro"]);
+
+function aplicarTema(tema, guardar = false) {
+  const elegido = TEMAS_VALIDOS.has(tema) ? tema : "sistema";
+  if (elegido === "sistema") delete document.documentElement.dataset.tema;
+  else document.documentElement.dataset.tema = elegido;
+
+  if (guardar) {
+    if (elegido === "sistema") localStorage.removeItem(CLAVE_TEMA);
+    else localStorage.setItem(CLAVE_TEMA, elegido);
+  }
+
+  const selector = el("tema-visual");
+  if (selector) selector.value = elegido;
+}
+
+aplicarTema(localStorage.getItem(CLAVE_TEMA) ?? "sistema");
+el("tema-visual").addEventListener("change", (evento) => {
+  aplicarTema(evento.target.value, true);
+});
+addEventListener("storage", (evento) => {
+  if (evento.key === CLAVE_TEMA) aplicarTema(evento.newValue ?? "sistema");
+});
 
 /**
  * El panel tiene dos modos y el modo va en la RUTA.
