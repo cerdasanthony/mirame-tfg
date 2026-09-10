@@ -7,6 +7,7 @@
 **Fecha de corte:** 26 de agosto de 2026
 
 **Versión de la evidencia empírica examinada:** `mirame-v58`, commit `4bbf05f`
+**Versión actual del prototipo:** `mirame-v61`; incluye el modo oscuro, la interfaz responsiva, sesiones con una sola línea base y exportación versionada.
 **Naturaleza del documento:** estado técnico y científico de una prueba de concepto; no es un informe de validación clínica.
 
 ## 1. Dictamen ejecutivo
@@ -80,7 +81,7 @@ caso actual del clasificador facial.
 | OE1. Analizar el estado del arte | Terminado para el seguimiento actual | Capítulo II y Entregable 1 del Documento 18 | Mantener actualizada la revisión si se incorporan nuevas afirmaciones o métodos. |
 | OE2. Especificar requerimientos | Terminado, con trazabilidad viva | 39 RF y 15 RNF; `docs/trazabilidad.md` | Cerrar RF-22, completar RF-23 y RF-24 y auditar 13 RNF. |
 | OE3. Diseñar la arquitectura | Implementación técnica avanzada; entregable formal pendiente | Separación por módulos, procesamiento local, IndexedDB, dos vías temporales y degradación segura | Consolidar el documento de arquitectura y relacionarlo explícitamente con decisiones, riesgos y requisitos. |
-| OE4. Desarrollar la clasificación | Prototipo funcional y probado; no validado | Clasificador tónico, vía fásica, análisis de sensibilidad, segundo clasificador y 105 comprobaciones automatizadas | Calibrar pesos y umbrales con evidencia externa; caracterizar tablet y participante; resolver baja cobertura basal. |
+| OE4. Desarrollar la clasificación | Prototipo funcional y probado; no validado | Clasificador tónico, vía fásica, análisis de sensibilidad, segundo clasificador y 138 comprobaciones automatizadas | Calibrar pesos y umbrales con evidencia externa; caracterizar tablet y participante; resolver baja cobertura basal. |
 | OE5. Evaluar la prueba de concepto | No completado | Existe caracterización preliminar del instrumento sobre registros de desarrollo | Ejecutar protocolo de caso único, observación independiente, análisis de asociación, evaluación de usabilidad y resolución temporal en el dispositivo objetivo. |
 
 ## 5. Estado de los requerimientos
@@ -96,6 +97,12 @@ eventos breves, reordenamiento y observación independiente están implementadas
 Los pendientes funcionales se concentran en administración y presentación:
 configuración del conjunto de pictogramas, parámetros todavía no configurables y
 exportación CSV.
+
+El catálogo actual contiene doce pictogramas fijos. Para la evaluación se propone
+trabajar con un subconjunto de dos a cuatro opciones de alta motivación, definido
+con asesoría profesional. Como RF-22 todavía no permite ocultar opciones desde la
+interfaz, esta condición se controla durante la preparación de cada sesión y se
+declara como limitación del prototipo.
 
 En los requerimientos no funcionales solo se han auditado explícitamente RNF-05,
 funcionamiento sin conexión, y RNF-15, cadencia de captura medida. **Los trece RNF
@@ -136,7 +143,8 @@ instrumento no distingue del reposo; **no significa ausencia de emoción**.
 
 ### 6.4 Vía fásica
 
-La vía fásica opera en paralelo sobre unidades de acción sin suavizar. Busca
+La vía fásica opera en paralelo sobre 19 unidades de acción estimadas por proxy,
+sin suavizar. Busca
 transitorios y registra inicio, ápice, fin, duración, amplitud, incertidumbre
 temporal y resolubilidad. No sustituye la clasificación sostenida y no debe
 presentarse como reconocimiento validado de microexpresiones.
@@ -153,12 +161,25 @@ reglas, equipo, calidad de calibración y métricas. La observación independien
 oculta la salida del sistema para reducir sesgo y puede analizarse con matriz de
 confusión, acuerdo observado, kappa de Cohen y AC1 de Gwet.
 
+### 6.6 Ciclo real de los registros
+
+La interfaz no implementa cuentas ni inicio de sesión de usuario. `arrancar()`
+crea un registro y, al terminar la línea base, completa esa misma cabecera. El
+control «Nueva sesión» cierra el registro vigente, reinicia los acumuladores
+técnicos y abre otro antes de recalibrar; así no se mezclan dos referencias bajo
+un mismo identificador. Durante el uso, las métricas se actualizan cada diez
+segundos. Un cierre abrupto todavía puede dejar `fin` nulo, pero conserva la
+última actualización periódica disponible.
+
 ## 7. Evidencia automatizada
 
-La batería completa contiene 105 comprobaciones y pasa sin fallos:
+La batería completa contiene 138 comprobaciones y pasa sin fallos:
 
 | Batería | Comprobaciones | Qué verifica |
 |---|---:|---|
+| Sintaxis | 27 | todos los módulos JavaScript y scripts de análisis |
+| Estructura | 3 | IDs de interfaz, duplicados y recursos locales |
+| Esquema de exportación | 3 | versión vigente, legado y rechazo de versiones desconocidas |
 | Clasificación | 19 | cortes, puntuación, histéresis, suavizado y permanencia |
 | Expresiones | 38 | correspondencia entre coeficientes, evidencia y estado esperado |
 | Línea base | 24 | estimadores, sustitución de dispersión, normalización y calidad |
@@ -242,14 +263,14 @@ relación entre perfiles y pictogramas.
 
 En 91 comparaciones de sesión, la proporción de coincidencia fue 60,44 % y el
 kappa de Cohen fue −0,014. El acuerdo corregido por azar fue insignificante. El
-segundo clasificador es un contraste, no una verdad de referencia, y fue
-entrenado con imágenes de rostros adultos; su desacuerdo no permite decidir cuál
-de las dos vías es correcta.
+segundo clasificador es un contraste, no una verdad de referencia. Su corpus de
+entrenamiento no establece validez para el participante preescolar del estudio;
+su desacuerdo tampoco permite decidir cuál de las dos vías es correcta.
 
 La interfaz actual reúne bajo la palabra “incierto” al menos dos causas:
 
 1. puntaje cercano a un corte de decisión;
-2. desacuerdo entre el clasificador geométrico y el clasificador por píxeles.
+2. desacuerdo entre el clasificador basado en reglas y el clasificador por píxeles.
 
 La baja cobertura de calibración es una tercera fuente de incertidumbre, pero no
 se diferencia todavía en esa etiqueta. Para que la salida sea interpretable,
@@ -400,6 +421,8 @@ documentarse en la interpretación.
 
 ### Prioridad 1. Definir el protocolo de validez antes de recoger resultados
 
+El protocolo operativo versionado está en `docs/protocolo-validacion.md`.
+
 1. Congelar versión, definiciones, categorías y plan de análisis.
 2. Definir con el comité los criterios de aceptación y de fallo de calibración.
    Los valores deben derivarse de repetibilidad, incertidumbre y necesidades del
@@ -473,7 +496,7 @@ documentarse en la interpretación.
 Desde la raíz del repositorio:
 
 ```bash
-node pruebas/todas.mjs
+npm test
 node pruebas/analisis-sesion.mjs <export.json>
 node pruebas/analisis-observaciones.mjs <export.json>
 ```
@@ -504,6 +527,8 @@ archivo contiene observaciones independientes alineables.
 - Prkachin, K. M., y Solomon, P. E. (2008). *The structure, reliability and
   validity of pain expression*.
   <https://doi.org/10.1016/j.pain.2008.04.010>
+- Rousseeuw, P. J., y Croux, C. (1993). *Alternatives to the median absolute
+  deviation*. <https://doi.org/10.1080/01621459.1993.10476408>
 - Russell, J. A. (1980). *A circumplex model of affect*.
   <https://doi.org/10.1037/h0077714>
 - Stevens, S. S. (1946). *On the theory of scales of measurement*.

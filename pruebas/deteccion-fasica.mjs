@@ -279,10 +279,10 @@ seccion("5. El mismo transitorio de 130 ms, a 30 fps");
   );
   /* El resultado es más duro de lo que parecía: no es que a 30 fps se mida con
      más error, es que la anchura medida no llega al mínimo resoluble y el evento
-     se rechaza entero. Para la banda estricta de Ekman, 60 fps no es una mejora
+     se rechaza entero. Para la banda operativa de eventos breves, 60 fps no es una mejora
      deseable sino la condición para que exista la medición. */
   comprobar(
-    "a 30 fps la banda estricta de Ekman se pierde por completo",
+    "a 30 fps la banda operativa se pierde por completo",
     c30.tasa < 0.05,
     `${(c30.tasa * 100).toFixed(0)} % de detección`
   );
@@ -294,8 +294,8 @@ seccion("6. Resolución temporal según la cadencia de la cámara");
 {
   const a30 = simular({ fps: 30, transitorios: [] }).metricas;
   const a60 = simular({ fps: 60, transitorios: [] }).metricas;
-  console.log(`    30 fps → resolución ${a30.resolucionMs} ms · ceguera en la banda de Ekman ${a30.cegueraEkmanPct} %`);
-  console.log(`    60 fps → resolución ${a60.resolucionMs} ms · ceguera en la banda de Ekman ${a60.cegueraEkmanPct} %`);
+  console.log(`    30 fps → resolución ${a30.resolucionMs} ms · ceguera en la banda operativa ${a30.cegueraEkmanPct} %`);
+  console.log(`    60 fps → resolución ${a60.resolucionMs} ms · ceguera en la banda operativa ${a60.cegueraEkmanPct} %`);
   comprobar(
     "duplicar la cadencia reduce a menos de la mitad la parte ciega de la banda",
     a60.cegueraEkmanPct < a30.cegueraEkmanPct / 2,

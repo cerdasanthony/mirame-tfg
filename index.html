@@ -111,12 +111,13 @@
     <section class="bloque">
       <h3>Registros</h3>
       <div class="acciones-registros">
-        <button id="btn-recalibrar" class="btn btn-registro" type="button" title="Recalibrar línea base"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><circle cx="12" cy="12" r="3"/></svg><span>Recalibrar</span></button>
+        <button id="btn-recalibrar" class="btn btn-registro" type="button" title="Cerrar la sesión actual e iniciar otra calibración"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><circle cx="12" cy="12" r="3"/></svg><span>Nueva sesión</span></button>
         <button id="btn-exportar" class="btn btn-secundario btn-registro" type="button" title="Exportar los registros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></svg><span>Exportar</span></button>
         <button id="btn-borrar" class="btn btn-peligro btn-registro" type="button" title="Borrar todos los registros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/><path d="M10 11v6"/><path d="M14 11v6"/></svg><span>Borrar</span></button>
         <button id="btn-actualizar" class="btn btn-secundario btn-registro" type="button" title="Forzar actualización de la aplicación"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg><span>Actualizar</span></button>
       </div>
       <p id="acciones-estado" class="nota nota-aviso" role="status" aria-live="polite"></p>
+      <p class="nota">Nueva sesión cierra el registro actual, reinicia las métricas del instrumento y toma otra línea base. Así no se mezclan dos calibraciones bajo el mismo identificador.</p>
       <p class="nota">
         Descarta la copia guardada de la aplicación y la vuelve a bajar. Útil cuando
         se instaló una versión y la pantalla sigue mostrando la anterior. No borra
@@ -141,7 +142,7 @@
 <section class="bloque">
       <h3>Calibración de umbrales</h3>
       <p class="nota" style="margin-top:0">
-        Cortes del compuesto, en desviaciones estándar respecto del reposo de esta
+        Cortes del compuesto, en unidades de escala basal respecto del reposo de esta
         sesión. Ampliar la banda neutra reduce el ruido y clasifica más como neutro;
         estrecharla aumenta la sensibilidad y también la oscilación.
       </p>
@@ -250,12 +251,12 @@
         <div><dt>Resolución temporal</dt><dd id="fasico-resolucion">—</dd></div>
         <div><dt>Marca de tiempo</dt><dd id="fasico-reloj">—</dd></div>
         <div><dt>Canales con umbral</dt><dd id="fasico-canales">—</dd></div>
-        <div><dt>Microexpresiones</dt><dd id="fasico-micro">—</dd></div>
+        <div><dt>Eventos de 40–200 ms</dt><dd id="fasico-micro">—</dd></div>
         <div><dt>Expresiones breves</dt><dd id="fasico-breve">—</dd></div>
         <div><dt>Bajo resolución</dt><dd id="fasico-irresoluble">—</dd></div>
         <div><dt>Marcados como parpadeo</dt><dd id="fasico-parpadeo">—</dd></div>
       </dl>
-      <p class="dato">Banda de Ekman fuera de alcance: <strong id="fasico-ceguera">—</strong></p>
+      <p class="dato">Banda operativa de eventos breves fuera de alcance: <strong id="fasico-ceguera">—</strong></p>
       <p class="nota">
         Vía independiente de la principal: no suaviza, no exige permanencia y
         trabaja Unidad de Acción por Unidad de Acción. Recoge los transitorios de
@@ -296,8 +297,9 @@
       <p class="dato">Concordancia: <strong id="kappa-lectura">sin datos</strong></p>
       <p class="nota">
         Un segundo modelo preentrenado clasifica el rostro recortado por un camino
-        independiente del análisis geométrico. El acuerdo entre ambos es una medida
-        de fiabilidad que no requiere disponer de una verdad de referencia.
+        independiente de las reglas sobre <em>blendshapes</em>. El acuerdo entre ambos
+        describe consistencia interna; no demuestra acierto ni sustituye una verdad
+        de referencia obtenida mediante observación independiente.
       </p>
     </section>
 
@@ -307,7 +309,7 @@
       <div id="senal" class="blendshapes"><p class="vacio">Sin datos todavía.</p></div>
       <p class="nota">
         Desviación de cada característica respecto del reposo de esta sesión, en
-        sigmas. Si al hacer una mueca los valores no se mueven, el problema está
+        unidades de escala basal. Si al hacer una mueca los valores no se mueven, el problema está
         en la captura; si se mueven pero el compuesto sigue cerca de cero, se
         están cancelando entre sí y hay que revisar los pesos.
       </p>

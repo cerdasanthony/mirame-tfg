@@ -6,14 +6,15 @@
  *
  * DERIVACIÓN DE LOS UMBRALES
  * La entrada son puntuaciones z respecto de la línea base del participante, de
- * modo que los cortes se expresan en unidades de desviación estándar y no en
- * números arbitrarios. «Positivo» significa que el compuesto se aparta más de
- * una sigma por encima del reposo observado en esa misma persona. Ese criterio
- * es reproducible y se recalcula solo para cada participante y cada sesión.
+ * modo que los cortes se expresan en unidades de escala basal. Esa escala es
+ * propia del canal cuando la dispersión se pudo medir y es una sustitución
+ * marcada cuando no se pudo. Los valores de corte son parámetros de diseño que
+ * todavía deben calibrarse con datos separados de los usados para evaluarlos.
  *
- * Los PESOS siguen siendo una decisión de diseño —qué características cuentan
- * y con qué signo— y deben justificarse en el informe. Lo que dejó de ser
- * arbitrario es la escala.
+ * Qué canales entran y con qué signo también es una decisión operacional del
+ * prototipo. FACS aporta un vocabulario para describir acciones, no una valencia
+ * emocional inherente. Las configuraciones publicadas motivan las agrupaciones,
+ * pero su adecuación a este participante debe evaluarse empíricamente.
  */
 
 export const ESTADOS = ["positivo", "neutro", "negativo leve", "negativo intenso"];
@@ -27,10 +28,10 @@ export const ESTADOS = ["positivo", "neutro", "negativo leve", "negativo intenso
  *
  * La version anterior usaba sonrisa +1,0, comisuras abajo −0,9, cejas abajo
  * −0,7, tension ocular −0,5, tension labial −0,5 y ceja interna −0,4. Esos
- * numeros los eligio una persona. La literatura establece QUE SIGNO lleva cada
- * unidad de accion, porque las combinaciones de FACS lo determinan, pero no
- * establece cuanto pesa una frente a otra. Sostener que la sonrisa vale 2,5
- * veces la ceja interna exigiria una fuente que no existe.
+ * numeros los eligio una persona. FACS describe acciones observables y no fija
+ * su signo; aquí el signo es una hipótesis operacional motivada por
+ * configuraciones publicadas. Tampoco existe una base para sostener que la
+ * sonrisa vale 2,5 veces la ceja interna en esta población y con este extractor.
  *
  * POR QUE PESOS IGUALES NO ES RENDIRSE
  * Dawes (1979) mostro que los modelos lineales «impropios» —aquellos cuyos
@@ -38,8 +39,9 @@ export const ESTADOS = ["positivo", "neutro", "negativo leve", "negativo intenso
  * ajustados, y que la ponderacion unitaria es notablemente robusta. En
  * particular, los pesos asignados por intuicion no superan a los pesos iguales,
  * y con muestras pequenas la ventaja de cualquier ponderacion ajustada no
- * sobrevive a una muestra nueva. Sustituir pesos inventados por pesos iguales no
- * pierde capacidad predictiva: pierde una afirmacion que no se podia sostener.
+ * sobrevive a una muestra nueva. Ese antecedente no demuestra rendimiento en
+ * este dominio; solo justifica pesos iguales como línea base transparente que
+ * deberá compararse con alternativas sobre sesiones de evaluación separadas.
  *
  * POR QUE NO SE IMPORTAN COEFICIENTES PUBLICADOS
  * Existen trabajos que ajustan coeficientes de unidades de accion sobre
@@ -60,7 +62,7 @@ export const ESTADOS = ["positivo", "neutro", "negativo leve", "negativo intenso
  * ───────────────────────────────────────────────────────────────────────────
  * POR QUE CADA LADO SE PROMEDIA EN LUGAR DE SUMARSE
  *
- * Hay una unidad de accion que aporta evidencia positiva y cinco que aportan
+ * Hay una unidad de accion que aporta evidencia positiva y varias que aportan
  * negativa. Sumando con pesos iguales, el lado negativo tendria cinco veces mas
  * capacidad de mover el resultado solo por ser mas numeroso, y eso es un sesgo
  * de construccion, no un hallazgo sobre el rostro.
@@ -68,8 +70,8 @@ export const ESTADOS = ["positivo", "neutro", "negativo leve", "negativo intenso
  * Promediando cada lado por separado, ambos quedan expresados en la misma
  * unidad —desviaciones tipicas de la linea base del participante— con
  * independencia de cuantos canales tenga cada uno. El compuesto es entonces la
- * diferencia entre dos cantidades comparables, y no hace falta ningun divisor
- * elegido: el resultado ya esta en unidades de sigma.
+ * diferencia entre dos cantidades comparables, y no hace falta ningún divisor
+ * elegido: el resultado queda en unidades de la escala basal operativa.
  */
 
 /** Unidades de accion que aportan evidencia de valencia positiva. */
@@ -86,10 +88,10 @@ const POSITIVAS = ["sonrisa"];
  * la aplicacion, y la queja era exacta: la expresion tenia que estar muy marcada
  * para que el sistema la registrara.
  *
- * Agrupando por region, cada zona del rostro aporta su evidencia mas fuerte y
- * las regiones se promedian entre si. Un puchero aporta entonces un tercio de su
- * intensidad en lugar de un sexto, y una expresion que compromete todo el rostro
- * sigue aportando el maximo.
+ * Agrupando por region se conserva el canal más fuerte de cada zona. La función
+ * operativa toma después la región más fuerte, para no diluir una configuración
+ * localizada al ampliar el catálogo. Esta elección es instrumental y debe
+ * validarse contra observación independiente.
  *
  * FUNDAMENTO
  * Es la construccion del indice de Prkachin y Solomon (2008), que este trabajo
@@ -237,7 +239,7 @@ function evidenciaNegativaRegional(e) {
  * Con estos pesos, 1,72 frente a 4,0. Dividir por 4,0 dejaba al compuesto con
  * una sigma real de 0,43, de modo que un corte nominal «de una sigma» se estaba
  * aplicando a algo comprimido 2,32 veces. Una expresión que activa dos o tres
- * canales quedaba diluida entre los siete.
+ * canales quedaba diluida entre todos los canales considerados.
  *
  * POR QUE SE MIDE EN VEZ DE CALCULARSE
  * La norma euclídea sería correcta solo si los canales fuesen independientes, y
@@ -281,7 +283,7 @@ export function calibrarNorma(muestrasZ) {
 }
 
 /**
- * Cortes del compuesto, en unidades de sigma de la línea base.
+ * Cortes del compuesto, en unidades de la escala basal operativa.
  *
  * Son ajustables en caliente desde el panel del cuidador porque la anchura de
  * la banda neutra es justamente el parámetro que hay que calibrar con cada
@@ -308,7 +310,7 @@ export function fijarUmbrales(nuevos) {
 }
 
 /**
- * Ancho de la histéresis, en sigmas.
+ * Ancho de la histéresis, en unidades de escala basal.
  *
  * Un puntaje que oscila alrededor de un corte produce un estado que parpadea.
  * La histéresis exige superar el corte por este margen para ENTRAR a un estado,
@@ -320,8 +322,8 @@ const HISTERESIS = 0.25;
 /**
  * Compuesto en unidades de sigma.
  *
- * Se divide entre la suma de pesos absolutos para que el resultado siga
- * expresándose en sigmas y no dependa de cuántas características se sumen.
+ * Se resta la evidencia negativa regional más fuerte de la evidencia positiva.
+ * Ambos lados parten de puntuaciones z comparables y se corrige el centro basal.
  */
 export function puntaje(z, centro = NORMA.centro) {
   const e = evidencia(z);

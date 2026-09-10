@@ -23,6 +23,7 @@
  */
 
 import { readFileSync } from "node:fs";
+import { validarEsquema } from "./esquema-exportacion.mjs";
 
 const archivo = process.argv[2];
 if (!archivo) {
@@ -31,6 +32,8 @@ if (!archivo) {
 }
 
 const d = JSON.parse(readFileSync(archivo, "utf8"));
+const avisoEsquema = validarEsquema(d);
+if (avisoEsquema) console.warn("⚠ " + avisoEsquema);
 const sesiones = d.sesiones ?? [];
 const selecciones = d.selecciones ?? [];
 const muestras = d.muestras ?? [];
@@ -58,14 +61,15 @@ const seccion = (t) => console.log("\n" + t + "\n" + "═".repeat(t.length));
  * Entropía normalizada de un reparto, en [0, 1].
  *
  * POR QUÉ SIRVE ACÁ
- * Una expresión facial real es económica: activa unos pocos músculos y deja el
- * resto quieto, así que sus eventos se concentran en pocos canales. El ruido no
- * tiene ninguna razón para preferir un canal sobre otro y se reparte parejo.
+ * Una acción facial localizada tiende a concentrarse en pocos canales. El ruido
+ * difuso puede repartirse de manera más uniforme, aunque el movimiento general
+ * o una acción compleja también pueden activar muchos canales.
  *
  * La entropía mide exactamente eso. Cerca de 1 el reparto es indistinguible del
  * uniforme, que es la firma del ruido; bastante por debajo, hay estructura. No
  * demuestra que los eventos sean genuinos —un artefacto sistemático también
- * concentra— pero un valor cercano a 1 sí es evidencia fuerte de que no lo son.
+ * concentra— ni que sean falsos. Es una bandera descriptiva que debe leerse con
+ * las marcas de contexto y la observación independiente.
  */
 function entropiaNormalizada(conteos) {
   const total = Object.values(conteos).reduce((a, b) => a + b, 0);
@@ -194,25 +198,25 @@ if (!resoluciones.length) {
   const ceguera = Math.min(100, Math.max(0, ((med - 40) / (200 - 40)) * 100));
   console.log(`  n=${resoluciones.length}  mediana ${med} ms  (min ${Math.min(...resoluciones)}, max ${Math.max(...resoluciones)})`);
   console.log(`  cadencia implicada  ${fps.toFixed(1)} fps`);
-  console.log(`  banda de Ekman (40–200 ms) fuera de alcance:  ${ceguera.toFixed(0)} %`);
+  console.log(`  banda operativa de eventos breves (40–200 ms) fuera de alcance:  ${ceguera.toFixed(0)} %`);
   console.log();
   /* El veredicto se deriva de la ceguera ya calculada y no de un corte aparte,
      para que no puedan contradecirse: decir «se resuelve la mitad superior de la
      banda» dos lineas despues de «96 % fuera de alcance» seria un error de
      reporte, y en un informe ese error vale mas caro que el dato malo. */
   if (ceguera >= 90) {
-    console.log("  ✗ VEREDICTO: la banda estricta de Ekman queda practicamente entera fuera");
+    console.log("  ✗ VEREDICTO: la banda operativa de eventos breves queda practicamente entera fuera");
     console.log("    de alcance. Los eventos de banda «microexpresion» que aparezcan en este");
     console.log("    registro no son sostenibles: caen en el margen residual que el muestreo");
     console.log("    alcanza a rozar. El informe NO puede afirmar deteccion de");
     console.log("    microexpresiones con este dispositivo y esta cadencia.");
   } else if (ceguera >= 50) {
-    console.log("  ⚠ VEREDICTO: mas de la mitad de la banda de Ekman queda fuera de alcance.");
+    console.log("  ⚠ VEREDICTO: mas de la mitad de la banda operativa queda fuera de alcance.");
     console.log("    Solo son sostenibles los eventos mas largos de la banda.");
   } else if (ceguera >= 20) {
-    console.log("  ⚠ VEREDICTO: parte baja de la banda de Ekman fuera de alcance.");
+    console.log("  ⚠ VEREDICTO: parte baja de la banda operativa fuera de alcance.");
   } else {
-    console.log("  ✓ VEREDICTO: la mayor parte de la banda de Ekman queda dentro de alcance.");
+    console.log("  ✓ VEREDICTO: la mayor parte de la banda operativa queda dentro de alcance.");
   }
 }
 
@@ -307,7 +311,7 @@ if (kappas.length) {
   if (km < 0.21) {
     console.log("  ✗ Los dos clasificadores no coinciden más de lo que coincidirían por azar.");
     console.log("    Es un resultado del OE 5 y debe reportarse como tal, no omitirse. Recordar");
-    console.log("    ademas que el modelo preentrenado fue entrenado con rostros adultos.");
+    console.log("    ademas que el acuerdo entre modelos no sustituye una codificacion humana independiente.");
   }
 } else {
   console.log("\n  Sin datos de acuerdo: la segunda opinión estuvo desactivada.");
@@ -403,7 +407,7 @@ const cegueraFinal = med === null
 if (med === null) problemas.push("no se registró la resolución temporal");
 else if (cegueraFinal >= 50)
   problemas.push(
-    `resolución de ${med} ms: el ${cegueraFinal.toFixed(0)} % de la banda de Ekman queda fuera de alcance`
+    `resolución de ${med} ms: el ${cegueraFinal.toFixed(0)} % de la banda operativa queda fuera de alcance`
   );
 if (colapso > 0.05) problemas.push(`${pct(colapso)} de los eventos vienen de umbrales derrumbados`);
 if (!hayInstr) problemas.push("ninguna sesión registró métricas de instrumento");

@@ -21,6 +21,9 @@ import { dirname, join } from "node:path";
 const aqui = dirname(fileURLToPath(import.meta.url));
 
 const BATERIAS = [
+  ["sintaxis.mjs", "Sintaxis de todos los módulos JavaScript"],
+  ["estructura.mjs", "Contrato entre HTML, orquestación y recursos"],
+  ["esquema.mjs", "Compatibilidad de exportaciones versionadas"],
   ["clasificacion.mjs", "Regla de clasificación sobre puntuaciones z"],
   ["expresiones.mjs", "Cada expresión, del coeficiente al estado"],
   ["linea-base.mjs", "La referencia contra la que se mide todo"],

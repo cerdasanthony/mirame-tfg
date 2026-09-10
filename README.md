@@ -16,7 +16,7 @@ Mírame agrega una cámara que describe, en términos medibles, cómo estaba el 
 ## Qué no hace
 
 - No detecta emociones ni afirma saber lo que la persona siente
-- No decide ni sugiere qué quiere el usuario
+- No selecciona automáticamente ni afirma conocer qué quiere la persona; el reordenamiento opcional solo cambia la posición de un pictograma y mantiene todas las opciones disponibles
 - No diagnostica nada
 - No graba ni almacena video o imágenes
 - No envía datos a ningún servidor
@@ -40,7 +40,7 @@ MediaPipe Face Landmarker  ·  puntos de referencia 3D + blendshapes
   VÍA TÓNICA                     VÍA FÁSICA
   segundos                       milisegundos
       ↓                              ↓
-  7 características              16 Unidades de Acción (FACS)
+  14 características             19 Unidades de Acción estimadas por proxy
       ↓                              ↓
   z contra línea base            z contra línea base de AU
       ↓                              ↓
@@ -62,17 +62,17 @@ MediaPipe Face Landmarker  ·  puntos de referencia 3D + blendshapes
 Las dos vías miden el mismo rostro a dos escalas de tiempo. La tónica describe
 cómo estaba; la fásica, qué pasó por él. La segunda existe porque el dwell de
 500 ms de la primera hace **estructuralmente imposible** registrar una
-microexpresión, que según Ekman dura entre 40 y 200 ms.
+evento de la banda operativa más breve, definida entre 40 y 200 ms.
 
 ### Módulos
 
 | Módulo | Responsabilidad | Archivo |
 |---|---|---|
-| Comunicador | Tablero de pictogramas, paginación, salida de voz | `js/board.js`, `js/speech.js` |
+| Comunicador | Tablero de pictogramas, desplazamiento vertical, salida de voz | `js/board.js`, `js/speech.js` |
 | A · Captura y detección | Cámara, Face Landmarker, blendshapes | `js/face.js` |
-| A · Características | Siete medidas observables y línea base | `js/features.js` |
+| A · Características | Catorce medidas observables y línea base | `js/features.js` |
 | B · Clasificación | Reglas de umbral y ventana temporal | `js/classifier.js` |
-| A′ · Unidades de Acción | AU de FACS, valencia y perfil de expresividad | `js/facs.js` |
+| A′ · Unidades de Acción | correspondencias aproximadas con AU de FACS y perfil de expresividad | `js/facs.js` |
 | B′ · Vía fásica | Detección de transitorios breves | `js/microexpresiones.js` |
 | Persistencia | Sesiones, selecciones e índice de asociación | `js/storage.js` |
 | Orquestación | Flujo de sesión y panel en vivo | `js/app.js` |
@@ -95,9 +95,20 @@ Después, abrir `http://localhost:8000`. Para probar desde una tablet en la mism
 
 ---
 
-## Pruebas
+## Pruebas y reproducibilidad
 
-Dos programas, que responden dos preguntas distintas.
+La verificación completa es el punto de entrada habitual y es la misma que corre
+GitHub Actions en cada cambio:
+
+```bash
+npm test
+```
+
+Incluye sintaxis de todos los módulos, clasificación, expresiones sintéticas,
+línea base robusta, detección fásica y acuerdo con observación independiente.
+
+Los análisis que necesitan un registro exportado se ejecutan aparte porque
+responden preguntas empíricas y no pueden fabricar datos durante una prueba:
 
 ```bash
 node pruebas/deteccion-fasica.mjs
@@ -146,8 +157,8 @@ Con transitorios de duración y amplitud conocidas, sobre 40 realizaciones:
 | Expresión sostenida de 3 s | correctamente ignorada por la vía fásica |
 
 A 30 fps el evento no se mide peor: la anchura medida no alcanza el mínimo
-resoluble y se rechaza entero, sin dejar rastro. Para la banda estricta de Ekman,
-60 fps no es una mejora deseable sino la condición para que exista la medición.
+resoluble y se rechaza entero, sin dejar rastro. Para la banda operativa de
+40 a 200 ms, una cadencia mayor amplía la parte que el instrumento puede describir.
 
 La sensibilidad del 45 % ante un gesto débil es el precio del criterio de
 umbral, y hay que declararlo: **una ventana sin eventos no demuestra que no hubo
@@ -155,42 +166,25 @@ expresión.** Solo dice que no se detectó.
 
 ### Lo que se ha medido sobre registros reales
 
-Dos registros del 24-08-2026, antes y después de las correcciones.
+La evidencia más reciente es la sesión técnica 177 del archivo exportado el
+26-08-2026. Procede de una computadora de desarrollo y un rostro adulto; no
+caracteriza la tablet ni al participante del estudio.
 
-**Lo que se corrigió y se verificó que quedó corregido:**
+| Medida | Resultado | Lectura limitada |
+|---|---:|---|
+| Duración útil | aproximadamente 61 s | piloto técnico breve |
+| Detección facial | 644/645 = 99,84 % | este equipo y este encuadre |
+| Inferencia media / p95 | 22,01 / 38,8 ms | viable en la computadora de desarrollo |
+| Cadencia implicada | 30,9 fps | resolución temporal aproximada de 98 ms |
+| Dispersión tónica sustituida | 11 de 14 canales | calibración de cobertura reducida |
+| Umbrales fásicos sustituidos | 18 de 19 canales | los eventos dependen de una escala prestada |
+| Eventos | 29, aproximadamente 28/min | candidatos del instrumento, no expresiones confirmadas |
+| Kappa entre modelos | −0,014 | acuerdo corregido por azar insignificante |
+| Observación independiente | 0 marcas | no existe verdad de referencia humana |
 
-| | antes | después |
-|---|---|---|
-| Umbrales derrumbados a cero | 40,6 % de los eventos | **0 %** |
-| Amplitud mediana | 0,182 σ | **2,542 σ** |
-| Cadencia | 15,6 fps | **31,2 fps** |
-| Tasa de detección facial | — | 96,4 % (sesión 28) |
-| Tasa de validez de la ventana | 55 % | 100 % |
-| Marca de tiempo | repintado | `captureTime` |
-
-El salto de cadencia salió de apagar la segunda opinión: el segundo clasificador
-estaba costando la mitad de los fotogramas, tal como advertía su propio módulo.
-
-**Lo que sigue sin resolver, y es lo que impide sostener conclusiones:**
-
-| Medida | Valor | Lectura |
-|---|---|---|
-| Tasa de eventos | **323 por minuto** | ningún rostro sostiene esa tasa |
-| Canales dominantes | AU26, AU43, AU1, AU2 | mandíbula y parpadeo: habla y fisiología |
-| Umbrales supuestos | **12 de 16** | el ruido no se mide, se sustituye |
-| Entropía por canal | 0,863 | sin estructura clara |
-| Ceguera en la banda de Ekman | 36 % | mejoró desde 96 %, aún lejos |
-| Kappa entre clasificadores | mediana −0,016 | peor que el azar |
-
-**El detector está siguiendo movimiento facial, no expresión.** Corregir el
-derrumbe del umbral hizo que las amplitudes fueran reales, pero no bastó: 323
-eventos por minuto, con la mandíbula y el parpadeo al frente, describen a alguien
-hablando, no comunicándose con la cara.
-
-Ninguno de los dos registros sostiene conclusiones sobre la expresión facial del
-participante, y decirlo es parte del resultado. Sirven como evidencia de que el
-sistema corre de extremo a extremo y como caracterización del instrumento, que es
-lo que permitió encontrar y ordenar todo lo anterior.
+Este registro demuestra ejecución de extremo a extremo y permite caracterizar
+limitaciones del instrumento. No sostiene exactitud de clasificación ni una
+descripción concluyente de la expresión facial del participante.
 
 ### Lo que falta, en orden
 
@@ -206,7 +200,7 @@ lo que permitió encontrar y ordenar todo lo anterior.
    un clasificador paralelo que excluye los canales cuyo ruido basal no se pudo
    medir y guarda la proporción de discrepancia. Si ambas variantes divergen de
    forma material, los resultados deben estratificarse o declararse no robustos.
-4. **Aumentar la cadencia solo si el cuello de botella es el cómputo.** A 31 fps
+4. **Aumentar la cadencia solo si el cuello de botella es el cómputo.** A 30,9 fps
    queda fuera el 36 % de la banda temporal de referencia. Antes de mover la
    inferencia a un Web Worker se comparan latencia de inferencia e intervalo de
    entrega: si la cámara es el límite, cambiar de hilo no recuperará fotogramas.
@@ -218,6 +212,12 @@ lo que permitió encontrar y ordenar todo lo anterior.
 - Todo permanece en IndexedDB, en el dispositivo
 - No hay servidor, ni cuentas, ni telemetría
 - «Borrar todo» elimina los registros de forma definitiva
+
+La aplicación crea una sesión al abrirse y completa su cabecera cuando termina la
+calibración, sin generar un registro provisional separado. «Nueva sesión» cierra
+el registro vigente, reinicia las métricas y toma otra línea base; por tanto, dos
+calibraciones no se mezclan bajo un mismo identificador. Las métricas se
+actualizan periódicamente para reducir la pérdida ante un cierre abrupto.
 
 Los archivos de sesión exportados contienen datos del participante y están excluidos del control de versiones en `.gitignore`.
 
@@ -233,6 +233,12 @@ declarativa.
 El dictamen consolidado sobre avance académico, estado técnico, evidencia
 empírica, fundamento científico, amenazas a la validez y trabajo pendiente está
 en [`docs/estado-actual-licenciatura.md`](docs/estado-actual-licenciatura.md).
+
+El diseño de evaluación, las unidades de análisis, métricas, fases, reglas de
+decisión y salvaguardas éticas están predefinidos en
+[`docs/protocolo-validacion.md`](docs/protocolo-validacion.md). Su propósito es
+impedir que una prueba técnica favorable se presente como exactitud clínica o
+como mejora causal de la comunicación.
 
 ## Contexto académico
 
@@ -269,8 +275,14 @@ académico de este trabajo pero condiciona cualquier uso posterior.
 
 ## Dependencias
 
-Una sola, cargada desde CDN:
+Dos dependencias de visión cargadas desde CDN, una de ellas opcional:
 
 - [`@mediapipe/tasks-vision`](https://www.npmjs.com/package/@mediapipe/tasks-vision) — paquete oficial de Google para ejecutar Face Landmarker en el navegador mediante WebAssembly
+- [`@vladmandic/face-api`](https://www.npmjs.com/package/@vladmandic/face-api) — segundo clasificador por píxeles, desactivado por defecto y reservado para sesiones de contraste
 
-La versión está fijada en `js/face.js`. Conviene verificar si hay una más reciente antes de avanzar.
+La versión de MediaPipe está fijada en `js/face.js`; el segundo clasificador se carga solo cuando la persona cuidadora lo habilita.
+
+`detectForVideo` es síncrono en la API web y actualmente corre en el hilo de la
+interfaz. La aplicación registra latencia, intervalo de entrega y ocupación para
+decidir con datos del dispositivo objetivo si mover la inferencia a un Web
+Worker; no se asume que el cómputo sea el cuello de botella.

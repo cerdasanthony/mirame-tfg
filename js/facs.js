@@ -2,7 +2,7 @@
  * Módulo A′ — Unidades de Acción (FACS) e índices publicados.
  *
  * POR QUÉ EXISTE ESTE MÓDULO
- * Las siete «características observables» de `features.js` son una construcción
+ * Las «características observables» de `features.js` son una construcción
  * propia: los nombres los elegí yo, los pesos del compuesto los elegí yo, y las
  * cuatro categorías de salida —positivo, neutro, negativo leve, negativo
  * intenso— también. Nada de eso es incorrecto, pero es indefendible ante un
@@ -10,10 +10,10 @@
  * ni de que otra persona reproduzca la medición.
  *
  * El Facial Action Coding System (Ekman y Friesen, 1978; revisión 2002) resuelve
- * exactamente eso. Descompone cualquier configuración facial en Unidades de
- * Acción numeradas, cada una anclada a un músculo concreto, con criterios de
- * intensidad A–E. Es el sistema con el que se anotan los corpus de referencia
- * del área y el vocabulario en el que están escritos los trabajos que cito.
+ * un vocabulario contrastable. Describe configuraciones faciales mediante
+ * Unidades de Acción numeradas y criterios de intensidad A–E. Muchas AU tienen
+ * una relación anatómica clara y otras describen apariencias observables, por
+ * lo que no se presupone una equivalencia exclusiva entre cada AU y un músculo.
  *
  * Este módulo NO reemplaza a `features.js`: traduce. Cada medida pasa a llevar
  * su número de AU, su nombre anatómico y el músculo del que sale. Lo que antes
@@ -153,14 +153,12 @@ export function asimetria(blendshapes, au) {
  * leve y negativo intenso— y ese es el resultado que la aplicación debe
  * entregar. Este módulo NO los sustituye: les da un sustrato trazable.
  *
- * El problema que resuelve es concreto. Hoy los cuatro estados salen de un
- * compuesto con pesos que elegí yo (sonrisa +1,0, comisuras −0,9, cejas −0,7…).
- * Ante un comité, «elegí estos números» no es defendible y no lo vuelve
- * defendible ninguna cantidad de calibración: el problema no es el valor, es que
- * no hay de dónde derivarlo. Lo que sigue reemplaza esa elección por
- * combinaciones de AU que ya están descritas en la literatura, y deja la
- * decisión propia reducida a un solo punto declarado: dónde se pone el corte
- * entre leve e intenso.
+ * El problema que resuelve es concreto. Los cuatro estados salen hoy de una
+ * regla operacional explícita sobre catorce agregaciones de blendshapes. Este
+ * módulo conserva, en paralelo, correspondencias aproximadas con FACS e índices
+ * publicados para poder contrastar la regla sin presentarlos como verdad de
+ * referencia. Las agrupaciones y los cortes siguen siendo decisiones propias
+ * pendientes de validación independiente.
  *
  * Esto se inscribe en el objetivo específico 4 —desarrollar el módulo de
  * detección y clasificación mediante análisis de los puntos de referencia y los

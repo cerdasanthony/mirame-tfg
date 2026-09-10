@@ -17,6 +17,7 @@
 
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { validarEsquema } from "./esquema-exportacion.mjs";
 
 export const CATEGORIAS = ["positivo", "neutro", "negativo leve", "negativo intenso"];
 
@@ -205,5 +206,7 @@ if (esPrincipal) {
   }
   const intervalo = Number(process.argv[3] ?? 1000);
   const datos = JSON.parse(await readFile(archivo, "utf8"));
+  const avisoEsquema = validarEsquema(datos);
+  if (avisoEsquema) console.warn("⚠ " + avisoEsquema);
   console.log(JSON.stringify(analizar(datos, intervalo), null, 2));
 }

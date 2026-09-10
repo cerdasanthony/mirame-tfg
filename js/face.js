@@ -87,6 +87,16 @@ export function tiempos() {
   };
 }
 
+/** Reinicia únicamente los acumuladores que deben pertenecer a una sesión. */
+export function reiniciarMetricas() {
+  diagnostico.ultimoError = null;
+  diagnostico.detecciones = 0;
+  diagnostico.llamadas = 0;
+  diagnostico.latencia = { n: 0, suma: 0, max: 0, muestras: [] };
+  diagnostico.intervalo = { n: 0, suma: 0, max: 0, ultimo: null };
+  lastVideoTime = -1;
+}
+
 /**
  * Restricciones de camara, de la mas exigente a la mas permisiva.
  *
@@ -207,7 +217,7 @@ export async function init(onEstado = () => {}) {
  * Para la vía tónica da igual, porque promedia sobre segundos. Para la fásica no:
  * ahí se están midiendo duraciones de entre 40 y 200 ms, y un jitter de 15 ms en
  * el sellado es un error del 10 % sobre lo que se quiere medir. La banda de
- * Ekman se decide con esas cifras.
+ * el rango operativo se decide con esas cifras.
  *
  * `requestVideoFrameCallback` entrega, en sus metadatos, `captureTime`: el
  * instante en que la cámara capturó el fotograma, disponible justamente para
@@ -334,7 +344,7 @@ export async function openCamera(video) {
    *
    * A 30 fps cada fotograma son 33 ms y hacen falta tres para tener subida,
    * apice y bajada: el piso queda en ~100 ms. Como la microexpresion, segun
-   * Ekman, va de 40 a 200 ms, a 30 fps queda ciego el 38 % de esa banda. A
+   * operativo de eventos breves, de 40 a 200 ms, a 30 fps queda ciego el 38 % de esa banda. A
    * 60 fps el piso baja a ~50 ms y la ceguera cae al 7 %.
    *
    * Medido sobre 40 realizaciones independientes de ruido en
@@ -345,7 +355,7 @@ export async function openCamera(video) {
    *
    * El resultado a 30 fps no es «se mide peor». Es que la anchura medida no
    * alcanza el minimo resoluble y el evento se rechaza entero, sin dejar rastro
-   * en el registro. Para la banda estricta de Ekman, 60 fps no es una mejora
+   * en el registro. Para la banda operativa de eventos breves, 60 fps no es una mejora
    * deseable: es la condicion para que la medicion exista.
    *
    * Se pide como `ideal` y no como `exact` a proposito. Si la tablet no da 60,

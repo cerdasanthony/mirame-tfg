@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "prueba": "node pruebas/deteccion-fasica.mjs"
+    "test": "node pruebas/todas.mjs",
+    "prueba": "npm test",
+    "test:fasico": "node pruebas/deteccion-fasica.mjs",
+    "test:observador": "node pruebas/acuerdo-observador.mjs",
+    "check": "node pruebas/sintaxis.mjs"
   }
 }

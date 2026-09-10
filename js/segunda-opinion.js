@@ -2,7 +2,7 @@
  * Segunda opinión — clasificador preentrenado independiente.
  *
  * POR QUÉ EXISTE
- * El clasificador principal deriva el estado de la geometría facial: blendshapes
+ * El clasificador principal deriva el estado de coeficientes blendshape
  * de MediaPipe, normalizados contra la línea base y separados por umbrales. Ese
  * camino es interpretable, pero sus umbrales los fijó una persona y no hay forma
  * de saber, desde dentro, cuándo se equivoca.
@@ -12,18 +12,17 @@
  * los píxeles del rostro recortado, entrenada por terceros sobre un conjunto de
  * expresiones faciales. No se entrena nada acá: se descargan pesos ya ajustados.
  *
- * Cuando ambos coinciden, la clasificación es más creíble. Cuando discrepan, se
- * marca el fotograma como incierto en lugar de elegir uno de los dos. El
- * porcentaje de acuerdo entre modelos es, además, una medida de fiabilidad
- * reportable en la evaluación.
+ * La coincidencia describe consistencia entre modelos, no validez. Cuando
+ * discrepan, el fotograma se marca como incierto en lugar de elegir uno de los
+ * dos. El acuerdo y kappa son métricas reportables de contraste interno.
  *
  * ADVERTENCIA
  * El modelo devuelve etiquetas emocionales, porque así fue entrenado. Aquí se
  * colapsan a las categorías observables del proyecto. Esa etiqueta NO se toma
  * como verdad sobre lo que la persona siente: se usa únicamente como voto
- * independiente sobre la configuración del rostro. Además fue entrenado con
- * rostros adultos, por lo que su desempeño con un participante infantil es
- * desconocido — razón de más para usarlo como contraste y no como autoridad.
+ * independiente sobre la configuración del rostro. El corpus de entrenamiento
+ * no establece validez para el participante preescolar de este estudio, por lo
+ * que se usa como contraste y no como autoridad.
  */
 
 const CDN = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api";
@@ -58,6 +57,15 @@ export function alineacionSesion() {
     proporcion: alineados / intentos,
     gradosMedianos: orden.length ? orden[orden.length >> 1] : null,
   };
+}
+
+/** Vacía la procedencia de alineación al comenzar una nueva sesión. */
+export function reiniciarAlineacionSesion() {
+  acumAlineacion.intentos = 0;
+  acumAlineacion.alineados = 0;
+  acumAlineacion.grados.length = 0;
+  ultimaAlineacion = null;
+  estado.evaluaciones = 0;
 }
 export const alineacion = () => ultimaAlineacion;
 

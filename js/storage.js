@@ -8,6 +8,8 @@
 import { ATRIBUCION } from "./pictogramas.js";
 
 const DB_NOMBRE = "mirame";
+export const ESQUEMA_EXPORTACION = "mirame-export";
+export const VERSION_ESQUEMA_EXPORTACION = 1;
 /* v5 corrige la migracion de RF-29: en v4 el almacén `observaciones` quedó
    accidentalmente anidado dentro de la creación de `selecciones`. Un navegador
    que ya tenía `selecciones` no recibía el almacén nuevo al actualizar. */
@@ -121,6 +123,25 @@ export async function crearSesion(lineaBase, extra = {}) {
       ...extra,
     })
   );
+}
+
+/**
+ * Completa o corrige la cabecera de una sesión sin crear otro identificador.
+ *
+ * La calibración termina después de que comienza el uso del comunicador. Crear
+ * una segunda sesión al cerrarla separaba la línea base de las selecciones que
+ * ocurrieron durante el arranque y dejaba un registro provisional sin datos.
+ * Esta actualización conserva una sola unidad experimental y hace explícito
+ * cuándo terminó la calibración.
+ */
+export async function actualizarSesion(id, cambios) {
+  await abrir();
+  const store = tx("sesiones", "readwrite");
+  const s = await promesa(store.get(id));
+  if (!s) return null;
+  const actualizada = { ...s, ...cambios };
+  await promesa(store.put(actualizada));
+  return actualizada;
 }
 
 export async function cerrarSesion(id, metricas) {
@@ -307,6 +328,8 @@ export async function exportarJSON() {
      porque una obligacion legal no puede quedar sujeta a que un script cargue. */
   return JSON.stringify(
     {
+      esquema: ESQUEMA_EXPORTACION,
+      versionEsquema: VERSION_ESQUEMA_EXPORTACION,
       exportado: new Date().toISOString(),
       atribucionPictogramas: ATRIBUCION,
       sesiones,

@@ -16,17 +16,16 @@
  *   · Histéresis de 0,25 σ → sube todavía más el listón para entrar a un estado.
  *   · Dwell de 500 ms → un cambio de estado exige 500 ms de evidencia sostenida.
  *
- * Ese último parámetro es el decisivo. Una microexpresión, en la definición de
- * Ekman, dura entre 1/25 y 1/5 de segundo: entre 40 y 200 ms. Con un dwell de
- * 500 ms NINGUNA microexpresión puede llegar a cambiar el estado comprometido.
+ * Ese último parámetro es el decisivo. La banda operativa más breve se fijó
+ * entre 40 y 200 ms. Con un dwell de 500 ms NINGÚN evento de esa banda puede
+ * llegar a cambiar el estado comprometido.
  * No es un umbral mal calibrado: es una imposibilidad estructural. El
  * instrumento estaba diseñado para no verlas.
  *
- * A eso se suma el compuesto de `puntaje()`, que divide entre la suma de pesos
- * absolutos (4,0). Una sola AU disparándose a +4 σ mientras las otras seis están
- * en reposo produce un compuesto de +1,0 σ: justo en la frontera. Una señal
- * concentrada en un canal —que es exactamente la forma que tiene la expresión
- * sutil de una persona hipoexpresiva— se atenúa cuatro veces por construcción.
+ * La versión actual de `puntaje()` ya evita la dilución por número de canales:
+ * compara la evidencia positiva con la región negativa más activa. Aun así, la
+ * permanencia de 500 ms impide que la vía tónica describa transitorios más
+ * breves; por eso la vía fásica sigue siendo necesaria como registro auxiliar.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * LA SOLUCIÓN: DOS VÍAS EN PARALELO, NO UNA VÍA RETOCADA
@@ -79,9 +78,10 @@
  * LÍMITE FÍSICO QUE HAY QUE DECLARAR, NO DISIMULAR
  *
  * A 30 fps cada fotograma son 33 ms. Describir un evento con inicio, ápice y
- * final exige al menos tres muestras: ~100 ms. La banda 40–100 ms de la
- * definición de Ekman queda POR DEBAJO DE LA RESOLUCIÓN del instrumento y este
- * módulo no puede verla, por mucho umbral que se baje.
+ * final exige al menos tres muestras: ~100 ms. Por tanto, la parte de la banda
+ * operativa del prototipo situada entre 40 y 100 ms queda POR DEBAJO DE LA
+ * RESOLUCIÓN del instrumento y este módulo no puede verla, por mucho que se
+ * baje el umbral.
  *
  * Por eso cada evento sale marcado con `resoluble`, y las métricas reportan la
  * frecuencia de muestreo medida y la duración mínima resoluble que se deriva de
@@ -93,9 +93,15 @@
 
 import { AU_PERIORBITALES, VALENCIA_AU } from "./facs.js";
 
-/** Bandas de duración TOTAL. Los cortes son los de la literatura, no invenciones. */
+/**
+ * Bandas operativas de duración total.
+ *
+ * Se adoptan para caracterizar el instrumento y comparar corridas. Una duración
+ * dentro de la primera banda no basta para afirmar que el evento es una
+ * microexpresión real; esa conclusión requiere codificación externa y contexto.
+ */
 export const BANDAS = {
-  /* Ekman y Friesen: la microexpresión dura entre 1/25 y 1/5 de segundo. */
+  /* Banda breve de referencia adoptada por el protocolo: 40–200 ms. */
   MICRO_ESTRICTA: [40, 200],
   /* Definición amplia usada en los corpus CASME II / SAMM: hasta medio segundo. */
   BREVE: [200, 500],
@@ -108,7 +114,7 @@ export const BANDAS = {
  *
  * POR QUÉ NO SE MIDE LA DURACIÓN TOTAL DIRECTAMENTE
  * Sería lo natural: caminar desde el ápice hasta que la señal vuelva al reposo.
- * Se probó y no funciona. Cerca del reposo la señal es indistinguible del ruido,
+ * Se probó y no funciona en la simulación actual. Cerca del reposo la señal es indistinguible del ruido,
  * así que el punto donde «vuelve» lo decide el ruido y no el gesto. Medido en
  * simulación con razón señal/ruido ≈ 4: un transitorio real de 130 ms se medía
  * como 400 ms, porque el recorrido se metía en la zona de fondo y no paraba.
@@ -162,7 +168,7 @@ export const totalDesdeFwhm = (fwhmMs) => fwhmMs / FACTOR_FORMA;
  * —el 44 %— salieron de canales con umbral por debajo de 0,01. Su amplitud
  * mediana fue de 0,004 sigma, frente a 0,951 sigma en los canales bien
  * calibrados: doscientas cuarenta veces menos. Eran ruido numérico registrado
- * como expresión, y ademas repartido de forma casi uniforme entre los dieciséis
+ * como expresión, y ademas repartido de forma casi uniforme entre los diecinueve
  * canales, que es la firma inconfundible del ruido y no la de un rostro.
  *
  * La simulación no lo detectó porque genera ruido gaussiano continuo en todos
@@ -492,7 +498,8 @@ export class DetectorFasico {
    *
    * POR QUÉ NO ALCANZA CON LA CONSTANTE
    * SIGMA_D_MINIMA evita el derrumbe a cero, pero es un número que elegí yo. En
-   * el registro del 24-08-2026 resultó que 12 de los 16 canales caían al piso, o
+   * en un registro histórico del 24-08-2026, 12 de los 16 canales disponibles en
+   * esa versión caían al piso, o
    * sea que la constante estaba decidiendo casi todos los umbrales del sistema:
    * el detector ya no media el ruido del participante, lo suponía. Y lo suponía
    * bajo: la sesión 28 produjo 5,38 eventos por segundo, 323 por minuto, una
@@ -770,7 +777,7 @@ export class DetectorFasico {
    * Estado del instrumento, para el panel y para el informe.
    *
    * Se reporta la resolución temporal medida y qué parte de la definición de
-   * Ekman queda por debajo de ella. Es la cifra que honestamente acota lo que
+   * operativa queda por debajo de ella. Es la cifra que honestamente acota lo que
    * este trabajo puede afirmar.
    */
   get metricas() {
@@ -799,7 +806,7 @@ export class DetectorFasico {
       fps: Number(this.fps.toFixed(1)),
       dtMedianoMs: Number(this.dtMedianoMs.toFixed(1)),
       resolucionMs: Number(res.toFixed(0)),
-      /* Porción de la banda de Ekman (40–200 ms) que el muestreo no alcanza. */
+      /* Porción de la banda operativa de eventos breves (40–200 ms) que el muestreo no alcanza. */
       cegueraEkmanPct: Number(
         (Math.min(100, Math.max(0, ((res - 40) / (200 - 40)) * 100))).toFixed(0)
       ),

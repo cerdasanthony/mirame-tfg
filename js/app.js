@@ -27,7 +27,7 @@ import { imagen } from "./pictogramas.js";
 
 /* Duracion minima de la linea base.
    Baja de 5 s a 3 s. El numero de muestras, no el tiempo, es lo que sostiene la
-   mediana y la MAD, y ese minimo no se toca. Los segundos solo servian para que
+   mediana y Qn, y ese minimo no se toca. Los segundos solo servian para que
    la referencia abarcara algo de deriva lenta, y estirarlos con un nino delante
    no consigue mas deriva: consigue que se mueva, que es justo lo que contamina
    la referencia. La quietud medida sigue avisando si eso pasa. */
@@ -131,7 +131,24 @@ const estado = {
   fotogramas: 0,
   conRostro: 0,
   temporizadorSalida: null,
+  reinicioEnCurso: false,
+  bucleGeneracion: 0,
 };
+
+/**
+ * Programa un fotograma ligado a la generación actual del bucle.
+ *
+ * requestVideoFrameCallback puede quedar pendiente durante una recalibración.
+ * Sin esta ficha de generación, el callback viejo y el nuevo continuarían en
+ * paralelo y cada fotograma podría contarse y persistirse dos veces.
+ */
+function programarBucle() {
+  const generacion = estado.bucleGeneracion;
+  face.programarFotograma(video, (tCaptura) => {
+    if (generacion !== estado.bucleGeneracion) return;
+    bucle(tCaptura);
+  });
+}
 
 /* ══════════════════════ Estado de la cámara ══════════════════════ */
 
@@ -143,7 +160,10 @@ function chip(texto, clase) {
 /* ══════════════════════ Arranque ══════════════════════ */
 
 async function arrancar() {
-  estado.sesionId = await store.crearSesion(null);
+  estado.sesionId = await store.crearSesion(null, {
+    versionReglas: 10,
+    estadoCaptura: "calibrando",
+  });
   tablero.render();
   refrescarAsociacion();
 
@@ -169,7 +189,7 @@ async function arrancar() {
     el("preview-base").hidden = false;
     avisoCalibracion(true);
     chip(`Calibrando · ${cam.ancho}×${cam.alto}`, "chip-espera");
-    face.programarFotograma(video, bucle);
+    programarBucle();
 
     // Solo si el cuidador la encendió: compite con MediaPipe por la GPU.
     if (segunda.habilitada()) {
@@ -186,6 +206,10 @@ async function arrancar() {
     el("bloque-facial").style.opacity = ".45";
     el("estado-actual").textContent = "no disponible";
     el("diag").textContent = "Motivo: " + e.message;
+    store.actualizarSesion(estado.sesionId, {
+      estadoCaptura: "sin-analisis",
+      errorAnalisis: e.message,
+    });
   }
 }
 
@@ -207,7 +231,7 @@ function bucle(tCaptura = performance.now()) {
 
   // Fotograma repetido: no hay nada nuevo que medir. No cuenta ni como válido
   // ni como faltante, porque no describe nada del participante.
-  if (r === undefined) return face.programarFotograma(video, bucle);
+  if (r === undefined) return programarBucle();
 
   if (!estado.lineaBase.establecida) {
     const fr = r ? frontalidad(r.landmarks, r.matrix) : null;
@@ -286,16 +310,18 @@ function bucle(tCaptura = performance.now()) {
       estado.estabilizador.reiniciar();
       estado.estabilizadorSoloMedidos.reiniciar();
       estado.suavizadorSoloMedidos.reiniciar();
-      store.cerrarSesion(estado.sesionId, null);
       /* VERSION DE REGLAS. La versión 10 añade el clasificador paralelo que
          excluye canales con dispersión supuesta. La vía operativa conserva la
          versión 9; la marca impide analizar registros nuevos como si carecieran
          de esa comprobación de sensibilidad. */
-      store.crearSesion({ ...base, au: baseAU }, {
+      store.actualizarSesion(estado.sesionId, {
+        lineaBase: { ...base, au: baseAU },
         versionReglas: 10,
         /* Solo el centro: con cada lado promediado no queda escala que elegir. */
         norma: { centro: NORMA.centro, centroSoloMedidos: estado.centroSoloMedidos },
-      }).then((id) => (estado.sesionId = id));
+        estadoCaptura: "activa",
+        calibracionFinalizada: Date.now(),
+      });
       el("sigma-base").textContent = base.muestras + " muestras";
       el("preview-base").hidden = true;
       avisoCalibracion(false);
@@ -324,7 +350,7 @@ function bucle(tCaptura = performance.now()) {
       estado.comparacionesCalibracion = 0;
       estado.discrepanciasCalibracion = 0;
     }
-    return face.programarFotograma(video, bucle);
+    return programarBucle();
   }
 
   estado.fotogramas++;
@@ -427,14 +453,15 @@ function bucle(tCaptura = performance.now()) {
           caracteristicas: crudas,
           /* Sin el vector de AU no se puede reanalizar la via fasica de una
              sesion ya grabada, que es exactamente lo que pide RF-31. Guardar
-             solo las siete caracteristicas tonicas dejaba fuera los dieciseis
+             solo el vector de caracteristicas tonicas dejaba fuera los diecinueve
              canales sobre los que trabaja el detector de transitorios. */
           au,
           /* EVIDENCIA FACS PUBLICADA, EN PARALELO Y NO COMO CLASIFICADOR.
-             El estado operativo sale del compuesto ponderado de las siete AU
-             tonicas. Estas dos combinaciones son las que la literatura define
-             —Duchenne para el positivo, Prkachin y Solomon para el negativo— y
-             se registran para poder contrastarlas despues contra el compuesto.
+             El estado operativo sale de reglas sobre catorce agregaciones de
+             blendshapes: evidencia positiva rectificada menos la región
+             negativa más activa. Estas combinaciones auxiliares —Duchenne para
+             describir sonrisa y Prkachin y Solomon como antecedente del índice
+             negativo— se registran para poder contrastarlas con la regla operativa.
 
              No sustituyen al clasificador, y la razon esta medida: sobre las
              muestras ya registradas, la correlacion de rangos entre ambos
@@ -461,11 +488,9 @@ function bucle(tCaptura = performance.now()) {
             zNegativa: Number(evidenciaNegativa(zAU).total.toFixed(4)),
           },
           /* ASIMETRIA IZQUIERDA-DERECHA DE LAS AU QUE MEDIAPIPE LATERALIZA.
-             FACS distingue las acciones unilaterales de las bilaterales, y la
-             distincion no es cosmetica: una activacion marcadamente asimetrica
-             se asocia a expresion deliberada o social mas que a espontanea.
-             Como este trabajo intenta registrar senal espontanea en un
-             participante que expresa poco, poder separar ambas cosas importa.
+             FACS distingue las acciones unilaterales de las bilaterales. Aquí
+             la asimetría se conserva como descriptor para análisis posterior;
+             no se usa para inferir espontaneidad, emoción ni intención.
              `asimetria()` estaba escrita y documentada desde el principio pero
              no la invocaba nadie, de modo que la distincion no existia en el
              registro. Se guardan solo las AU con valencia declarada; las que
@@ -513,7 +538,7 @@ function bucle(tCaptura = performance.now()) {
     }
   }
 
-  face.programarFotograma(video, bucle);
+  programarBucle();
 }
 
 /**
@@ -527,8 +552,12 @@ function consultarSegundaOpinion(landmarks, estadoPrincipal) {
   if (!segunda.estado.disponible) return;
   if (ahora - estado.ultimaSegunda < MS_SEGUNDA_OPINION) return;
   estado.ultimaSegunda = ahora;
+  const sesionConsultada = estado.sesionId;
 
   segunda.opinar(video, landmarks).then((op) => {
+    /* Una inferencia iniciada antes de «Nueva sesión» no puede contaminar el
+       acuerdo de la que acaba de abrirse. */
+    if (sesionConsultada !== estado.sesionId) return;
     if (!op) return;
     estado.segundaCategoria = op.categoria;
     estado.acuerdo.registrar(estadoPrincipal, op.categoria);
@@ -690,7 +719,7 @@ function pintarSenal(z, c) {
  *
  * No se muestra solo el recuento de eventos, sino tambien lo que el instrumento
  * NO puede ver: la resolucion temporal que consiguio, cuanto de la banda de
- * Ekman queda por debajo de ella y cuantos eventos se descartaron por caer ahi.
+ * operativa queda por debajo de ella y cuantos eventos se descartaron por caer ahi.
  *
  * Sin eso, un contador en cero se lee como «el participante no expreso nada»,
  * cuando puede significar «la camara no dio la cadencia necesaria para verlo».
@@ -728,10 +757,10 @@ function pintarFasico() {
     return;
   }
 
-  /* Con esta cadencia la banda estricta de Ekman no es medible. Decirlo es mas
+  /* Con esta cadencia la banda operativa de eventos breves no es medible. Decirlo es mas
      util que mostrar un cero, que se leeria como ausencia de expresion. */
   if (m.resolucionMs > 200) {
-    badge.textContent = "sin resolución para microexpresiones";
+    badge.textContent = "sin resolución para eventos de 40–200 ms";
     badge.style.color = "#b03a55";
     return;
   }
@@ -930,8 +959,8 @@ const tablero = new Tablero(el("tablero"), async (picto, _cat, eraSugerido) => {
       calidad: estado.lineaBase.calidadCalibracion,
     },
     contextos: store.contextosActuales(),
-    // Acuerdo entre el clasificador geométrico y el modelo preentrenado, como
-    // medida de fiabilidad sin verdad de referencia disponible.
+    // Acuerdo entre el clasificador basado en reglas y el modelo preentrenado.
+    // Describe consistencia entre vías; sin verdad humana no demuestra validez.
     // El porcentaje crudo sobreestima la concordancia; kappa la corrige por azar.
     acuerdo: estado.acuerdo.instantanea(),
     // Vía fásica: transitorios breves ocurridos en la misma ventana. Se guardan
@@ -1277,13 +1306,66 @@ function avisarAccion(texto) {
   temporizadorAccion = setTimeout(() => (p.textContent = ""), 3200);
 }
 
-el("btn-recalibrar").addEventListener("click", () => {
+el("btn-recalibrar").addEventListener("click", async (evento) => {
   /* Sin camara no hay nada que recalibrar, y callarse deja al boton pareciendo
      roto justo cuando el motivo es otro. */
   if (!video.srcObject) return avisarAccion("No hay cámara activa: no hay línea base que recalibrar.");
-  reiniciarCalibracion();
-  avisarAccion("Tomando otra vez la línea base.");
+  const boton = evento.currentTarget;
+  boton.disabled = true;
+  try {
+    await comenzarNuevaSesion("recalibracion-manual");
+    avisarAccion("Sesión anterior cerrada. Tomando una nueva línea base.");
+  } catch (e) {
+    avisarAccion("No se pudo iniciar la nueva sesión: " + e.message);
+  } finally {
+    boton.disabled = false;
+  }
 });
+
+/**
+ * Cierra la unidad experimental vigente y abre otra antes de recalibrar.
+ *
+ * Una línea base define la escala de todos los datos que siguen. Cambiarla en
+ * mitad de una sesión mezclaría observaciones expresadas contra referencias
+ * distintas bajo un mismo identificador. La rotación también reinicia los
+ * acumuladores técnicos para que latencia, cadencia y alineación sean métricas
+ * de la nueva sesión y no de toda la vida de la página.
+ */
+async function comenzarNuevaSesion(motivo) {
+  if (estado.reinicioEnCurso) return false;
+  estado.reinicioEnCurso = true;
+  estado.analisisActivo = false;
+  estado.bucleGeneracion++;
+  try {
+    if (estado.sesionId) {
+      /* Cierra intervalos observacionales antes de cambiar el identificador. */
+      for (const valor of condicionesObservacion) {
+        await store.guardarObservacion({
+          sesionId: estado.sesionId,
+          tMonotonicMs: Number(performance.now().toFixed(1)),
+          tipo: "condicion",
+          valor,
+          activo: false,
+          cierreAutomatico: true,
+          motivoCierre: motivo,
+          contextos: store.contextosActuales(),
+        });
+      }
+      await store.cerrarSesion(estado.sesionId, metricasSesion());
+    }
+    estado.sesionId = await store.crearSesion(null, {
+      versionReglas: 10,
+      estadoCaptura: "calibrando",
+      motivoInicio: motivo,
+    });
+    face.reiniciarMetricas();
+    segunda.reiniciarAlineacionSesion();
+    reiniciarCalibracion();
+    return true;
+  } finally {
+    estado.reinicioEnCurso = false;
+  }
+}
 
 /**
  * Vuelve a tomar la linea base desde cero y reanuda el bucle de fotogramas.
@@ -1308,6 +1390,31 @@ function reiniciarCalibracion() {
   estado.fotogramas = 0;
   estado.conRostro = 0;
   estado.descartadosPorPose = 0;
+  estado.topeAU = null;
+  estado.topeBS = null;
+  estado.acuerdo = new segunda.Acuerdo();
+  estado.ultimaSegunda = 0;
+  estado.segundaCategoria = null;
+  estado.ultimaMuestra = 0;
+  estado.ultimaCaptura = 0;
+  estado.ultimoFotograma = 0;
+  estado.ultimaSeleccion = performance.now();
+  estado.heuristica.reiniciar();
+  estado.ultimaPromocion = null;
+  tablero.render(null);
+  condicionesObservacion.clear();
+  observaciones = 0;
+  store.marcarSegmento(null);
+  for (const contexto of store.contextosActuales()) store.marcarContexto(contexto, false);
+  for (const b of document.querySelectorAll("#segmentos button, #contextos button, #observacion [data-obs]")) {
+    b.classList.remove("seg-activo", "obs-activo");
+  }
+  el("segmento-activo").textContent = "Sin marcar";
+  el("contextos-activos").textContent = "Sin condiciones marcadas.";
+  el("sugerencia-actual").textContent = "ninguna";
+  el("barra-heuristica").style.width = "0%";
+  el("estado-sostenido").textContent = "—";
+  ultimaEscrituraMetricas = 0;
   el("quietud").textContent = "—";
   el("canales-medidos").textContent = "—";
   el("estado-base").textContent = "0/" + MUESTRAS_MINIMAS_BASE;
@@ -1316,7 +1423,7 @@ function reiniciarCalibracion() {
   /* Se cierra por la ruta y no ocultando el panel a mano: dejar el hash apuntando
      a un panel cerrado desincroniza el estado y el boton deja de responder. */
   cerrarPanel();
-  face.programarFotograma(video, bucle);
+  programarBucle();
 }
 
 /**
@@ -1341,7 +1448,9 @@ function reiniciarCalibracion() {
  */
 async function reconectarCamara() {
   if (!estado.analisisActivo || face.camaraViva(video)) return;
+  if (estado.reinicioEnCurso) return;
   chip("Recuperando la cámara…", "chip-espera");
+  estado.analisisActivo = false;
   try {
     face.cerrarCamara(video);
     const cam = await face.openCamera(video);
@@ -1349,9 +1458,10 @@ async function reconectarCamara() {
       document.documentElement.style.setProperty("--proporcion-camara", `${cam.ancho} / ${cam.alto}`);
     }
     chip(`Calibrando · ${cam.ancho}×${cam.alto}`, "chip-espera");
-    reiniciarCalibracion();
+    await comenzarNuevaSesion("reconexion-camara");
   } catch (e) {
     chip(e.message, "chip-error");
+    estado.analisisActivo = false;
   }
 }
 

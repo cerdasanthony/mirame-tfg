@@ -2,21 +2,24 @@
  * Módulo A — Características faciales observables y línea base.
  *
  * De los 52 blendshapes que entrega MediaPipe se toma un subconjunto reducido y
- * se agrupa en siete características con nombre.
+ * se agrupa en catorce características con nombre; el compuesto tónico usa
+ * únicamente las que tienen una función de valencia documentada.
  *
  * NORMALIZACIÓN POR PUNTUACIÓN z
  * Las medidas no se expresan como diferencia cruda respecto del reposo, sino
- * como puntuación z: cuántas desviaciones estándar se aparta la medida actual
- * de la distribución observada durante la línea base de esa sesión.
+ * como puntuación z operativa: cuánto se aparta la medida actual de la posición
+ * y escala de dispersión robusta observadas durante la línea base de esa sesión.
  *
  * La diferencia importa. Una variación de 0,05 en la curvatura de la boca puede
  * ser ruido en un rostro cuya boca fluctúa constantemente, y una señal clara en
  * otro que la mantiene estable. La diferencia cruda no distingue esos dos casos;
  * la puntuación z sí, porque incorpora la variabilidad propia del participante.
  *
- * Consecuencia práctica: los umbrales del clasificador dejan de ser números
- * elegidos a mano y pasan a expresarse en unidades de sigma, derivadas de la
- * distribución basal del propio participante.
+ * Consecuencia práctica: los cortes se expresan en unidades de la escala basal.
+ * La escala procede de Qn cuando el canal tiene variación medible; en los demás
+ * se usa una sustitución empírica de la misma sesión y queda marcada. No se debe
+ * leer una sustitución como una desviación estándar medida del participante.
+ * Los cortes y los pesos siguen siendo decisiones de diseño.
  */
 
 /** Promedio de un conjunto de blendshapes, tolerante a nombres ausentes. */
@@ -25,7 +28,7 @@ const avg = (bs, keys) => {
   return vals.reduce((a, b) => a + b, 0) / vals.length;
 };
 
-/** Extrae las siete características observables de un mapa de blendshapes. */
+/** Extrae las catorce características observables de un mapa de blendshapes. */
 export function extract(blendshapes) {
   return {
     sonrisa: avg(blendshapes, ["mouthSmileLeft", "mouthSmileRight"]),
@@ -35,10 +38,10 @@ export function extract(blendshapes) {
     /* AU2, Outer Brow Raiser. No entra al compuesto con peso propio: entra para
        poder separar AU1 sola de AU1 acompanada de AU2.
 
-       En las combinaciones de FACS, AU1+AU4+AU15 corresponde a tristeza,
-       mientras que AU1+AU2 acompanada de AU5, AU25 o AU26 corresponde a
-       sorpresa. AU1 por si sola no distingue una de otra: aparece en ambas y
-       significa cosas distintas segun que la acompane. Sin este canal, el
+       En repertorios convencionales, AU1+AU4+AU15 aparece en configuraciones
+       etiquetadas como tristeza, mientras AU1+AU2 con AU5, AU25 o AU26 aparece
+       en configuraciones etiquetadas como sorpresa. Esto no convierte las AU en
+       lectores de emoción: solo muestra que AU1 aislada es inespecífica. Sin este canal, el
        compuesto leia cualquier alzada de cejas como negativa, que es lo que se
        observo al probar la aplicacion. */
     cejasExternasArriba: avg(blendshapes, ["browOuterUpLeft", "browOuterUpRight"]),
@@ -62,8 +65,8 @@ export function extract(blendshapes) {
        mentalis. */
     labiosFruncidos: blendshapes.mouthPucker ?? 0,
     /* AU9 y AU10, arrugador nasal y elevador del labio superior. Son el tercer
-       termino del indice de Prkachin y Solomon —max(AU9, AU10)— y la region que
-       FACS asocia al asco. El compuesto tonico no tenia NINGUN canal en esa
+       termino del indice de Prkachin y Solomon —max(AU9, AU10)— y aparecen en
+       configuraciones que suelen etiquetarse como asco. El compuesto tonico no tenia NINGUN canal en esa
        zona, de modo que una expresion de asco no encontraba por donde entrar. */
     narizArrugada: avg(blendshapes, ["noseSneerLeft", "noseSneerRight"]),
     labioSuperiorArriba: avg(blendshapes, ["mouthUpperUpLeft", "mouthUpperUpRight"]),
@@ -247,7 +250,7 @@ function autocorrelacion(xs) {
 export class LineaBase {
   /**
    * @param {string[]} canales Claves sobre las que se calcula la referencia.
-   *   Por defecto, las siete características observables. El módulo de FACS usa
+   *   Por defecto, las catorce características observables. El módulo de FACS usa
    *   la misma clase sobre sus propios canales de Unidades de Acción: la
    *   estadística robusta es la misma y no tiene sentido duplicarla.
    */
@@ -272,8 +275,8 @@ export class LineaBase {
   }
 
   /**
-   * Congela la línea base con estimadores ROBUSTOS: mediana y desviación
-   * absoluta mediana (MAD).
+   * Congela la línea base con estimadores ROBUSTOS: mediana para la posición y
+   * Qn de Rousseeuw y Croux para la dispersión.
    *
    * POR QUÉ NO MEDIA Y DESVIACIÓN ESTÁNDAR
    * La calibración se hace con una persona frente a la cámara, y basta con que
@@ -283,10 +286,9 @@ export class LineaBase {
    * referencia inflada, una sonrisa franca puntuaba −0,21 σ y se clasificaba
    * como neutro; con la estimación robusta, la misma sonrisa da +5,52 σ.
    *
-   * La MAD tolera hasta un 50 % de muestras contaminadas antes de desplazarse,
-   * frente al 0 % de la desviación estándar: un solo fotograma extremo ya
-   * arrastra la media y la sigma. Se multiplica por 1,4826, la constante que
-   * la vuelve un estimador consistente de sigma para datos normales.
+   * Qn mantiene un punto de ruptura del 50 % y mejora la eficiencia respecto de
+   * la MAD. La implementación aplica la constante asintótica y la corrección de
+   * muestra finita documentadas junto a `qn()`.
    *
    * Se conservan además media y desviación estándar clásicas, no para
    * clasificar sino para poder documentar en el informe cuánto se apartaron de

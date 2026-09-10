@@ -18,6 +18,7 @@
  */
 
 import { readFileSync } from "node:fs";
+import { validarEsquema } from "./esquema-exportacion.mjs";
 
 const PESOS = {
   sonrisa: +1.0, comisurasAbajo: -0.9, cejasAbajo: -0.7, cejasInternasArriba: -0.4,
@@ -70,6 +71,8 @@ const cuantil = (a, q) => {
 const ruta = process.argv[2];
 if (!ruta) { console.error("Uso: node pruebas/contraste-compuesto.mjs <export.json>"); process.exit(1); }
 const d = JSON.parse(readFileSync(ruta, "utf-8"));
+const avisoEsquema = validarEsquema(d);
+if (avisoEsquema) console.warn("⚠ " + avisoEsquema);
 const sesiones = new Map((d.sesiones ?? []).map((s) => [s.id, s]));
 
 const filas = [];

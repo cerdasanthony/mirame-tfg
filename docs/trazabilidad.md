@@ -4,7 +4,7 @@ Cruce entre los requerimientos especificados y lo que el prototipo implementa ho
 Se mantiene en el repositorio, junto al código, para que la coherencia entre
 objetivos, requerimientos y avances sea verificable y no declarativa.
 
-Estado a **25 de agosto de 2026**.
+Estado a **10 de septiembre de 2026**.
 
 | Estado | Significado |
 |---|---|
@@ -18,11 +18,11 @@ Estado a **25 de agosto de 2026**.
 
 | RF | Estado | Dónde | Nota |
 |---|---|---|---|
-| RF-01 | ✅ | `js/board.js` | tablero en cuadrícula con paginación |
+| RF-01 | ✅ | `js/board.js` | tablero en cuadrícula con desplazamiento vertical |
 | RF-02 | ✅ | `js/board.js` | |
 | RF-03 | ✅ | `js/board.js`, `js/speech.js` | ampliación, etiqueta y voz sintetizada |
-| RF-04 | ✅ | `js/board.js` | |
-| RF-05 | ✅ | `js/app.js`, `js/face.js` | `detectForVideo` cronometrado; la sesión reporta latencia media, percentil 95 y máxima, y por separado el intervalo con que la cámara entrega, para distinguir un límite de cómputo de uno de iluminación |
+| RF-04 | ✅ | `js/board.js` | recorrido vertical mediante desplazamiento táctil |
+| RF-05 | ✅ | `js/app.js`, `js/face.js` | cada selección conserva el intervalo desde la selección anterior; `detectForVideo` se cronometra por separado y la sesión reporta latencia media, percentil 95 y máxima, además del intervalo con que la cámara entrega |
 
 ## Módulo A · captura y detección facial
 
@@ -31,8 +31,8 @@ Estado a **25 de agosto de 2026**.
 | RF-06 | ✅ | `js/face.js` | |
 | RF-07 | ✅ | `js/face.js` | se solicita la mayor cadencia disponible |
 | RF-08 | ✅ | `js/face.js` | MediaPipe Face Landmarker |
-| RF-09 | ✅ | `js/features.js`, `js/facs.js` | medidas con nombre anatómico, trazables a unidades de acción |
-| RF-10 | ✅ | `js/features.js` | mediana y desviación absoluta mediana; se conservan los estimadores clásicos para reportar la quietud de la calibración |
+| RF-09 | ✅ | `js/features.js`, `js/facs.js` | 14 agregaciones de blendshapes con nombre observable; pose por landmarks/matriz y correspondencia aproximada con 19 unidades de acción |
+| RF-10 | ✅ | `js/features.js` | mediana y estimador Qn; sustitución trazable de dispersión no medible y estimadores clásicos conservados para reportar quietud |
 | RF-11 | ✅ | `js/face.js`, `js/app.js` | distingue «sin fotograma nuevo» de «fotograma sin rostro» |
 | RF-12 | ✅ | `index.html`, `js/app.js` | |
 
@@ -47,7 +47,7 @@ Estado a **25 de agosto de 2026**.
 | RF-17 | 🟡 | `index.html` | el panel presenta el compuesto en sigmas, no en la escala −1 a +1 que especifica el requerimiento |
 | RF-26 | ✅ | `js/storage.js` | |
 | RF-27 | ✅ | `js/classifier.js` | «datos insuficientes» en lugar de atribuir perfil |
-| RF-30 | ✅ | `js/segunda-opinion.js` | acuerdo y kappa de Cohen |
+| RF-30 | ✅ | `js/segunda-opinion.js` | capacidad opcional de acuerdo y kappa de Cohen; desactivada por defecto por costo de ejecución y no usada como verdad de referencia |
 | RF-31 | ✅ | `js/app.js`, `js/storage.js` | guarda vector crudo y vector de unidades de acción |
 
 ## Módulo B′ · vía fásica
@@ -87,6 +87,18 @@ Estado a **25 de agosto de 2026**.
 
 ## Lo que falta, por consecuencia
 
+**El tablero no utiliza paginación.** La implementación actual usa una cuadrícula
+responsiva con desplazamiento vertical. El documento 18 y la matriz se redactan
+con esta decisión porque es la interacción que existe en `js/board.js` y evita
+documentar controles que no están presentes en la interfaz.
+
+**Cada identificador de sesión usa una sola línea base.** `arrancar()` crea el
+registro y, al terminar la calibración, completa esa misma cabecera. «Nueva
+sesión» cierra el registro vigente, reinicia latencia, cadencia, alineación y
+acuerdo, crea otro identificador y solo entonces calibra de nuevo. Un cierre
+abrupto todavía puede dejar `fin` nulo, pero conserva la última actualización de
+métricas escrita durante la sesión.
+
 **La evaluación independiente ya es ejecutable, pero todavía no está realizada.**
 RF-29 permite recoger la codificación sin mostrar la salida del sistema y el
 script de análisis calcula acuerdo observado, matriz de confusión, kappa y AC1.
@@ -97,12 +109,21 @@ por la profesional prevista en el protocolo.
 Las condiciones de contexto se adjuntan a los datos para estratificar el análisis;
 el clasificador no las consume ni atribuye a ellas los cambios observados.
 
-**RF-05** quedó cerrado: la latencia de inferencia se cronometra y se reporta junto a la cadencia de entrega, que son dos límites distintos y se corrigen de forma distinta.
-Reportar el valor actual como latencia de procesamiento sería un dato incorrecto.
+**RF-05** quedó cerrado con dos magnitudes diferenciadas: `latenciaMs` en una
+selección representa el intervalo entre selecciones; la latencia de inferencia
+se cronometra en `face.js` y se guarda en las métricas de sesión. Confundirlas
+produciría una conclusión técnica incorrecta.
 
 **RF-22, RF-23 y RF-24** son de comodidad y no bloquean el estudio.
 
-## Auditoría del 25 de agosto de 2026
+## Auditoría del 26 de agosto de 2026
+
+La auditoría de interfaz confirmó que el tablero funciona en escritorio y en un
+viewport móvil con el panel fijado: el panel pasa a la parte inferior, no aparece
+desbordamiento horizontal y los pictogramas conservan una cuadrícula táctil. La
+prueba automatizada completa mantiene 105 comprobaciones aprobadas. La cámara
+física de un teléfono todavía debe verificarse durante la ejecución del protocolo
+con el dispositivo objetivo.
 
 **Sensibilidad a la dispersión sustituida.** La vía tónica conserva el criterio
 operativo anterior para no volver invisibles acciones unipolares que permanecen
@@ -121,6 +142,25 @@ como máximo una muestra por segundo por defecto para no tratar el muestreo de
 almacén de observaciones si también debía crear el de selecciones; una base que
 ya tuviera selecciones podía actualizarse sin recibir RF-29. La migración queda
 ahora independiente e idempotente.
+
+---
+
+## Auditoría del 10 de septiembre de 2026
+
+**Integridad de la unidad experimental.** Se eliminó la pareja de sesión
+provisional/sesión calibrada. La calibración completa la sesión existente y una
+recalibración abre una sesión nueva, de modo que el identificador, la línea base
+y las métricas del instrumento describen el mismo intervalo.
+
+**Métricas aisladas por sesión.** Los acumuladores de latencia, cadencia,
+alineación, acuerdo y recorrido de canales se reinician al rotar la sesión. Antes
+podían incluir observaciones de toda la vida de la página y atribuirlas a la
+última sesión.
+
+**Reproducibilidad.** La exportación declara nombre y versión de esquema. Se
+añadió una prueba de sintaxis sobre todos los módulos y un flujo de GitHub Actions
+que ejecuta `npm test`. El protocolo científico queda versionado en
+`docs/protocolo-validacion.md`.
 
 ---
 
@@ -158,9 +198,9 @@ consumidor: dos recibieron uno, una se retiró y otra pasó a normalizar la
 evidencia negativa, que es para lo que estaba escrita.
 
 **Verificado correcto.** El kappa de Cohen, la cobertura de RF-39, la
-correspondencia una a una entre las siete características y sus unidades de
-acción, los 478 puntos de referencia, la concordancia entre citas y referencias,
-y la visibilidad de la atribución exigida por la licencia.
+correspondencia documentada entre las características faciales y sus unidades de
+acción estimadas por proxy, los 478 puntos de referencia, la concordancia entre
+citas y referencias, y la visibilidad de la atribución exigida por la licencia.
 
 ## Advertencia sobre la procedencia de las metricas
 
@@ -178,7 +218,10 @@ equipo corrio, y desde ahi las metricas quedan atribuibles.
 
 | Qué | Cómo comprobarlo |
 |---|---|
-| **Toda la batería de una vez** | `node pruebas/todas.mjs` — 105 comprobaciones en cinco baterías |
+| **Toda la batería de una vez** | `npm test` — 138 comprobaciones en ocho baterías |
+| Sintaxis de todos los módulos | `npm run check` — 27 archivos |
+| Contrato de interfaz y recursos | `node pruebas/estructura.mjs` — IDs requeridos, duplicados y archivos locales |
+| Contrato de exportación | `node pruebas/esquema.mjs` — versión vigente, legado y rechazo de versiones desconocidas |
 | Regla de clasificación sobre puntuaciones z | `node pruebas/clasificacion.mjs` — 19 comprobaciones |
 | Cada expresión, del coeficiente al estado | `node pruebas/expresiones.mjs` — 38 comprobaciones |
 | La referencia contra la que se mide todo | `node pruebas/linea-base.mjs` — 24 comprobaciones |
