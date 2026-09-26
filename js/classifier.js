@@ -249,7 +249,25 @@ function evidenciaNegativaRegional(e) {
  * al rectificar cinco de los seis pesos con signo son negativos y el compuesto
  * en reposo queda desplazado hacia abajo.
  */
-export const NORMA = { centro: 0 };
+export const NORMA = { centro: 0, centroNucleo: 0 };
+
+/**
+ * Modelo mínimo respaldado directamente por asociaciones externas de valencia:
+ * AU12/mouthSmile frente a AU4/browDown. No reemplaza al compuesto operativo;
+ * se guarda en paralelo para comprobar si añadir regiones realmente mejora la
+ * concordancia o solo ajusta ruido del conjunto de calibración.
+ */
+export function puntajeNucleo(z, centro = NORMA.centroNucleo) {
+  return Math.max(0, z.sonrisa ?? 0) - Math.max(0, z.cejasAbajo ?? 0) - centro;
+}
+
+export function centroNormaNucleo(muestrasZ) {
+  if (!muestrasZ?.length) return 0;
+  const brutos = muestrasZ
+    .map((z) => puntajeNucleo(z, 0))
+    .sort((a, b) => a - b);
+  return brutos[brutos.length >> 1];
+}
 
 /** Centro robusto del compuesto para una colección concreta de muestras. */
 export function centroNorma(muestrasZ) {
@@ -279,6 +297,7 @@ export function centroNorma(muestrasZ) {
 
 export function calibrarNorma(muestrasZ) {
   NORMA.centro = centroNorma(muestrasZ);
+  NORMA.centroNucleo = centroNormaNucleo(muestrasZ);
   return NORMA;
 }
 
@@ -300,12 +319,28 @@ export const UMBRALES = {
 };
 
 try {
-  Object.assign(UMBRALES, JSON.parse(localStorage.getItem(CLAVE_UMBRALES) ?? "{}"));
+  const guardados = { ...UMBRALES, ...JSON.parse(localStorage.getItem(CLAVE_UMBRALES) ?? "{}") };
+  if (umbralesValidos(guardados)) Object.assign(UMBRALES, guardados);
 } catch { /* configuración corrupta: se conservan los valores por defecto */ }
 
+/**
+ * Los tres cortes deben ser finitos y conservar el orden de la escala.
+ * Validarlo aquí evita configuraciones imposibles, como una zona «positiva»
+ * por debajo de la zona neutra, tanto desde la interfaz como desde pruebas.
+ */
+export function umbralesValidos(u) {
+  return [u?.positivo, u?.neutro, u?.negativoLeve].every(Number.isFinite)
+    && u.positivo > u.neutro
+    && u.neutro > u.negativoLeve;
+}
+
 export function fijarUmbrales(nuevos) {
-  Object.assign(UMBRALES, nuevos);
-  localStorage.setItem(CLAVE_UMBRALES, JSON.stringify(UMBRALES));
+  const candidatos = { ...UMBRALES, ...nuevos };
+  if (!umbralesValidos(candidatos)) {
+    throw new RangeError("Los cortes deben cumplir positivo > neutro > negativo leve.");
+  }
+  Object.assign(UMBRALES, candidatos);
+  try { localStorage.setItem(CLAVE_UMBRALES, JSON.stringify(UMBRALES)); } catch { /* Node/pruebas */ }
   return UMBRALES;
 }
 
@@ -317,7 +352,7 @@ export function fijarUmbrales(nuevos) {
  * y caer por debajo del corte menos el margen para SALIR de él. La franja
  * intermedia conserva el estado vigente en lugar de alternar.
  */
-const HISTERESIS = 0.25;
+export const HISTERESIS = 0.25;
 
 /**
  * Compuesto en unidades de sigma.
@@ -375,7 +410,21 @@ export function margen(s) {
  * que no corresponde a ningún cambio real. Actúa sobre la señal continua; la
  * histéresis y el dwell actúan sobre la decisión discreta. Son complementarios.
  */
-const ALFA = 0.18;
+export const ALFA = 0.18;
+export const DWELL_MS = 500;
+export const FACTOR_RETROCESO = 0.5;
+
+/** Instantánea auditable de todos los parámetros que alteran la decisión. */
+export function configuracionClasificador() {
+  return {
+    version: 1,
+    umbrales: { ...UMBRALES },
+    histeresis: HISTERESIS,
+    alfaSuavizado: ALFA,
+    dwellMs: DWELL_MS,
+    factorRetroceso: FACTOR_RETROCESO,
+  };
+}
 
 export class Suavizador {
   constructor(alfa = ALFA) {
@@ -406,7 +455,7 @@ export class Suavizador {
  * borra el progreso pero una desaparición sostenida sí.
  */
 export class Estabilizador {
-  constructor({ dwellMs = 500, factorRetroceso = 0.5 } = {}) {
+  constructor({ dwellMs = DWELL_MS, factorRetroceso = FACTOR_RETROCESO } = {}) {
     this.dwellMs = dwellMs;
     this.factorRetroceso = factorRetroceso;
     this.estado = null;

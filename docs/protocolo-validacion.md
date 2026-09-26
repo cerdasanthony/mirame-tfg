@@ -1,6 +1,6 @@
 # Protocolo de validación técnica y científica
 
-Versión 1.0 · 10 de septiembre de 2026
+Versión 1.1 · 25 de septiembre de 2026
 
 Este protocolo separa tres preguntas que no deben confundirse:
 
@@ -74,6 +74,8 @@ de un *Web Worker* se decidirá a partir de la ocupación medida, no por suposic
 ### Fase 2 · calibración del clasificador
 
 - Usar sesiones distintas de las reservadas para evaluación.
+- Seguir `docs/plan-ajuste-umbrales.md` y registrar la asignación de sesiones antes de optimizar.
+- Comparar el núcleo AU12/AU4 con el compuesto extendido y sus ablaciones; más canales no implican mayor validez.
 - Ajustar umbrales solo con el subconjunto de calibración.
 - Congelar la versión de reglas y los umbrales antes de abrir el conjunto de evaluación.
 - Documentar toda exclusión y todo cambio. Si se cambia una regla después de ver
@@ -86,6 +88,8 @@ de un *Web Worker* se decidirá a partir de la ocupación medida, no por suposic
 La persona observadora usa `#observacion`, que oculta la salida del sistema. Las
 marcas se alinean después por tiempo mediante
 `node pruebas/analisis-observaciones.mjs <export.json>`.
+Las instrucciones y categorías se fijan en
+`docs/manual-codificacion-observacional.md`.
 
 Antes de recolectar se fijan por escrito:
 
@@ -148,6 +152,7 @@ Cada resultado deberá identificar:
 
 - fecha, dispositivo, resolución, navegador y versión de aplicación;
 - versión de reglas, umbrales y estado de la segunda opinión;
+- instantánea de suavizado, histéresis, permanencia y retroceso;
 - duración, número de selecciones y cantidad de datos faltantes;
 - calidad de línea base, cobertura de canales y sensibilidad a sustituciones;
 - latencia, cadencia y resolución temporal reales;

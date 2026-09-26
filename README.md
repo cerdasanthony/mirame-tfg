@@ -138,6 +138,23 @@ vectores registrados cada 250 ms. También reconstruye los intervalos marcados
 como vocalización, movimiento mandibular, cierre ocular o movimiento general y
 calcula qué eventos y canales ocurrieron dentro de cada condición.
 
+La justificación de cada canal y sus límites está en
+[`docs/fundamento-cientifico-clasificador.md`](docs/fundamento-cientifico-clasificador.md).
+El procedimiento de observación y el ajuste sin fuga entre sesiones están en
+[`docs/manual-codificacion-observacional.md`](docs/manual-codificacion-observacional.md)
+y [`docs/plan-ajuste-umbrales.md`](docs/plan-ajuste-umbrales.md).
+
+Una vez asignadas sesiones completas a cada conjunto, los tres cortes y la
+comparación entre el compuesto operativo y el núcleo AU12/AU4 se ejecutan con:
+
+```bash
+node pruebas/calibrar-umbrales.mjs <export.json> \
+  --calibracion=12,13,14 --evaluacion=15,16
+```
+
+El resultado identifica las sesiones, soporte por categoría, modelo elegido,
+cortes, métricas de calibración y métricas separadas de evaluación.
+
 ## Estado de la calibración y de la medición
 
 ⚠️ **Los pesos y umbrales de `js/classifier.js` siguen siendo valores iniciales

@@ -62,6 +62,8 @@ export function alinear(datos, intervaloMs = 1000) {
       ts: m.ts,
       sistema: m.estado,
       observadora: vigente.valor,
+      puntaje: Number.isFinite(m.puntaje) ? m.puntaje : null,
+      puntajeNucleo: Number.isFinite(m.puntajeNucleo) ? m.puntajeNucleo : null,
     });
   }
   return pares;

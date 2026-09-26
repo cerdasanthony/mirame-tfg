@@ -22,12 +22,13 @@
  *
  * ADVERTENCIA DE ALCANCE
  * Esto es una APROXIMACIÓN a FACS, no codificación FACS. Los blendshapes de
- * MediaPipe son coeficientes de un modelo de malla facial pensado para animar
- * avatares, no intensidades certificadas por una persona codificadora. La
- * correspondencia AU↔blendshape que sigue es la que se usa habitualmente en la
- * literatura aplicada, pero su validez para este participante es justamente una
- * de las cosas que el estudio tiene que medir, no algo que pueda darse por
- * supuesto. En el informe debe declararse como «AU estimadas por proxy».
+ * MediaPipe son coeficientes de un modelo de malla facial cuyo uso principal es
+ * animación AR, no intensidades certificadas por una persona codificadora. Un
+ * mapeo publicado en 2026 obtuvo consenso experto para vincular los 52
+ * blendshapes con AU (Turrisi et al., doi:10.1016/j.chbr.2026.101125), pero ese
+ * resultado valida la correspondencia conceptual, no la equivalencia numérica
+ * ni la exactitud para este participante. En el informe debe declararse como
+ * «AU estimadas por proxy».
  */
 
 /**
@@ -37,29 +38,31 @@
  * versión izquierda y derecha se promedian: FACS codifica la acción, y la
  * asimetría se trata aparte (ver `asimetria`).
  *
- * `proxy` califica la confianza de la correspondencia:
- *   'directa' — el blendshape modela el mismo músculo que la AU
- *   'parcial' — se solapan, pero el blendshape recoge además otra acción
+ * `proxy` describe el alcance de la correspondencia:
+ *   'aproximada' — los nombres y movimientos pretendidos son concordantes
+ *   'parcial'    — se solapan, pero el blendshape recoge además otra acción
+ *
+ * «Aproximada» no significa que el valor [0,1] sea una intensidad FACS A–E.
  */
 export const AU = {
-  AU1:  { nombre: "Inner Brow Raiser",    musculo: "frontalis, pars medialis",              bs: ["browInnerUp"],                            proxy: "directa" },
-  AU2:  { nombre: "Outer Brow Raiser",    musculo: "frontalis, pars lateralis",             bs: ["browOuterUpLeft", "browOuterUpRight"],    proxy: "directa" },
-  AU5:  { nombre: "Upper Lid Raiser",     musculo: "levator palpebrae superioris",           bs: ["eyeWideLeft", "eyeWideRight"],            proxy: "directa" },
-  AU4:  { nombre: "Brow Lowerer",         musculo: "corrugator supercilii, depressor supercilii", bs: ["browDownLeft", "browDownRight"],    proxy: "directa" },
-  AU6:  { nombre: "Cheek Raiser",         musculo: "orbicularis oculi, pars orbitalis",     bs: ["cheekSquintLeft", "cheekSquintRight"],    proxy: "directa" },
-  AU7:  { nombre: "Lid Tightener",        musculo: "orbicularis oculi, pars palpebralis",   bs: ["eyeSquintLeft", "eyeSquintRight"],        proxy: "directa" },
-  AU9:  { nombre: "Nose Wrinkler",        musculo: "levator labii superioris alaeque nasi", bs: ["noseSneerLeft", "noseSneerRight"],        proxy: "directa" },
-  AU10: { nombre: "Upper Lip Raiser",     musculo: "levator labii superioris",              bs: ["mouthUpperUpLeft", "mouthUpperUpRight"],  proxy: "directa" },
-  AU12: { nombre: "Lip Corner Puller",    musculo: "zygomaticus major",                     bs: ["mouthSmileLeft", "mouthSmileRight"],      proxy: "directa" },
-  AU14: { nombre: "Dimpler",              musculo: "buccinator",                            bs: ["mouthDimpleLeft", "mouthDimpleRight"],    proxy: "directa" },
-  AU15: { nombre: "Lip Corner Depressor", musculo: "depressor anguli oris",                 bs: ["mouthFrownLeft", "mouthFrownRight"],      proxy: "directa" },
-  AU16: { nombre: "Lower Lip Depressor",  musculo: "depressor labii inferioris",             bs: ["mouthLowerDownLeft", "mouthLowerDownRight"], proxy: "directa" },
-  AU18: { nombre: "Lip Puckerer",         musculo: "incisivii labii, orbicularis oris",      bs: ["mouthPucker"],                            proxy: "directa" },
+  AU1:  { nombre: "Inner Brow Raiser",    musculo: "frontalis, pars medialis",              bs: ["browInnerUp"],                            proxy: "aproximada" },
+  AU2:  { nombre: "Outer Brow Raiser",    musculo: "frontalis, pars lateralis",             bs: ["browOuterUpLeft", "browOuterUpRight"],    proxy: "aproximada" },
+  AU5:  { nombre: "Upper Lid Raiser",     musculo: "levator palpebrae superioris",           bs: ["eyeWideLeft", "eyeWideRight"],            proxy: "aproximada" },
+  AU4:  { nombre: "Brow Lowerer",         musculo: "corrugator supercilii, depressor supercilii", bs: ["browDownLeft", "browDownRight"],    proxy: "aproximada" },
+  AU6:  { nombre: "Cheek Raiser",         musculo: "orbicularis oculi, pars orbitalis",     bs: ["cheekSquintLeft", "cheekSquintRight"],    proxy: "aproximada" },
+  AU7:  { nombre: "Lid Tightener",        musculo: "orbicularis oculi, pars palpebralis",   bs: ["eyeSquintLeft", "eyeSquintRight"],        proxy: "aproximada" },
+  AU9:  { nombre: "Nose Wrinkler",        musculo: "levator labii superioris alaeque nasi", bs: ["noseSneerLeft", "noseSneerRight"],        proxy: "aproximada" },
+  AU10: { nombre: "Upper Lip Raiser",     musculo: "levator labii superioris",              bs: ["mouthUpperUpLeft", "mouthUpperUpRight"],  proxy: "aproximada" },
+  AU12: { nombre: "Lip Corner Puller",    musculo: "zygomaticus major",                     bs: ["mouthSmileLeft", "mouthSmileRight"],      proxy: "aproximada" },
+  AU14: { nombre: "Dimpler",              musculo: "buccinator",                            bs: ["mouthDimpleLeft", "mouthDimpleRight"],    proxy: "aproximada" },
+  AU15: { nombre: "Lip Corner Depressor", musculo: "depressor anguli oris",                 bs: ["mouthFrownLeft", "mouthFrownRight"],      proxy: "aproximada" },
+  AU16: { nombre: "Lower Lip Depressor",  musculo: "depressor labii inferioris",             bs: ["mouthLowerDownLeft", "mouthLowerDownRight"], proxy: "aproximada" },
+  AU18: { nombre: "Lip Puckerer",         musculo: "incisivii labii, orbicularis oris",      bs: ["mouthPucker"],                            proxy: "aproximada" },
   AU17: { nombre: "Chin Raiser",          musculo: "mentalis",                              bs: ["mouthShrugLower"],                        proxy: "parcial" },
-  AU20: { nombre: "Lip Stretcher",        musculo: "risorius, platysma",                    bs: ["mouthStretchLeft", "mouthStretchRight"],  proxy: "directa" },
-  AU24: { nombre: "Lip Pressor",          musculo: "orbicularis oris",                      bs: ["mouthPressLeft", "mouthPressRight"],      proxy: "directa" },
+  AU20: { nombre: "Lip Stretcher",        musculo: "risorius, platysma",                    bs: ["mouthStretchLeft", "mouthStretchRight"],  proxy: "aproximada" },
+  AU24: { nombre: "Lip Pressor",          musculo: "orbicularis oris",                      bs: ["mouthPressLeft", "mouthPressRight"],      proxy: "aproximada" },
   AU26: { nombre: "Jaw Drop",             musculo: "masseter y pterigoideos, relajados",    bs: ["jawOpen"],                                proxy: "parcial" },
-  AU28: { nombre: "Lip Suck",             musculo: "orbicularis oris",                      bs: ["mouthRollLower", "mouthRollUpper"],       proxy: "directa" },
+  AU28: { nombre: "Lip Suck",             musculo: "orbicularis oris",                      bs: ["mouthRollLower", "mouthRollUpper"],       proxy: "aproximada" },
   AU43: { nombre: "Eyes Closed",          musculo: "levator palpebrae superioris, relajado", bs: ["eyeBlinkLeft", "eyeBlinkRight"],         proxy: "parcial" },
 };
 
@@ -129,10 +132,9 @@ export function extraerAU(blendshapes) {
  * Asimetría izquierda–derecha de una AU, en [0, 1].
  *
  * FACS distingue las acciones unilaterales (sufijos L/R) de las bilaterales, y
- * la distinción no es cosmética: una activación marcadamente asimétrica se
- * asocia a expresión deliberada o social más que a expresión espontánea. Como
- * este trabajo intenta registrar señal espontánea en un participante que expresa
- * poco, poder separar ambas cosas importa.
+ * la distinción no es cosmética. Aquí se conserva como descriptor para permitir
+ * análisis posteriores, pero no se usa para inferir espontaneidad, intención ni
+ * autenticidad.
  *
  * Devuelve null para las AU que MediaPipe no lateraliza.
  */
@@ -320,6 +322,22 @@ export const VALENCIA_AU = {
   AU28: "sin signo",
   AU43: "sin signo",  // parpadeo: artefacto fisiológico, se trata aparte
 };
+
+/**
+ * Jerarquía de evidencia para no confundir el contrato operativo con el grado
+ * de respaldo externo. AU4 y AU12 tienen asociaciones de valencia replicadas en
+ * EMG y vídeo automatizado. Los demás signos proceden de configuraciones o de
+ * resultados exploratorios dependientes del contexto y deben someterse a
+ * ablación. «Sin signo» se registra sin empujar la clasificación.
+ */
+export const RESPALDO_VALENCIA_AU = Object.fromEntries(CANALES_AU.map((au) => [
+  au,
+  ["AU4", "AU12"].includes(au)
+    ? "nucleo-externo"
+    : VALENCIA_AU[au] === "sin signo" || VALENCIA_AU[au] === undefined
+      ? "sin-signo"
+      : "contextual-exploratorio",
+]));
 
 /**
  * Perfil de expresividad del participante.

@@ -4,7 +4,7 @@ Cruce entre los requerimientos especificados y lo que el prototipo implementa ho
 Se mantiene en el repositorio, junto al código, para que la coherencia entre
 objetivos, requerimientos y avances sea verificable y no declarativa.
 
-Estado a **10 de septiembre de 2026**.
+Estado a **25 de septiembre de 2026**.
 
 | Estado | Significado |
 |---|---|
@@ -145,6 +145,28 @@ ahora independiente e idempotente.
 
 ---
 
+## Auditoría del 25 de septiembre de 2026
+
+**Fundamento externo por regla.** `docs/fundamento-cientifico-clasificador.md`
+separa evidencia directa, antecedente contextual y decisión del prototipo. AU12
+y AU4 forman el núcleo con respaldo externo; las regiones adicionales quedan
+como hipótesis que debe superar una comparación por ablación. El mapeo
+MediaPipe→AU se declara aproximado conforme a la ficha del modelo y al marco de
+Turrisi et al. (2026), no como intensidad FACS certificada.
+
+**Calibración reproducible.** Cada sesión conserva una instantánea de umbrales,
+suavizado, histéresis y permanencia. Cambiar un corte rota la sesión y repite la
+línea base. `pruebas/calibrar-umbrales.mjs` ajusta tres cortes ordenados solo en
+sesiones de calibración y evalúa después en identificadores distintos; también
+compara el compuesto operativo con el núcleo AU12/AU4 guardado en paralelo.
+
+**Observación definida.** `docs/manual-codificacion-observacional.md` convierte
+positivo, neutro, negativo leve, negativo intenso y sin dato en criterios
+observables. El manual prohíbe inferir emoción sentida, intención o dolor y
+distingue concordancia sistema–observadora de fiabilidad interobservador.
+
+---
+
 ## Auditoría del 10 de septiembre de 2026
 
 **Integridad de la unidad experimental.** Se eliminó la pareja de sesión
@@ -218,16 +240,17 @@ equipo corrio, y desde ahi las metricas quedan atribuibles.
 
 | Qué | Cómo comprobarlo |
 |---|---|
-| **Toda la batería de una vez** | `npm test` — 138 comprobaciones en ocho baterías |
-| Sintaxis de todos los módulos | `npm run check` — 27 archivos |
+| **Toda la batería de una vez** | `npm test` — 150 comprobaciones en nueve baterías |
+| Sintaxis de todos los módulos | `npm run check` — 29 archivos |
 | Contrato de interfaz y recursos | `node pruebas/estructura.mjs` — IDs requeridos, duplicados y archivos locales |
 | Contrato de exportación | `node pruebas/esquema.mjs` — versión vigente, legado y rechazo de versiones desconocidas |
-| Regla de clasificación sobre puntuaciones z | `node pruebas/clasificacion.mjs` — 19 comprobaciones |
+| Regla de clasificación sobre puntuaciones z | `node pruebas/clasificacion.mjs` — 22 comprobaciones |
 | Cada expresión, del coeficiente al estado | `node pruebas/expresiones.mjs` — 38 comprobaciones |
 | La referencia contra la que se mide todo | `node pruebas/linea-base.mjs` — 24 comprobaciones |
 | Caracterización del algoritmo sobre señal sintética | `node pruebas/deteccion-fasica.mjs` — 13 comprobaciones |
 | Caracterización del instrumento sobre registros reales | `node pruebas/analisis-sesion.mjs <export.json>` |
 | Acuerdo con codificación independiente | `node pruebas/analisis-observaciones.mjs <export.json>`; su batería tiene 11 comprobaciones e incluye eventos por condición observada |
+| Ajuste separado de cortes | `node pruebas/calibrar-umbrales.mjs <export.json> --calibracion=... --evaluacion=...`; su batería tiene 7 comprobaciones |
 | Generación del juego de iconos | `python pruebas/generar-iconos.py <origen>` |
 | Historial de decisiones | mensajes de commit, que documentan qué se probó y qué salió peor |
 

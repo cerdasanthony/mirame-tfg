@@ -14,7 +14,7 @@ import * as face from "./face.js";
 import { extract, LineaBase, frontalidad, frontalidadGeometrica } from "./features.js";
 import {
   clasificar, Ventana, Suavizador, Estabilizador, UMBRALES, fijarUmbrales,
-  calibrarNorma, centroNorma, NORMA,
+  calibrarNorma, centroNorma, NORMA, configuracionClasificador, puntajeNucleo,
 } from "./classifier.js";
 import * as store from "./storage.js";
 import { Tablero, PICTOGRAMAS } from "./board.js";
@@ -103,12 +103,15 @@ const estado = {
   ventana: new Ventana(5, 0.4, 1500),
   ventanaSoloMedidos: new Ventana(5, 0.4, 1500),
   suavizador: new Suavizador(),
-  estabilizador: new Estabilizador({ dwellMs: 500, factorRetroceso: 0.5 }),
+  /* Modelo mínimo AU12/AU4 con el mismo suavizado que el operativo. No controla
+     la interfaz; se registra para la comparación científica predefinida. */
+  suavizadorNucleo: new Suavizador(),
+  estabilizador: new Estabilizador(),
   /* Clasificador paralelo que ignora los canales cuyo ruido basal no se pudo
      medir. No controla la interfaz: cuantifica la sensibilidad del resultado a
      la sustitución de dispersión y se guarda como procedencia científica. */
   suavizadorSoloMedidos: new Suavizador(),
-  estabilizadorSoloMedidos: new Estabilizador({ dwellMs: 500, factorRetroceso: 0.5 }),
+  estabilizadorSoloMedidos: new Estabilizador(),
   centroSoloMedidos: 0,
   estadoSoloMedidos: null,
   comparacionesCalibracion: 0,
@@ -162,6 +165,7 @@ function chip(texto, clase) {
 async function arrancar() {
   estado.sesionId = await store.crearSesion(null, {
     versionReglas: 10,
+    parametrosClasificador: configuracionClasificador(),
     estadoCaptura: "calibrando",
   });
   tablero.render();
@@ -317,8 +321,13 @@ function bucle(tCaptura = performance.now()) {
       store.actualizarSesion(estado.sesionId, {
         lineaBase: { ...base, au: baseAU },
         versionReglas: 10,
+        parametrosClasificador: configuracionClasificador(),
         /* Solo el centro: con cada lado promediado no queda escala que elegir. */
-        norma: { centro: NORMA.centro, centroSoloMedidos: estado.centroSoloMedidos },
+        norma: {
+          centro: NORMA.centro,
+          centroNucleo: NORMA.centroNucleo,
+          centroSoloMedidos: estado.centroSoloMedidos,
+        },
         estadoCaptura: "activa",
         calibracionFinalizada: Date.now(),
       });
@@ -424,6 +433,8 @@ function bucle(tCaptura = performance.now()) {
         estabilizador: estado.estabilizadorSoloMedidos,
         dtMs,
       });
+      const pNucleoCrudo = puntajeNucleo(norm);
+      const pNucleo = estado.suavizadorNucleo.agregar(pNucleoCrudo);
       estado.estadoSoloMedidos = cSoloMedidos.estado;
       estado.comparacionesCalibracion++;
       if (cSoloMedidos.estado !== c.estado) estado.discrepanciasCalibracion++;
@@ -502,6 +513,9 @@ function bucle(tCaptura = performance.now()) {
           ),
           frontalidad: Number(frente.toFixed(3)),
           puntaje: Number(c.puntaje.toFixed(4)),
+          puntajeCrudo: Number(c.puntajeCrudo.toFixed(4)),
+          puntajeNucleo: Number(pNucleo.toFixed(4)),
+          puntajeNucleoCrudo: Number(pNucleoCrudo.toFixed(4)),
           estado: c.estado,
           sensibilidadCalibracion: {
             estadoSoloMedidos: cSoloMedidos.estado,
@@ -826,7 +840,11 @@ function metricasSesion() {
        momento del cierre, anterior a cualquier refinamiento, de modo que al
        analizar una sesion no se veia con que escala habia trabajado de verdad. */
     lineaBaseFinal: estado.lineaBase.instantanea(),
-    norma: { centro: NORMA.centro, centroSoloMedidos: estado.centroSoloMedidos },
+    norma: {
+      centro: NORMA.centro,
+      centroNucleo: NORMA.centroNucleo,
+      centroSoloMedidos: estado.centroSoloMedidos,
+    },
     sensibilidadCalibracion: {
       comparaciones: estado.comparacionesCalibracion,
       discrepancias: estado.discrepanciasCalibracion,
@@ -1355,6 +1373,7 @@ async function comenzarNuevaSesion(motivo) {
     }
     estado.sesionId = await store.crearSesion(null, {
       versionReglas: 10,
+      parametrosClasificador: configuracionClasificador(),
       estadoCaptura: "calibrando",
       motivoInicio: motivo,
     });
@@ -1373,6 +1392,7 @@ async function comenzarNuevaSesion(motivo) {
 function reiniciarCalibracion() {
   estado.lineaBase = new LineaBase();
   estado.suavizador.reiniciar();
+  estado.suavizadorNucleo.reiniciar();
   estado.estabilizador.reiniciar();
   estado.suavizadorSoloMedidos.reiniciar();
   estado.estabilizadorSoloMedidos.reiniciar();
@@ -1650,10 +1670,21 @@ function montarControlesUmbrales() {
     el("ancho-neutro").textContent = (UMBRALES.positivo - UMBRALES.neutro).toFixed(2) + " σ";
   };
   for (const [id, k] of Object.entries(campos)) {
-    el(id).addEventListener("change", (e) => {
+    el(id).addEventListener("change", async (e) => {
       const v = Number(e.target.value);
-      if (Number.isFinite(v)) fijarUmbrales({ [k]: v });
-      estado.estabilizador.reiniciar();
+      try {
+        if (!Number.isFinite(v)) throw new RangeError("El corte debe ser numérico.");
+        fijarUmbrales({ [k]: v });
+        /* Los cortes forman parte del instrumento. Si cambian, los datos
+           posteriores no pueden quedar bajo el mismo id de sesión que los
+           anteriores. La nueva sesión toma además una línea base propia. */
+        if (video.srcObject) {
+          await comenzarNuevaSesion("cambio-umbrales");
+          avisarAccion("Cortes guardados. Se abrió una sesión y línea base nuevas.");
+        }
+      } catch (error) {
+        avisarAccion(error.message);
+      }
       pintar();
     });
   }

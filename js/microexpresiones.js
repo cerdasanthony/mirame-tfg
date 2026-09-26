@@ -91,7 +91,7 @@
  * sostenga la inferencia a esa velocidad — cosa que hay que medir, no suponer.
  */
 
-import { AU_PERIORBITALES, VALENCIA_AU } from "./facs.js";
+import { AU_PERIORBITALES, VALENCIA_AU, RESPALDO_VALENCIA_AU } from "./facs.js";
 
 /**
  * Bandas operativas de duración total.
@@ -763,6 +763,7 @@ export class DetectorFasico {
       eventos: limpios.map((e) => ({
         canal: e.canal,
         valencia: VALENCIA_AU[e.canal] ?? "sin signo",
+        respaldoValencia: RESPALDO_VALENCIA_AU[e.canal] ?? "sin-signo",
         banda: e.banda,
         bandaIncierta: e.bandaIncierta,
         duracionMs: e.duracionMs,

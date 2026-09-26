@@ -22,7 +22,10 @@
  *   node pruebas/clasificacion.mjs
  */
 
-import { puntaje, estadoDe, NORMA } from "../js/classifier.js";
+import {
+  puntaje, estadoDe, NORMA, UMBRALES, fijarUmbrales, umbralesValidos,
+  configuracionClasificador,
+} from "../js/classifier.js";
 import { CARACTERISTICAS } from "../js/features.js";
 
 const cero = Object.fromEntries(CARACTERISTICAS.map((c) => [c, 0]));
@@ -110,6 +113,28 @@ console.log("═".repeat(78));
   console.log(`  ${bien ? "✓" : "✗"} ${"Una region sola no se diluye entre las demas".padEnd(46)}` +
     `${sola.toFixed(2)} frente a ${acompanada.toFixed(2)}`);
   bien ? ok++ : fallos++;
+}
+
+console.log("\n5. Integridad de parámetros");
+console.log("═".repeat(78));
+{
+  const original = { ...UMBRALES };
+  const valido = umbralesValidos(original);
+  console.log(`  ${valido ? "✓" : "✗"} ${"Los cortes vigentes están ordenados".padEnd(46)}`);
+  valido ? ok++ : fallos++;
+
+  let rechazo = false;
+  try { fijarUmbrales({ neutro: original.positivo + 1 }); } catch { rechazo = true; }
+  const intactos = JSON.stringify(UMBRALES) === JSON.stringify(original);
+  const seguro = rechazo && intactos;
+  console.log(`  ${seguro ? "✓" : "✗"} ${"Una terna imposible se rechaza sin mutar".padEnd(46)}`);
+  seguro ? ok++ : fallos++;
+
+  const instantanea = configuracionClasificador();
+  instantanea.umbrales.positivo = 999;
+  const aislada = UMBRALES.positivo === original.positivo;
+  console.log(`  ${aislada ? "✓" : "✗"} ${"La instantánea no comparte el objeto mutable".padEnd(46)}`);
+  aislada ? ok++ : fallos++;
 }
 
 console.log("\n" + "─".repeat(78));

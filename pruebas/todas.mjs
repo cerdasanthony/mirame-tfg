@@ -29,6 +29,7 @@ const BATERIAS = [
   ["linea-base.mjs", "La referencia contra la que se mide todo"],
   ["deteccion-fasica.mjs", "Detección de eventos breves"],
   ["acuerdo-observador.mjs", "Contraste con observación independiente"],
+  ["ajuste-umbrales.mjs", "Ajuste de cortes con sesiones reservadas"],
 ];
 
 let fallidas = 0;

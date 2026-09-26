@@ -81,7 +81,7 @@ caso actual del clasificador facial.
 | OE1. Analizar el estado del arte | Terminado para el seguimiento actual | Capítulo II y Entregable 1 del Documento 18 | Mantener actualizada la revisión si se incorporan nuevas afirmaciones o métodos. |
 | OE2. Especificar requerimientos | Terminado, con trazabilidad viva | 39 RF y 15 RNF; `docs/trazabilidad.md` | Cerrar RF-22, completar RF-23 y RF-24 y auditar 13 RNF. |
 | OE3. Diseñar la arquitectura | Implementación técnica avanzada; entregable formal pendiente | Separación por módulos, procesamiento local, IndexedDB, dos vías temporales y degradación segura | Consolidar el documento de arquitectura y relacionarlo explícitamente con decisiones, riesgos y requisitos. |
-| OE4. Desarrollar la clasificación | Prototipo funcional y probado; no validado | Clasificador tónico, vía fásica, análisis de sensibilidad, segundo clasificador y 138 comprobaciones automatizadas | Calibrar pesos y umbrales con evidencia externa; caracterizar tablet y participante; resolver baja cobertura basal. |
+| OE4. Desarrollar la clasificación | Prototipo funcional y probado; no validado | Clasificador tónico, vía fásica, análisis de sensibilidad, núcleo AU12/AU4, fundamento externo y 150 comprobaciones automatizadas | Ejecutar la calibración y evaluación reservada; caracterizar tableta y participante; resolver baja cobertura basal. |
 | OE5. Evaluar la prueba de concepto | No completado | Existe caracterización preliminar del instrumento sobre registros de desarrollo | Ejecutar protocolo de caso único, observación independiente, análisis de asociación, evaluación de usabilidad y resolución temporal en el dispositivo objetivo. |
 
 ## 5. Estado de los requerimientos
@@ -173,18 +173,19 @@ segundos. Un cierre abrupto todavía puede dejar `fin` nulo, pero conserva la
 
 ## 7. Evidencia automatizada
 
-La batería completa contiene 138 comprobaciones y pasa sin fallos:
+La batería completa contiene 150 comprobaciones y pasa sin fallos:
 
 | Batería | Comprobaciones | Qué verifica |
 |---|---:|---|
-| Sintaxis | 27 | todos los módulos JavaScript y scripts de análisis |
+| Sintaxis | 29 | todos los módulos JavaScript y scripts de análisis |
 | Estructura | 3 | IDs de interfaz, duplicados y recursos locales |
 | Esquema de exportación | 3 | versión vigente, legado y rechazo de versiones desconocidas |
-| Clasificación | 19 | cortes, puntuación, histéresis, suavizado y permanencia |
+| Clasificación | 22 | cortes, puntuación, histéresis, suavizado, permanencia e integridad de parámetros |
 | Expresiones | 38 | correspondencia entre coeficientes, evidencia y estado esperado |
 | Línea base | 24 | estimadores, sustitución de dispersión, normalización y calidad |
 | Detección fásica | 13 | respuesta a señal sintética, ruido, duración y cadencia |
 | Acuerdo con observación | 11 | alineación temporal, matriz, kappa, AC1 y condiciones observadas |
+| Ajuste de umbrales | 7 | orden de cortes, F1, error ordinal y separación de sesiones |
 
 Estas pruebas demuestran coherencia interna del algoritmo contra casos diseñados.
 No demuestran exactitud sobre un rostro real, porque la verdad de referencia de
